@@ -11,7 +11,7 @@ export default function HealthScreen() {
 
   return (
     <SafeAreaView
-      edges={['top', 'right', 'bottom', 'left']}
+      edges={['right', 'bottom', 'left']}
       style={styles.safeArea}
     >
       <ScrollView contentContainerStyle={styles.container}>
@@ -19,7 +19,7 @@ export default function HealthScreen() {
         <Text style={styles.title}>Nền tảng mobile dùng chung</Text>
         <Text style={styles.description}>
           Màn hình này kiểm tra ứng dụng React Native có thể kết nối tới API
-          dùng chung. Danh mục dịch vụ chưa nằm trong phạm vi của nền hiện tại.
+          dùng chung. Quay lại để xem danh mục dịch vụ của Sol.
         </Text>
         <HealthStatusCard
           state={state}

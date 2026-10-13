@@ -5,10 +5,10 @@ Nền tảng dùng chung cho bài tập SDN302 và MMA301. Repository này chứ
 | Phần | Công nghệ hiện tại | Vai trò trong nền ban đầu |
 | --- | --- | --- |
 | `apps/web` | React + Vite + JavaScript/JSX + Tailwind CSS | Trang chủ thích ứng, lấy danh mục dịch vụ từ API |
-| `apps/mobile` | React Native + Expo + JavaScript/JSX | Ứng dụng Android/iOS, gọi endpoint kiểm tra API |
+| `apps/mobile` | React Native + Expo + JavaScript/JSX | Danh mục dịch vụ native Android/iOS và màn hình kiểm tra kết nối API |
 | `apps/api` | Node.js + Express + JavaScript | API dùng chung, MongoDB và ảnh dịch vụ trên Cloudinary |
 
-Repository có trang chủ web và API danh mục dịch vụ dùng chung. MongoDB lưu dịch vụ; Cloudinary phân phối ảnh dịch vụ. Đây chưa phải tuyên bố đáp ứng rubric; đăng nhập, đặt lịch, thanh toán và trang tổng quan chưa nằm trong phạm vi hiện tại. Phạm vi hai môn và các giả định đang được ghi tại [docs/course-scope.md](docs/course-scope.md).
+Repository có trang chủ web, danh mục dịch vụ trên mobile và API dùng chung. MongoDB lưu dịch vụ; Cloudinary phân phối ảnh dịch vụ. Đây chưa phải tuyên bố đáp ứng rubric; đăng nhập, đặt lịch, thanh toán và trang tổng quan chưa nằm trong phạm vi hiện tại. Phạm vi hai môn và các giả định đang được ghi tại [docs/course-scope.md](docs/course-scope.md).
 
 ## Runtime và cài đặt
 
@@ -60,6 +60,8 @@ npm run dev:mobile
 - API mặc định: `http://localhost:4000`; endpoint kiểm tra `GET /api/health` và danh mục `GET /api/services` (cần MongoDB đã nạp dịch vụ).
 - Web mặc định: `http://localhost:5173` và đọc `VITE_API_BASE_URL`.
 - Ứng dụng di động đọc `EXPO_PUBLIC_API_BASE_URL`.
+
+Mobile mở màn hình danh mục dịch vụ trước, lấy ảnh, tên, mô tả, giá và thời lượng từ `GET /api/services`. Màn hình có trạng thái tải, rỗng, lỗi và nút thử lại/tải lại. Liên kết **Kiểm tra kết nối** cuối danh sách mở màn hình health; nút quay lại đưa về danh mục. Không cần đăng nhập để xem danh mục.
 
 Trong bản mobile dev, để trống `EXPO_PUBLIC_API_BASE_URL` để tự lấy host từ Expo/Metro và gọi API ở cổng `4000` trên cùng máy. Cách này theo địa chỉ Expo khi đổi Wi-Fi, tránh giữ IP LAN cũ trong `.env`. Trên Android Emulator, Expo host loopback được đổi thành `10.0.2.2`; khi không có host Expo, Android dev cũng dùng địa chỉ này, iOS dùng `localhost`.
 
