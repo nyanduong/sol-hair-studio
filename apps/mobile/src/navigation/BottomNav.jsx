@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
   item: { flex: 1, minWidth: 44, minHeight: 64, alignItems: 'center', paddingHorizontal: 2 },
   icon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   booking: { backgroundColor: colors.copper, borderRadius: 28, marginTop: -12, marginBottom: 12, borderWidth: 2, borderColor: colors.canvas },
-  label: { fontSize: 11, color: colors.muted, textAlign: 'center' },
+  label: { fontSize: 12, fontWeight: '500', color: colors.muted, textAlign: 'center' },
   active: { color: colors.copper, fontWeight: '600' },
   dot: { width: 5, height: 5, borderRadius: 3, marginTop: 4 },
   activeDot: { backgroundColor: colors.copper },

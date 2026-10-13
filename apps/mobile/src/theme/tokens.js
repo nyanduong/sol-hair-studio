@@ -1,7 +1,7 @@
 import { Platform } from 'react-native'
 
 export const colors = {
-  canvas: '#faf7f1', ink: '#24211f', muted: '#6f665e', copper: '#a14f3d',
+  canvas: '#faf7f1', ink: '#24211f', muted: '#5f5751', copper: '#a14f3d',
   border: '#e7ddd2', surface: '#ffffff', soft: '#f3eee6',
 }
 // Native system serif fonts support Vietnamese without a network font dependency.

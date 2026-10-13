@@ -14,8 +14,8 @@ export default function BookingBanner() {
 const styles = StyleSheet.create({
   banner: { marginTop: 24, padding: 24, backgroundColor: colors.copper, borderRadius: 24 },
   eyebrow: { color: colors.surface, fontSize: 10, letterSpacing: 2 },
-  title: { color: colors.surface, fontFamily: displayFont, fontSize: 29, marginTop: 10 },
-  copy: { color: colors.surface, fontSize: 14, lineHeight: 22, marginTop: 10 },
+  title: { color: colors.surface, fontFamily: displayFont, fontSize: 29, fontWeight: '700', marginTop: 10 },
+  copy: { color: colors.surface, fontSize: 15, lineHeight: 23, fontWeight: '500', marginTop: 10 },
   badge: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start', backgroundColor: colors.canvas, borderRadius: 24, paddingHorizontal: 20, paddingVertical: 12, marginTop: 18 },
   badgeText: { color: colors.ink, fontSize: 13, fontWeight: '600' },
 })

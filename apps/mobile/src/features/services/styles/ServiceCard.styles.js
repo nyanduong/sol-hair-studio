@@ -44,13 +44,14 @@ export default StyleSheet.create({
     color: colors.ink,
     fontSize: 22,
     fontFamily: displayFont,
-    fontWeight: '600',
+    fontWeight: '700',
     marginBottom: 10,
   },
   description: {
     color: colors.muted,
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 14,
+    lineHeight: 22,
+    fontWeight: '500',
   },
   details: {
     flexDirection: 'row',
@@ -67,6 +68,7 @@ export default StyleSheet.create({
   },
   duration: {
     color: colors.muted,
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '500',
   },
 })

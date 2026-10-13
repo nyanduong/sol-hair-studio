@@ -51,3 +51,10 @@ Bánh răng nổi và khung LDPlayer thuộc công cụ chạy thử, không ph�
 - Chưa kiểm tra trên điện thoại thật, TalkBack hoặc chiều rộng 320dp bằng native. Quy tắc 320dp được kiểm tra tự động.
 - Empty/503/timeout/abort/stale được kiểm tra tự động; chưa tái tạo qua UI LDPlayer. Image fallback giữ xử lý onError hiện có, chưa ép lỗi ảnh bằng native trong lượt này.
 - Chờ Owner review thị giác và merge; chưa coi task Hoàn thành.
+
+
+## Điều chỉnh độ rõ ngày 14/10/2026
+
+Theo phản hồi Owner: tăng weight tiêu đề serif lên 700, tăng cỡ/weight chữ phụ và nhãn điều hướng, giảm độ sáng màu chữ phụ. Logo giữ nguyên PNG master, hiển thị 52dp với tint copper và resizeMethod scale; không tuyên bố đã làm sạch asset nguồn. Không đổi độ phân giải/DPI hoặc font scale LDPlayer.
+
+Đã quan sát Home trên Expo Go/LDPlayer: logo, tiêu đề, tagline, mô tả và giá rõ hơn ở cửa sổ hiện tại, không chồng chữ trong viewport đang kiểm tra. [Ảnh sau chỉnh](android-readability.png). Lint mobile, 28 test mobile PASS; Android/iOS export PASS. Chưa đối chiếu thiết bị thật/iOS; việc LDPlayer thu nhỏ vẫn có thể làm ảnh mềm. Đây là cải thiện hiển thị, không bảo đảm loại bỏ toàn bộ răng cưa của asset hoặc giả lập.
