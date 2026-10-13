@@ -46,3 +46,7 @@ Reference inspected: https://nyanduong.github.io/sol-hair-prototype/ (13 October
 Browser observations: hero opacity progresses through intermediate values; cards have 0/80/160ms delays; scrolling to the bottom reveals editorial and CTA at opacity 1/translate 0. At 320px with reduced motion, all reveal content is visible, transition-property is none, video is paused, and document client/scroll widths are both 305px. Focus within a reveal makes it immediately visible for keyboard users. Screenshots: [desktop](motion-after-desktop.jpg), [320px reduced motion](motion-reduced-320.jpg). Static screenshots illustrate the final state, not animation timing.
 
 Follow-up checks: web lint PASS, 14 web tests PASS, web build PASS, git diff --check PASS. An initial edit had a JSX closing-tag and effect lint error; both were corrected before successful checks.
+
+## Hero autoplay follow-up
+
+Owner requested autoplay/loop without play/pause UI. Hero now has autoplay (when reduced motion is off), muted, loop and playsInline; custom controls were removed. Browser verification: autoplay=true, loop=true, muted=true, paused=false, controls=false, zero play/pause buttons. Poster remains the fallback when playback is unavailable. Evidence: [hero autoplay](hero-autoplay.jpg). Web lint, 14 tests and build PASS.
