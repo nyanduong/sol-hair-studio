@@ -1,0 +1,106 @@
+---
+title: Sol Hair Studio - DB baseline v1 - PROPOSED
+config:
+  theme: neutral
+  look: classic
+  htmlLabels: false
+  er:
+    layoutDirection: LR
+    minEntityWidth: 190
+    fontSize: 15
+---
+erDiagram
+  direction LR
+  accounts {
+    ObjectId _id PK
+    string emailNormalized UK "private"
+    string passwordHash "private"
+    string_array roles "1..4"
+  }
+  customers {
+    ObjectId _id PK
+    ObjectId accountId UK "optional"
+    string displayName "private"
+    string phone "optional/private"
+  }
+  staff {
+    ObjectId _id PK
+    ObjectId accountId UK "optional"
+    string displayName
+    string_array serviceIds "0..50"
+    number bookingRevision "guard"
+  }
+  services {
+    ObjectId _id PK "internal"
+    string id UK "public"
+    string slug UK
+    object durationMinutes "min/max"
+    number bookingDurationMinutes
+    number priceVnd
+    ObjectId coverImageId "in gallery"
+    object_array images "embedded:1..10"
+  }
+  images {
+    ObjectId _id PK
+    string cloudName
+    string cloudinaryAssetId "unique with cloudName"
+    string publicId "unique with cloudName"
+    string url "Cloudinary file"
+    string originalName
+    number width
+    number height
+    number bytes
+    string format "jpg/png/webp"
+    ObjectId uploadedByAccountId "optional for legacy"
+    boolean isActive "archive keeps links"
+  }
+  service_images {
+    ObjectId imageId "images._id"
+    string alt "optional/context"
+  }
+  staff_time_off {
+    ObjectId _id PK
+    ObjectId staffId "required"
+    date startAt
+    date endAt
+  }
+  appointments {
+    ObjectId _id PK
+    ObjectId customerId
+    ObjectId staffId
+    ObjectId createdByAccountId
+    string requestKey "unique/creator"
+    object customerSnapshot "embedded/private"
+    date startAt
+    date endAt
+    date occupiedUntil "endAt+buffer"
+    string status
+    number revision
+    object lastCommand "embedded/receipt"
+  }
+  items {
+    string serviceId "services.id"
+    string name "snapshot"
+    number priceVnd "snapshot"
+    number durationMinutes "snapshot"
+  }
+  weeklyHours {
+    number weekday "ISO:1..7"
+    object_array intervals "embedded:1..3"
+    number startMinute "intervals[].startMinute"
+    number endMinute "intervals[].endMinute"
+  }
+  accounts |o..o| customers : "accountId"
+  accounts |o..o| staff : "accountId"
+  accounts ||..o{ appointments : "createdByAccountId"
+  customers ||..o{ appointments : "customerId"
+  staff ||..o{ appointments : "staffId"
+  staff ||..o{ staff_time_off : "staffId"
+  staff }o..o{ services : "serviceIds/id"
+  accounts |o..o{ images : "uploadedByAccountId"
+  images ||..o{ services : "coverImageId"
+  services ||--|{ service_images : "EMBEDDED:1..10"
+  images ||..o{ service_images : "imageId"
+  appointments ||--|{ items : "EMBEDDED:1..3"
+  services ||..o{ items : "serviceId/id"
+  staff ||--o{ weeklyHours : "EMBEDDED:0..7"

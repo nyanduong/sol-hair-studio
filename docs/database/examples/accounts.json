@@ -1,0 +1,54 @@
+[
+  {
+    "_id": {
+      "$oid": "000000000000000000000101"
+    },
+    "emailNormalized": "customer@example.invalid",
+    "passwordHash": "FAKE_HASH_ONLY_NOT_VALID_FOR_LOGIN",
+    "roles": [
+      "customer"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "000000000000000000000102"
+    },
+    "emailNormalized": "stylist@example.invalid",
+    "passwordHash": "FAKE_HASH_ONLY_NOT_VALID_FOR_LOGIN",
+    "roles": [
+      "stylist"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "000000000000000000000103"
+    },
+    "emailNormalized": "reception@example.invalid",
+    "passwordHash": "FAKE_HASH_ONLY_NOT_VALID_FOR_LOGIN",
+    "roles": [
+      "receptionist",
+      "owner"
+    ],
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    }
+  }
+]

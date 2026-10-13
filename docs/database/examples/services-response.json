@@ -1,0 +1,43 @@
+{
+  "data": [
+    {
+      "id": "service-cut-style",
+      "slug": "cat-va-tao-kieu",
+      "name": "Cắt & tạo kiểu",
+      "description": "Dịch vụ giả để đọc thiết kế.",
+      "category": "Tạo kiểu",
+      "durationMinutes": {
+        "min": 45,
+        "max": 60
+      },
+      "priceVnd": 450000,
+      "imageUrl": "https://res.cloudinary.com/sol-fake/image/upload/cut"
+    },
+    {
+      "id": "service-fashion-color",
+      "slug": "nhuom-thoi-trang",
+      "name": "Nhuộm thời trang",
+      "description": "Dịch vụ giả để đọc thiết kế.",
+      "category": "Nhuộm",
+      "durationMinutes": {
+        "min": 90,
+        "max": 120
+      },
+      "priceVnd": 1200000,
+      "imageUrl": "https://res.cloudinary.com/sol-fake/image/upload/color"
+    },
+    {
+      "id": "service-hair-spa",
+      "slug": "hair-spa-phuc-hoi",
+      "name": "Hair spa phục hồi",
+      "description": "Dịch vụ giả để đọc thiết kế.",
+      "category": "Chăm sóc",
+      "durationMinutes": {
+        "min": 60,
+        "max": 75
+      },
+      "priceVnd": 600000,
+      "imageUrl": "https://res.cloudinary.com/sol-fake/image/upload/spa"
+    }
+  ]
+}

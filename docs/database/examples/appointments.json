@@ -1,0 +1,365 @@
+[
+  {
+    "_id": {
+      "$oid": "000000000000000000000501"
+    },
+    "customerId": {
+      "$oid": "000000000000000000000201"
+    },
+    "staffId": {
+      "$oid": "000000000000000000000301"
+    },
+    "createdByAccountId": {
+      "$oid": "000000000000000000000101"
+    },
+    "requestKey": "fake-request-501-000000",
+    "requestHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "customerSnapshot": {
+      "displayName": "Khách mẫu Linh",
+      "phone": "+12025550101"
+    },
+    "staffNameSnapshot": "Stylist mẫu An",
+    "items": [
+      {
+        "serviceId": "service-cut-style",
+        "name": "Cắt & tạo kiểu",
+        "priceVnd": 450000,
+        "durationMinutes": 60
+      }
+    ],
+    "totalPriceVnd": 450000,
+    "totalDurationMinutes": 60,
+    "bufferAfterMinutes": 10,
+    "startAt": {
+      "$date": "2026-10-05T02:00:00.000Z"
+    },
+    "endAt": {
+      "$date": "2026-10-05T03:00:00.000Z"
+    },
+    "occupiedUntil": {
+      "$date": "2026-10-05T03:10:00.000Z"
+    },
+    "timeZone": "Asia/Ho_Chi_Minh",
+    "localDate": "2026-10-05",
+    "status": "confirmed",
+    "revision": 0,
+    "confirmedAt": {
+      "$date": "2026-10-02T02:00:00.000Z"
+    },
+    "createdAt": {
+      "$date": "2026-10-02T02:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-10-02T02:00:00.000Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "000000000000000000000502"
+    },
+    "customerId": {
+      "$oid": "000000000000000000000202"
+    },
+    "staffId": {
+      "$oid": "000000000000000000000301"
+    },
+    "createdByAccountId": {
+      "$oid": "000000000000000000000103"
+    },
+    "requestKey": "fake-request-502-000000",
+    "requestHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "customerSnapshot": {
+      "displayName": "Khách vãng lai mẫu"
+    },
+    "staffNameSnapshot": "Stylist mẫu An",
+    "items": [
+      {
+        "serviceId": "service-hair-spa",
+        "name": "Hair spa phục hồi",
+        "priceVnd": 600000,
+        "durationMinutes": 75
+      }
+    ],
+    "totalPriceVnd": 600000,
+    "totalDurationMinutes": 75,
+    "bufferAfterMinutes": 10,
+    "startAt": {
+      "$date": "2026-10-05T03:10:00.000Z"
+    },
+    "endAt": {
+      "$date": "2026-10-05T04:25:00.000Z"
+    },
+    "occupiedUntil": {
+      "$date": "2026-10-05T04:35:00.000Z"
+    },
+    "timeZone": "Asia/Ho_Chi_Minh",
+    "localDate": "2026-10-05",
+    "status": "confirmed",
+    "revision": 0,
+    "confirmedAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    },
+    "createdAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "000000000000000000000503"
+    },
+    "customerId": {
+      "$oid": "000000000000000000000203"
+    },
+    "staffId": {
+      "$oid": "000000000000000000000302"
+    },
+    "createdByAccountId": {
+      "$oid": "000000000000000000000103"
+    },
+    "requestKey": "fake-request-503-000000",
+    "requestHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "customerSnapshot": {
+      "displayName": "Khách mẫu thứ ba"
+    },
+    "staffNameSnapshot": "Stylist mẫu Bình",
+    "items": [
+      {
+        "serviceId": "service-cut-style",
+        "name": "Cắt & tạo kiểu",
+        "priceVnd": 450000,
+        "durationMinutes": 60
+      },
+      {
+        "serviceId": "service-hair-spa",
+        "name": "Hair spa phục hồi",
+        "priceVnd": 600000,
+        "durationMinutes": 75
+      }
+    ],
+    "totalPriceVnd": 1050000,
+    "totalDurationMinutes": 135,
+    "bufferAfterMinutes": 10,
+    "startAt": {
+      "$date": "2026-10-05T02:00:00.000Z"
+    },
+    "endAt": {
+      "$date": "2026-10-05T04:15:00.000Z"
+    },
+    "occupiedUntil": {
+      "$date": "2026-10-05T04:25:00.000Z"
+    },
+    "timeZone": "Asia/Ho_Chi_Minh",
+    "localDate": "2026-10-05",
+    "status": "confirmed",
+    "revision": 0,
+    "confirmedAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    },
+    "createdAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "000000000000000000000504"
+    },
+    "customerId": {
+      "$oid": "000000000000000000000201"
+    },
+    "staffId": {
+      "$oid": "000000000000000000000301"
+    },
+    "createdByAccountId": {
+      "$oid": "000000000000000000000101"
+    },
+    "requestKey": "fake-request-504-000000",
+    "requestHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "customerSnapshot": {
+      "displayName": "Khách mẫu Linh",
+      "phone": "+12025550101"
+    },
+    "staffNameSnapshot": "Stylist mẫu An",
+    "items": [
+      {
+        "serviceId": "service-cut-style",
+        "name": "Cắt & tạo kiểu",
+        "priceVnd": 450000,
+        "durationMinutes": 60
+      }
+    ],
+    "totalPriceVnd": 450000,
+    "totalDurationMinutes": 60,
+    "bufferAfterMinutes": 10,
+    "startAt": {
+      "$date": "2026-10-05T02:00:00.000Z"
+    },
+    "endAt": {
+      "$date": "2026-10-05T03:00:00.000Z"
+    },
+    "occupiedUntil": {
+      "$date": "2026-10-05T03:10:00.000Z"
+    },
+    "timeZone": "Asia/Ho_Chi_Minh",
+    "localDate": "2026-10-05",
+    "status": "cancelled",
+    "revision": 1,
+    "confirmedAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    },
+    "createdAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-10-02T01:00:00.000Z"
+    },
+    "cancelledAt": {
+      "$date": "2026-10-02T01:00:00.000Z"
+    },
+    "lastCommand": {
+      "key": "fake-cancel-504-000000",
+      "actorId": {
+        "$oid": "000000000000000000000101"
+      },
+      "hash": "1111111111111111111111111111111111111111111111111111111111111111",
+      "resultRevision": 1
+    }
+  },
+  {
+    "_id": {
+      "$oid": "000000000000000000000505"
+    },
+    "customerId": {
+      "$oid": "000000000000000000000201"
+    },
+    "staffId": {
+      "$oid": "000000000000000000000301"
+    },
+    "createdByAccountId": {
+      "$oid": "000000000000000000000101"
+    },
+    "requestKey": "fake-request-505-000000",
+    "requestHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "customerSnapshot": {
+      "displayName": "Khách mẫu Linh",
+      "phone": "+12025550101"
+    },
+    "staffNameSnapshot": "Stylist mẫu An",
+    "items": [
+      {
+        "serviceId": "service-cut-style",
+        "name": "Cắt & tạo kiểu",
+        "priceVnd": 450000,
+        "durationMinutes": 60
+      }
+    ],
+    "totalPriceVnd": 450000,
+    "totalDurationMinutes": 60,
+    "bufferAfterMinutes": 10,
+    "startAt": {
+      "$date": "2026-10-04T02:00:00.000Z"
+    },
+    "endAt": {
+      "$date": "2026-10-04T03:00:00.000Z"
+    },
+    "occupiedUntil": {
+      "$date": "2026-10-04T03:10:00.000Z"
+    },
+    "timeZone": "Asia/Ho_Chi_Minh",
+    "localDate": "2026-10-04",
+    "status": "completed",
+    "revision": 2,
+    "confirmedAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    },
+    "createdAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-10-04T02:55:00.000Z"
+    },
+    "startedAt": {
+      "$date": "2026-10-04T02:02:00.000Z"
+    },
+    "completedAt": {
+      "$date": "2026-10-04T02:55:00.000Z"
+    },
+    "lastCommand": {
+      "key": "fake-complete-505-00000",
+      "actorId": {
+        "$oid": "000000000000000000000102"
+      },
+      "hash": "2222222222222222222222222222222222222222222222222222222222222222",
+      "resultRevision": 2
+    }
+  },
+  {
+    "_id": {
+      "$oid": "000000000000000000000506"
+    },
+    "customerId": {
+      "$oid": "000000000000000000000202"
+    },
+    "staffId": {
+      "$oid": "000000000000000000000301"
+    },
+    "createdByAccountId": {
+      "$oid": "000000000000000000000103"
+    },
+    "requestKey": "fake-request-506-000000",
+    "requestHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "customerSnapshot": {
+      "displayName": "Khách vãng lai mẫu"
+    },
+    "staffNameSnapshot": "Stylist mẫu An",
+    "items": [
+      {
+        "serviceId": "service-cut-style",
+        "name": "Cắt & tạo kiểu",
+        "priceVnd": 450000,
+        "durationMinutes": 60
+      }
+    ],
+    "totalPriceVnd": 450000,
+    "totalDurationMinutes": 60,
+    "bufferAfterMinutes": 10,
+    "startAt": {
+      "$date": "2026-10-04T04:00:00.000Z"
+    },
+    "endAt": {
+      "$date": "2026-10-04T05:00:00.000Z"
+    },
+    "occupiedUntil": {
+      "$date": "2026-10-04T05:10:00.000Z"
+    },
+    "timeZone": "Asia/Ho_Chi_Minh",
+    "localDate": "2026-10-04",
+    "status": "no_show",
+    "revision": 1,
+    "confirmedAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    },
+    "createdAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-10-04T04:15:00.000Z"
+    },
+    "noShowAt": {
+      "$date": "2026-10-04T04:15:00.000Z"
+    },
+    "lastCommand": {
+      "key": "fake-noshow-506-000000",
+      "actorId": {
+        "$oid": "000000000000000000000103"
+      },
+      "hash": "2222222222222222222222222222222222222222222222222222222222222222",
+      "resultRevision": 1
+    }
+  }
+]

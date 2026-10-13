@@ -1,0 +1,83 @@
+[
+  {
+    "_id": {
+      "$oid": "000000000000000000000301"
+    },
+    "accountId": {
+      "$oid": "000000000000000000000102"
+    },
+    "displayName": "Stylist mẫu An",
+    "isActive": true,
+    "serviceIds": [
+      "service-cut-style",
+      "service-fashion-color",
+      "service-hair-spa"
+    ],
+    "weeklyHours": [
+      {
+        "weekday": 1,
+        "intervals": [
+          {
+            "startMinute": 540,
+            "endMinute": 1080
+          }
+        ]
+      },
+      {
+        "weekday": 7,
+        "intervals": [
+          {
+            "startMinute": 540,
+            "endMinute": 1080
+          }
+        ]
+      }
+    ],
+    "bookingRevision": 7,
+    "createdAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "000000000000000000000302"
+    },
+    "displayName": "Stylist mẫu Bình",
+    "isActive": true,
+    "serviceIds": [
+      "service-cut-style",
+      "service-fashion-color",
+      "service-hair-spa"
+    ],
+    "weeklyHours": [
+      {
+        "weekday": 1,
+        "intervals": [
+          {
+            "startMinute": 540,
+            "endMinute": 1080
+          }
+        ]
+      },
+      {
+        "weekday": 7,
+        "intervals": [
+          {
+            "startMinute": 540,
+            "endMinute": 1080
+          }
+        ]
+      }
+    ],
+    "bookingRevision": 1,
+    "createdAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    }
+  }
+]
