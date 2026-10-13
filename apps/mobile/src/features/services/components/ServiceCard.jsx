@@ -2,11 +2,10 @@ import { useState } from 'react'
 import { Image, Text, View } from 'react-native'
 import styles from '../styles/ServiceCard.styles.js'
 
-const currencyFormatter = new Intl.NumberFormat('vi-VN')
+import { formatDuration, formatPrice } from '../service-presentation.js'
 
 export default function ServiceCard({ service }) {
   const [failedImageUrl, setFailedImageUrl] = useState(null)
-  const { min, max } = service.durationMinutes
 
   return (
     <View style={styles.card}>
@@ -28,9 +27,9 @@ export default function ServiceCard({ service }) {
         <Text accessibilityRole="header" style={styles.name}>{service.name}</Text>
         <Text style={styles.description}>{service.description}</Text>
         <View style={styles.details}>
-          <Text style={styles.price}>{currencyFormatter.format(service.priceVnd)}đ</Text>
+          <Text style={styles.price}>{formatPrice(service.priceVnd)}</Text>
           <Text style={styles.duration}>
-            {min === max ? min : `${min}–${max}`} phút
+            {formatDuration(service.durationMinutes)}
           </Text>
         </View>
       </View>

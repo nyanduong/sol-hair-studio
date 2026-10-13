@@ -1,12 +1,13 @@
 import { ActivityIndicator, Pressable, Text, View } from 'react-native'
 import styles from '../styles/ServicesScreen.styles.js'
+import { colors } from '../../../theme/tokens.js'
 
 export default function ServicesStatus({ state, onRetry }) {
   if (state.kind === 'loading') {
     return (
       <View style={styles.status} accessibilityLiveRegion="polite">
         <ActivityIndicator
-          color="#8d4939"
+          color={colors.copper}
           size="large"
           accessibilityLabel="Đang tải dịch vụ"
         />

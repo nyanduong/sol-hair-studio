@@ -1,30 +1,32 @@
+import { colors, displayFont } from '../../../theme/tokens.js'
 import { StyleSheet } from 'react-native'
 
 export default StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f7f3ed',
+    backgroundColor: colors.canvas,
   },
   container: {
     flexGrow: 1,
-    padding: 20,
-    paddingTop: 28,
+    padding: 16,
+    paddingTop: 8,
     width: '100%',
-    maxWidth: 640,
+    maxWidth: 720,
     alignSelf: 'center',
   },
   header: {
     marginBottom: 20,
   },
   brand: {
-    color: '#8d4939',
+    color: colors.copper,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 2.2,
-    marginBottom: 22,
+    marginBottom: 12,
   },
   title: {
-    color: '#22201f',
+    fontFamily: displayFont,
+    color: colors.ink,
     fontSize: 36,
     fontWeight: '600',
     lineHeight: 44,
@@ -32,12 +34,13 @@ export default StyleSheet.create({
     marginBottom: 14,
   },
   intro: {
-    color: '#716d69',
+    color: colors.muted,
     fontSize: 16,
     lineHeight: 24,
-    marginBottom: 26,
+    marginBottom: 8,
   },
   toolbar: {
+    marginBottom: 12,
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
@@ -45,7 +48,7 @@ export default StyleSheet.create({
     gap: 12,
   },
   sectionTitle: {
-    color: '#22201f',
+    color: colors.ink,
     fontSize: 22,
     fontWeight: '600',
   },
@@ -56,12 +59,12 @@ export default StyleSheet.create({
     alignItems: 'center',
   },
   reloadText: {
-    color: '#8d4939',
+    color: colors.copper,
     fontSize: 14,
     fontWeight: '600',
   },
   count: {
-    color: '#716d69',
+    color: colors.muted,
     fontSize: 13,
     marginTop: 2,
   },
@@ -69,22 +72,22 @@ export default StyleSheet.create({
     height: 20,
   },
   status: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#e5dcd1',
+    borderColor: colors.border,
     borderRadius: 22,
     padding: 28,
     alignItems: 'center',
   },
   statusTitle: {
-    color: '#22201f',
+    color: colors.ink,
     fontSize: 21,
     fontWeight: '600',
     textAlign: 'center',
     marginTop: 12,
   },
   statusDescription: {
-    color: '#716d69',
+    color: colors.muted,
     fontSize: 15,
     lineHeight: 23,
     textAlign: 'center',
@@ -92,7 +95,7 @@ export default StyleSheet.create({
   },
   retryButton: {
     minHeight: 48,
-    backgroundColor: '#8d4939',
+    backgroundColor: colors.copper,
     borderRadius: 24,
     paddingHorizontal: 24,
     paddingVertical: 14,
@@ -101,7 +104,7 @@ export default StyleSheet.create({
     justifyContent: 'center',
   },
   retryButtonText: {
-    color: '#ffffff',
+    color: colors.surface,
     fontSize: 15,
     fontWeight: '600',
     textAlign: 'center',
@@ -114,7 +117,7 @@ export default StyleSheet.create({
     justifyContent: 'center',
   },
   healthText: {
-    color: '#716d69',
+    color: colors.muted,
     fontSize: 13,
     textDecorationLine: 'underline',
   },

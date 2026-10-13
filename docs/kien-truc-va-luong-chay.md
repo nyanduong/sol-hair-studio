@@ -1,6 +1,6 @@
 # Kiến trúc và luồng chạy
 
-Tài liệu này mô tả cấu trúc đang có trong repository. Phạm vi sản phẩm hiện tại gồm trang chủ web, danh mục dịch vụ native trên mobile và API đọc từ MongoDB, dùng URL ảnh Cloudinary. Đặt lịch, đăng nhập, thanh toán và trang tổng quan chưa được triển khai.
+Tài liệu này mô tả cấu trúc đang có trong repository. Phạm vi sản phẩm hiện tại gồm trang chủ web, Home và danh mục dịch vụ native trên mobile và API đọc từ MongoDB, dùng URL ảnh Cloudinary. Đặt lịch, đăng nhập, thanh toán và trang tổng quan chưa được triển khai.
 
 ## A. Nhìn tổng thể
 
@@ -100,9 +100,18 @@ apps/mobile/
 │   │   ├── env.js                   Ghép cấu hình API với host Expo và nền tảng
 │   │   ├── resolve-api-base-url.js   Ưu tiên URL cấu hình; tự nhận host trong dev
 │   │   └── tests/                   Test chọn host, đổi mạng và cấu hình riêng
-│   ├── navigation/RootNavigator.jsx  Mở Services; Health có header và nút quay lại
+│   ├── navigation/RootNavigator.jsx  Mở Home; giữ Services và Health trong stack
+│   ├── navigation/BottomNav.jsx      5 mục; Home/Services điều hướng, 3 mục mở modal
+│   ├── components/FeatureUnavailableProvider.jsx  Một modal dùng chung toàn mobile
+│   ├── components/FeatureUnavailableModal.jsx     Báo tính năng đang phát triển, đóng bằng nút/Back
+│   ├── theme/tokens.js               Màu Sol và font hệ thống native
+│   ├── features/home/
+│   │   ├── screens/HomeScreen.jsx    Ghép hero, danh mục và banner đặt lịch chưa khả dụng
+│   │   └── components/              HomeHeader và BookingBanner
 │   ├── features/services/
-│   │   ├── screens/ServicesScreen.jsx  Ghép FlatList, trạng thái và đường tới Health
+│   │   ├── screens/ServicesScreen.jsx  Ghép danh mục và điều hướng
+│   │   ├── components/ServicesList.jsx  FlatList thích ứng, trạng thái và đường tới Health
+│   │   ├── service-presentation.js   Giá VND, thời lượng và số cột theo font scale
 │   │   ├── components/ServiceCard.jsx  Ảnh, mô tả, giá và thời lượng từ API
 │   │   ├── components/ServicesStatus.jsx  Tải, rỗng, lỗi và thử lại
 │   │   ├── hooks/useServices.js       Giữ state, tải lại và cleanup request
@@ -131,7 +140,7 @@ apps/mobile/
 
 - API: `apps/api/src/server.js` → `apps/api/src/app.js` → `apps/api/src/routes/index.js` → `apps/api/src/modules/services/services.routes.js` → `services.controller.js` → `services.repository.js` → `services.model.js`.
 - Web: `apps/web/src/main.jsx` → `App.jsx` → `routes/AppRoutes.jsx` → `features/home/pages/HomePage.jsx` → `components/ServicePreview.jsx` → `features/services/hooks/useServices.js` → `api/services.api.js` → `lib/http.js`.
-- Mobile: `apps/mobile/index.js` → `App.jsx` → `src/navigation/RootNavigator.jsx` → `features/services/screens/ServicesScreen.jsx` → `hooks/useServices.js` → `api/services.api.js` → `lib/http.js`. Liên kết cuối danh mục mở `features/health/screens/HealthScreen.jsx`.
+- Mobile: `apps/mobile/index.js` → `App.jsx` → `src/navigation/RootNavigator.jsx` → `features/home/screens/HomeScreen.jsx` hoặc `features/services/screens/ServicesScreen.jsx` → `features/services/components/ServicesList.jsx` → `hooks/useServices.js` → `api/services.api.js` → `lib/http.js`. Liên kết cuối danh mục mở `features/health/screens/HealthScreen.jsx`.
 
 ## D. Luồng chạy trang chủ và danh mục dịch vụ
 
@@ -139,7 +148,7 @@ Web vào `main.jsx`, nơi tạo React root và render `App` trong `StrictMode`. 
 
 `services.api.js` gọi `GET /api/services` qua HTTP helper. Khi MongoDB đã kết nối, máy chủ trả `{ data: [...] }` từ các dịch vụ đang hoạt động; mỗi mục có `id`, `slug`, `name`, `description`, `category`, `durationMinutes`, `priceVnd` và `imageUrl`. URL ảnh được tạo từ Cloudinary cloud name/public ID lúc nạp seed vào MongoDB; web dùng `imageUrl` trả về từ API. Khi database chưa được cấu hình hoặc kết nối, endpoint trả `503` với mã `DATABASE_UNAVAILABLE`, còn health check vẫn cho biết trạng thái database.
 
-Mobile mở `ServicesScreen` trước. `FlatList` dùng public `id` làm key; `ServiceCard` hiển thị ảnh qua `imageUrl`, tên, nhóm, mô tả, giá VND và khoảng thời lượng. Giao diện native dùng `StyleSheet`, không dùng component DOM hoặc CSS web. Lỗi ảnh chỉ thay phần ảnh bằng thông báo; dữ liệu dịch vụ vẫn xem được.
+Mobile mở `HomeScreen` trước với logo, hero và danh mục thật; thanh điều hướng chuyển Home ↔ Services. Hai màn dùng `ServicesList`, tự chuyển hai cột xuống một cột theo chiều rộng và font scale. Home dùng ảnh/logo đóng gói cùng ứng dụng, font serif của hệ điều hành và banner có CTA Đặt lịch ngay. Hai CTA, ba mục Đặt lịch/Lịch hẹn/Tài khoản và chuông thông báo gọi `useFeatureUnavailable` để mở một modal dùng chung ở `src/components`; modal nêu rõ tính năng đang phát triển, không tạo route hoặc dữ liệu nghiệp vụ giả. Home ẩn toolbar số lượng/tải lại; kéo xuống tải lại và error retry vẫn giữ. `FlatList` dùng public `id` làm key; `ServiceCard` hiển thị ảnh qua `imageUrl`, tên, nhóm, mô tả, giá VND và khoảng thời lượng. Giao diện native dùng `StyleSheet`, không dùng component DOM hoặc CSS web. Lỗi ảnh chỉ thay phần ảnh bằng thông báo; dữ liệu dịch vụ vẫn xem được.
 
 `useServices` quản lý `loading`, `success` (gồm danh sách rỗng), `error` và tải lại. `services.api.js` chỉ chọn endpoint và lấy `data` từ envelope chung. HTTP helper tiếp tục dùng base URL môi trường/SOL-012, timeout 8 giây và abort. Cleanup hủy request khi unmount; `latest-request.js` bỏ qua kết quả cũ. Nút tải lại bị vô hiệu hóa lúc tải. Task này không đổi DTO, route API, model MongoDB hoặc tài nguyên Cloudinary.
 
@@ -149,7 +158,7 @@ Mobile mở `ServicesScreen` trước. `FlatList` dùng public `id` làm key; `S
 
 Web vào `main.jsx`, nơi tạo React root và render `App` trong `StrictMode`. `App.jsx` đặt một `BrowserRouter`; `AppRoutes` chọn route `/health`, rồi `MainLayout` giữ nền và khung trang. `HealthPage` gọi `useHealth`. Hook khởi tạo state `loading` và chạy `loadHealth` trong `useEffect`.
 
-Mobile vào `index.js`, Expo đăng ký `App.jsx`. `App` đặt một `SafeAreaProvider` và một `NavigationContainer`; `RootNavigator` mở `Services` với header tắt. Liên kết **Kiểm tra kết nối** mở `Health` với native header và nút quay lại. `HealthScreen` dùng `SafeAreaView` theo cạnh phải, dưới và trái (header xử lý cạnh trên), rồi gọi `useHealth` để bắt đầu cùng luồng tải.
+Mobile vào `index.js`, Expo đăng ký `App.jsx`. `App` đặt một `SafeAreaProvider` và một `NavigationContainer`; `RootNavigator` mở `Home` với header tắt; `Services` cũng ẩn header. Thanh điều hướng quay về Home bằng `popTo` để không chồng thêm màn hình. Liên kết **Kiểm tra kết nối** mở `Health` với native header và nút quay lại. `HealthScreen` dùng `SafeAreaView` theo cạnh phải, dưới và trái (header xử lý cạnh trên), rồi gọi `useHealth` để bắt đầu cùng luồng tải.
 
 ### Bấm “Kiểm tra lại”
 
