@@ -13,6 +13,7 @@ module.exports = defineConfig([
     ],
     languageOptions: {
       globals: {
+        __DEV__: 'readonly',
         ...globals.browser,
         ...globals.node,
       },

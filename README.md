@@ -61,6 +61,10 @@ npm run dev:mobile
 - Web mặc định: `http://localhost:5173` và đọc `VITE_API_BASE_URL`.
 - Ứng dụng di động đọc `EXPO_PUBLIC_API_BASE_URL`.
 
+Trong bản mobile dev, để trống `EXPO_PUBLIC_API_BASE_URL` để tự lấy host từ Expo/Metro và gọi API ở cổng `4000` trên cùng máy. Cách này theo địa chỉ Expo khi đổi Wi-Fi, tránh giữ IP LAN cũ trong `.env`. Trên Android Emulator, Expo host loopback được đổi thành `10.0.2.2`; khi không có host Expo, Android dev cũng dùng địa chỉ này, iOS dùng `localhost`.
+
+Giá trị `EXPO_PUBLIC_API_BASE_URL` không rỗng luôn được ưu tiên. Nếu `.env` hiện có IP cũ, xóa giá trị đó để bật tự nhận host, rồi reload app; nếu Expo vẫn giữ giá trị cũ, dừng và chạy lại `npm run start --workspace @sol-hair/mobile -- --clear`. Dùng URL cụ thể nếu API ở máy/cổng khác hoặc chạy Expo qua tunnel (tunnel Expo không chuyển tiếp cổng API). Bản release phải đặt URL API có thể truy cập được; tự nhận host chỉ áp dụng trong dev.
+
 Địa chỉ API cho ứng dụng di động phụ thuộc môi trường, không dùng một giá trị cho mọi thiết bị:
 
 | Nơi chạy ứng dụng di động | Ví dụ `EXPO_PUBLIC_API_BASE_URL` |
