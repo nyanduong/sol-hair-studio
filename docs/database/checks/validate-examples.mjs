@@ -5,7 +5,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const collections = ['services', 'accounts', 'customers', 'staff', 'staff_time_off', 'appointments', 'images']
+const collections = ['services', 'accounts', 'auth_challenges', 'customers', 'staff', 'staff_shifts', 'staff_time_off', 'appointments', 'booking_requests', 'appointment_events', 'images']
 const blocking = new Set(['confirmed', 'in_progress', 'completed'])
 const stampFields = ['_id', 'createdAt', 'updatedAt']
 const keys = (v, required, optional = []) => {
@@ -52,29 +52,62 @@ function validate(data) {
   const serviceMap = new Map(data.services.map(s => [s.id, s]))
   unique(data.services.map(s => s.id)); unique(data.services.map(s => s.slug))
   for (const s of data.services) {
-    keys(s, [...stampFields, 'id', 'slug', 'name', 'description', 'category', 'durationMinutes', 'bookingDurationMinutes', 'priceVnd', 'coverImageId', 'images', 'isActive', 'displayOrder'], ['__v'])
+    keys(s, [...stampFields, 'id', 'slug', 'name', 'description', 'category', 'durationMinutes', 'bookingDurationMinutes', 'priceVnd', 'coverImageId', 'isActive', 'displayOrder'], ['__v', 'images'])
     slug(s.id, 80); slug(s.slug, 120); str(s.name); str(s.description, 2000); str(s.category, 80)
     keys(s.durationMinutes, ['min', 'max'])
     int(s.durationMinutes.min, 1, 480); int(s.durationMinutes.max, s.durationMinutes.min, 480)
-    int(s.bookingDurationMinutes, s.durationMinutes.min, s.durationMinutes.max, 5)
+    int(s.bookingDurationMinutes, s.durationMinutes.min, s.durationMinutes.max)
     int(s.priceVnd, 0, 100000000); int(s.displayOrder, 0, 100000); bool(s.isActive)
     if (s.__v !== undefined) int(s.__v, 0, Number.MAX_SAFE_INTEGER)
-    arr(s.images, 1, 10)
-    unique(s.images.map(i => oid(i.imageId)))
-    for (const i of s.images) {
-      keys(i, ['imageId'], ['alt']); ref('images', i.imageId)
-      if (i.alt !== undefined) str(i.alt, 200)
-    }
     ref('images', s.coverImageId)
-    assert(s.images.some(i => oid(i.imageId) === oid(s.coverImageId)), 'cover must belong to gallery')
+    if (s.images !== undefined) {
+      arr(s.images, 1, 10)
+      unique(s.images.map(i => oid(i.imageId)))
+      for (const i of s.images) {
+        keys(i, ['imageId'], ['alt']); ref('images', i.imageId)
+        if (i.alt !== undefined) str(i.alt, 200)
+      }
+      assert(s.images.some(i => oid(i.imageId) === oid(s.coverImageId)), 'cover must belong to gallery')
+    }
   }
+
   unique(data.accounts.map(a => a.emailNormalized))
   for (const a of data.accounts) {
-    keys(a, [...stampFields, 'emailNormalized', 'passwordHash', 'roles', 'isActive'])
+    keys(a, [...stampFields, 'emailNormalized', 'roles', 'status', 'authRevision'], ['passwordHash', 'emailVerifiedAt'])
     str(a.emailNormalized, 254); assert.match(a.emailNormalized, /^[^\s@]+@[^\s@]+\.[^\s@]+$/)
-    assert.equal(a.emailNormalized, a.emailNormalized.toLowerCase()); str(a.passwordHash, 255, 20)
-    arr(a.roles, 1, 4); unique(a.roles); a.roles.forEach(r => assert(['customer', 'stylist', 'receptionist', 'owner'].includes(r)))
-    bool(a.isActive)
+    assert.equal(a.emailNormalized, a.emailNormalized.toLowerCase())
+    arr(a.roles, 1, 3); unique(a.roles); a.roles.forEach(r => assert(['customer', 'stylist', 'owner'].includes(r)))
+    assert(['pending_verification', 'pending_password', 'active', 'disabled'].includes(a.status))
+    int(a.authRevision, 0, Number.MAX_SAFE_INTEGER)
+    if (a.passwordHash !== undefined) str(a.passwordHash, 255, 20)
+    if (a.emailVerifiedAt !== undefined) assert(time(a.emailVerifiedAt) <= time(a.updatedAt))
+    if (['active', 'pending_password'].includes(a.status)) assert(a.emailVerifiedAt, 'verified account required')
+    if (a.status === 'active') assert(a.passwordHash, 'active account needs password')
+    if (a.status === 'pending_verification' && a.roles.includes('customer')) assert(a.passwordHash, 'signup needs password hash')
+    if (a.status === 'pending_password') assert(a.roles.some(r => ['stylist', 'owner'].includes(r)), 'staff activation state')
+  }
+  unique(data.auth_challenges.map(c => oid(c.accountId) + ':' + c.purpose))
+  for (const c of data.auth_challenges) {
+    keys(c, [...stampFields, 'accountId', 'purpose', 'generation', 'codeDigest', 'issuedAt', 'expiresAt', 'resendAvailableAt', 'failedAttempts'], ['consumedAt', 'verifiedAt', 'grantDigest', 'grantExpiresAt', 'grantConsumedAt'])
+    const a = ref('accounts', c.accountId)
+    assert(['activate_customer', 'activate_staff', 'reset_password'].includes(c.purpose))
+    if (c.purpose === 'activate_customer') assert(a.roles.includes('customer'))
+    if (c.purpose === 'activate_staff') assert(a.roles.some(r => ['stylist', 'owner'].includes(r)))
+    int(c.generation, 1, Number.MAX_SAFE_INTEGER); str(c.codeDigest, 255, 20)
+    int(c.failedAttempts, 0, 5)
+    const issued = time(c.issuedAt), expires = time(c.expiresAt)
+    assert.equal(expires - issued, 300000); assert.equal(time(c.resendAvailableAt) - issued, 60000)
+    assert(issued >= time(c.createdAt) && issued <= time(c.updatedAt))
+    for (const k of ['consumedAt', 'verifiedAt']) if (c[k] !== undefined) assert(time(c[k]) >= issued && time(c[k]) < expires && time(c[k]) <= time(c.updatedAt))
+    assert.equal(Boolean(c.verifiedAt), Boolean(c.consumedAt), 'successful verification consumes code')
+    if (c.verifiedAt) assert(c.failedAttempts < 5, 'exhausted code cannot verify')
+    assert.equal(Boolean(c.grantDigest), Boolean(c.grantExpiresAt), 'grant pair')
+    if (c.grantDigest !== undefined) {
+      assert(c.purpose !== 'activate_customer' && c.verifiedAt, 'password grant purpose')
+      str(c.grantDigest, 255, 20); assert(time(c.grantExpiresAt) > time(c.verifiedAt) && time(c.grantExpiresAt) <= expires)
+    }
+    if (c.grantExpiresAt !== undefined) time(c.grantExpiresAt)
+    if (c.grantConsumedAt !== undefined) assert(c.grantDigest && time(c.grantConsumedAt) >= time(c.verifiedAt) && time(c.grantConsumedAt) < time(c.grantExpiresAt))
   }
   unique(data.images.map(i => `${i.cloudName}:${i.cloudinaryAssetId}`))
   unique(data.images.map(i => `${i.cloudName}:${i.publicId}`))
@@ -86,37 +119,39 @@ function validate(data) {
     assert(u.protocol === 'https:' && u.hostname === 'res.cloudinary.com' && !u.username && !u.password && u.pathname.startsWith(`/${i.cloudName}/image/upload/`), 'image URL/cloud mismatch')
     int(i.width, 1, 20000); int(i.height, 1, 20000); int(i.bytes, 1, 10485760)
     assert(['jpg', 'png', 'webp'].includes(i.format), 'image format'); bool(i.isActive)
-    if (i.uploadedByAccountId) assert(ref('accounts', i.uploadedByAccountId).roles.some(r => ['owner', 'receptionist'].includes(r)), 'image uploader role')
+    if (i.uploadedByAccountId !== undefined) assert(ref('accounts', i.uploadedByAccountId).roles.includes('owner'), 'image uploader role')
     // Imported legacy assets may lack an uploader. Existing links may point to archived assets.
   }
   for (const name of ['customers', 'staff']) {
     unique(data[name].filter(x => x.accountId).map(x => oid(x.accountId)))
     for (const doc of data[name]) {
-      if (doc.accountId) assert(ref('accounts', doc.accountId).roles.includes(name === 'staff' ? 'stylist' : 'customer'), 'profile role')
+      if (doc.accountId !== undefined) assert(ref('accounts', doc.accountId).roles.some(r => name === 'staff' ? ['stylist', 'owner'].includes(r) : r === 'customer'), 'profile role')
       str(doc.displayName)
     }
   }
   for (const c of data.customers) {
-    keys(c, [...stampFields, 'displayName'], ['accountId', 'phone'])
+    keys(c, [...stampFields, 'displayName', 'bookingRevision'], ['accountId', 'phone'])
+    int(c.bookingRevision, 0, Number.MAX_SAFE_INTEGER)
     if (c.phone !== undefined) phone(c.phone)
   }
+
   for (const s of data.staff) {
-    keys(s, [...stampFields, 'displayName', 'isActive', 'serviceIds', 'weeklyHours', 'bookingRevision'], ['accountId'])
+    keys(s, [...stampFields, 'displayName', 'isActive', 'serviceIds', 'bookingRevision', 'accountId'])
     bool(s.isActive); int(s.bookingRevision, 0, Number.MAX_SAFE_INTEGER)
     arr(s.serviceIds, 0, 50); unique(s.serviceIds)
     s.serviceIds.forEach(id => assert(serviceMap.has(id), 'staff service reference'))
-    arr(s.weeklyHours, 0, 7); unique(s.weeklyHours.map(x => x.weekday))
-    for (const day of s.weeklyHours) {
-      keys(day, ['weekday', 'intervals']); int(day.weekday, 1, 7); arr(day.intervals, 1, 3)
-      let lastEnd = -1
-      for (const range of day.intervals) {
-        keys(range, ['startMinute', 'endMinute'])
-        int(range.startMinute, 0, 1435, 5); int(range.endMinute, 5, 1440, 5)
-        assert(range.startMinute >= lastEnd && range.startMinute < range.endMinute, 'invalid weekly shift')
-        lastEnd = range.endMinute
-      }
-    }
   }
+  for (const s of data.staff_shifts) {
+    keys(s, [...stampFields, 'staffId', 'localDate', 'startAt', 'endAt', 'status'])
+    ref('staff', s.staffId)
+    const start = time(s.startAt), end = time(s.endAt)
+    assert(start < end && start % 60000 === 0 && end % 60000 === 0)
+    assert.equal(s.localDate, local(start).date); assert.equal(local(end - 1).date, s.localDate)
+    assert(['active', 'cancelled'].includes(s.status))
+  }
+  for (const [i, a] of data.staff_shifts.entries()) for (const b of data.staff_shifts.slice(i + 1))
+    if (oid(a.staffId) === oid(b.staffId) && a.status === 'active' && b.status === 'active')
+      assert(!overlaps(time(a.startAt), time(a.endAt), time(b.startAt), time(b.endAt)), 'shift overlap')
   for (const o of data.staff_time_off) {
     keys(o, [...stampFields, 'staffId', 'startAt', 'endAt'], ['reason'])
     ref('staff', o.staffId)
@@ -124,59 +159,167 @@ function validate(data) {
     assert(duration > 0 && duration <= 31 * 86400000 && time(o.startAt) % 60000 === 0 && time(o.endAt) % 60000 === 0)
     if (o.reason !== undefined) str(o.reason, 200)
   }
-  unique(data.appointments.map(a => `${oid(a.createdByAccountId)}:${a.requestKey}`))
   for (const a of data.appointments) {
-    keys(a, [...stampFields, 'customerId', 'staffId', 'createdByAccountId', 'requestKey', 'requestHash', 'customerSnapshot', 'staffNameSnapshot', 'items', 'totalPriceVnd', 'totalDurationMinutes', 'bufferAfterMinutes', 'startAt', 'endAt', 'occupiedUntil', 'timeZone', 'localDate', 'status', 'revision', 'confirmedAt'], ['startedAt', 'completedAt', 'cancelledAt', 'noShowAt', 'lastRescheduledAt', 'lastCommand'])
+    keys(a, [...stampFields, 'customerId', 'staffId', 'createdByAccountId', 'bookingMode', 'customerSnapshot', 'staffNameSnapshot', 'items', 'totalPriceVnd', 'totalDurationMinutes', 'bufferAfterMinutes', 'startAt', 'endAt', 'occupiedFrom', 'occupiedUntil', 'timeZone', 'localDate', 'status', 'revision', 'confirmedAt'], ['startedAt', 'completedAt', 'cancelledAt', 'noShowAt', 'lastRescheduledAt', 'lastCommand', 'estimatedEndAt', 'contactAttemptedAt'])
     const c = ref('customers', a.customerId), s = ref('staff', a.staffId), actor = ref('accounts', a.createdByAccountId)
-    assert(actor.roles.some(r => ['owner', 'receptionist'].includes(r)) || (c.accountId && oid(c.accountId) === oid(actor._id)), 'creator ownership')
-    str(a.requestKey, 100, 16); assert.match(a.requestHash, /^[0-9a-f]{64}$/)
-    keys(a.customerSnapshot, ['displayName'], ['phone']); str(a.customerSnapshot.displayName)
+    assert(actor.roles.includes('owner') || (c.accountId && oid(c.accountId) === oid(actor._id)), 'creator ownership')
+    assert(['customer', 'owner_scheduled', 'owner_walkin'].includes(a.bookingMode))
+    if (a.bookingMode === 'customer') assert(c.accountId && oid(c.accountId) === oid(actor._id))
+    else assert(actor.roles.includes('owner'))
+    keys(a.customerSnapshot, ['displayName', 'phone']); str(a.customerSnapshot.displayName)
     if (a.customerSnapshot.phone !== undefined) phone(a.customerSnapshot.phone)
-    str(a.staffNameSnapshot); arr(a.items, 1, 3); unique(a.items.map(i => i.serviceId))
+    str(a.staffNameSnapshot); arr(a.items, 1, 5); unique(a.items.map(i => i.serviceId))
+    for (const k of ['startedAt', 'completedAt', 'cancelledAt', 'noShowAt', 'lastRescheduledAt', 'estimatedEndAt', 'contactAttemptedAt']) if (a[k] !== undefined) time(a[k])
     for (const i of a.items) {
       keys(i, ['serviceId', 'name', 'priceVnd', 'durationMinutes'])
       assert(serviceMap.has(i.serviceId), 'item reference'); str(i.name)
-      int(i.priceVnd, 0, 100000000); int(i.durationMinutes, 5, 480, 5)
+      int(i.priceVnd, 0, 100000000); int(i.durationMinutes, 1, 480)
       // Do not compare historical snapshots with current catalog price/duration.
-      if (['confirmed', 'in_progress'].includes(a.status)) assert(s.serviceIds.includes(i.serviceId) && s.isActive, 'future staff capability')
+      // Current capabilities may change; validate them at create/reschedule, not against history.
     }
-    int(a.totalPriceVnd, 0, 300000000); int(a.totalDurationMinutes, 5, 480, 5)
+    int(a.totalPriceVnd, 0, 500000000); int(a.totalDurationMinutes, 1, 2400)
     assert.equal(a.totalPriceVnd, a.items.reduce((n, i) => n + i.priceVnd, 0))
     assert.equal(a.totalDurationMinutes, a.items.reduce((n, i) => n + i.durationMinutes, 0))
     assert.equal(a.bufferAfterMinutes, 10)
     const start = time(a.startAt), end = time(a.endAt), until = time(a.occupiedUntil), confirmed = time(a.confirmedAt)
-    assert.equal(start % 300000, 0); assert.equal(end, start + a.totalDurationMinutes * 60000); assert.equal(until, end + 600000)
+
+    if (a.bookingMode !== 'owner_walkin' || a.lastRescheduledAt) assert.equal(start % 900000, 0, '15 minute slot')
+    else if (!a.lastRescheduledAt) assert.equal(start, confirmed, 'walkin server now')
+    assert.equal(end, start + a.totalDurationMinutes * 60000)
+    const expectedFrom = a.status === 'completed' ? time(a.startedAt) : a.status === 'in_progress' ? Math.min(start, time(a.startedAt)) : start
+    const expectedUntil = a.status === 'completed' ? time(a.completedAt) + 600000 : a.status === 'in_progress' ? Math.max(end, a.estimatedEndAt ? time(a.estimatedEndAt) : end) + 600000 : end + 600000
+    assert.equal(time(a.occupiedFrom), expectedFrom); assert.equal(until, expectedUntil)
+    if (a.estimatedEndAt) assert(a.status === 'in_progress' && time(a.estimatedEndAt) > end)
+
     assert.equal(a.timeZone, 'Asia/Ho_Chi_Minh'); assert.equal(a.localDate, local(start).date)
-    assert.equal(local(until - 1).date, a.localDate, 'cross local day')
-    assert(confirmed <= start && confirmed >= time(a.createdAt) && confirmed <= time(a.updatedAt))
-    const bookedAt = a.lastRescheduledAt ? time(a.lastRescheduledAt) : confirmed
-    const localDaysAhead = (Date.parse(local(start).date) - Date.parse(local(bookedAt).date)) / 86400000
-    assert(localDaysAhead >= 0 && localDaysAhead <= 90, 'booking horizon fixture')
+    assert.equal(local(end + 600000 - 1).date, a.localDate, 'planned reservation crosses local day')
+    assert(confirmed >= time(a.createdAt) && confirmed <= time(a.updatedAt))
+    const creation = data.appointment_events.find(e => oid(e.appointmentId) === oid(a._id) && e.kind === 'created')
+    const originalStart = a.lastRescheduledAt ? time(creation.after.startAt) : start
+    assert(confirmed <= originalStart)
+    assert(originalStart - confirmed <= 7 * 86400000, 'booking horizon 168 hours')
+    if (a.bookingMode === 'customer') assert(originalStart - confirmed >= 1800000, 'customer lead 30 minutes')
     int(a.revision, 0, Number.MAX_SAFE_INTEGER)
     assert.equal(Object.hasOwn(a, 'lastCommand'), a.revision > 0, 'receipt required after a command')
     assert(['confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'].includes(a.status), 'status enum')
     const expected = { confirmed: [], in_progress: ['startedAt'], completed: ['startedAt', 'completedAt'], cancelled: ['cancelledAt'], no_show: ['noShowAt'] }[a.status]
     for (const key of ['startedAt', 'completedAt', 'cancelledAt', 'noShowAt']) assert.equal(Object.hasOwn(a, key), expected.includes(key), `status timestamp ${key}`)
     for (const key of [...expected, ...(a.lastRescheduledAt ? ['lastRescheduledAt'] : [])]) assert(time(a[key]) >= confirmed && time(a[key]) <= time(a.updatedAt))
-    if (a.startedAt) assert(time(a.startedAt) >= start && time(a.startedAt) < end, 'start within reserved service time')
+    if (a.startedAt) assert(time(a.startedAt) >= confirmed, 'actual start after creation')
     if (a.completedAt) assert(time(a.completedAt) >= time(a.startedAt))
-    if (a.cancelledAt) assert(time(a.cancelledAt) < start)
-    if (a.noShowAt) assert(time(a.noShowAt) >= start + 15 * 60000)
+    if (a.noShowAt) assert(time(a.noShowAt) >= start + 15 * 60000 && a.contactAttemptedAt && time(a.contactAttemptedAt) >= confirmed && time(a.contactAttemptedAt) <= time(a.noShowAt))
+    else assert(!a.contactAttemptedAt)
     if (a.lastRescheduledAt) assert(time(a.lastRescheduledAt) < start)
-    if (a.lastCommand) {
+    if (a.lastCommand !== undefined) {
       keys(a.lastCommand, ['key', 'actorId', 'hash', 'resultRevision'])
       str(a.lastCommand.key, 100, 16); ref('accounts', a.lastCommand.actorId)
       assert.match(a.lastCommand.hash, /^[0-9a-f]{64}$/); assert.equal(a.lastCommand.resultRevision, a.revision)
     }
     if (['confirmed', 'in_progress'].includes(a.status)) {
-      const shift = s.weeklyHours.find(h => h.weekday === local(start).weekday)
-      const endMinute = local(start).minute + a.totalDurationMinutes + a.bufferAfterMinutes
-      assert(shift?.intervals.some(h => h.startMinute <= local(start).minute && h.endMinute >= endMinute), 'outside shift')
-      for (const o of data.staff_time_off.filter(o => oid(o.staffId) === oid(s._id))) assert(!overlaps(start, until, time(o.startAt), time(o.endAt)), 'time off overlap')
+
+      // Planned reservation must fit a scheduled shift. Overrun is recorded and alerted, not rejected.
+      assert(data.staff_shifts.some(h => oid(h.staffId) === oid(s._id) && h.status === 'active' && time(h.startAt) <= Math.min(start, time(a.occupiedFrom)) && time(h.endAt) >= end + 600000), 'outside dated shift')
+      for (const o of data.staff_time_off.filter(o => oid(o.staffId) === oid(s._id))) assert(!overlaps(Math.min(start, time(a.occupiedFrom)), end + 600000, time(o.startAt), time(o.endAt)), 'planned time off overlap')
     }
   }
+
+  // Pair check covers ordinary reservations. ETA overruns can conflict legitimately;
+  // the mutation service must return those conflicts as alerts (not undo the actual work).
   for (const [i, a] of data.appointments.entries()) for (const b of data.appointments.slice(i + 1)) {
-    if (oid(a.staffId) === oid(b.staffId) && blocking.has(a.status) && blocking.has(b.status)) assert(!overlaps(time(a.startAt), time(a.occupiedUntil), time(b.startAt), time(b.occupiedUntil)), 'blocking appointments overlap')
+    if (!blocking.has(a.status) || !blocking.has(b.status)) continue
+    const ordinary = !a.estimatedEndAt && !b.estimatedEndAt
+    if (ordinary && oid(a.staffId) === oid(b.staffId))
+      assert(!overlaps(time(a.occupiedFrom), time(a.occupiedUntil), time(b.occupiedFrom), time(b.occupiedUntil)), 'staff overlap')
+    if (!ordinary && oid(a.staffId) === oid(b.staffId)) {
+      const base = x => x.status === 'in_progress' ? [time(x.startAt), time(x.endAt) + 600000] : [time(x.occupiedFrom), time(x.occupiedUntil)]
+      assert(!overlaps(...base(a), ...base(b)), 'planned staff overlap is not an ETA exception')
+    }
+    // ETA may cause an existing later appointment to be affected, but it never
+    // exempts a pre-existing overlap of the planned service intervals.
+    if (oid(a.customerId) === oid(b.customerId))
+      assert(!overlaps(time(a.occupiedFrom), time(a.completedAt || a.endAt), time(b.occupiedFrom), time(b.completedAt || b.endAt)), 'customer profile overlap')
+  }
+  unique(data.booking_requests.map(r => oid(r.actorId) + ':' + r.key))
+  for (const r of data.booking_requests) {
+    keys(r, [...stampFields, 'actorId', 'appointmentId', 'key', 'requestHash', 'expiresAt'])
+    const a = ref('appointments', r.appointmentId); ref('accounts', r.actorId)
+    assert.equal(oid(r.actorId), oid(a.createdByAccountId)); str(r.key, 100, 16); assert.match(r.requestHash, /^[0-9a-f]{64}$/)
+    assert.equal(time(r.expiresAt) - time(r.createdAt), 86400000)
+  }
+  unique(data.appointment_events.map(e => oid(e.appointmentId) + ':' + e.revision))
+  const snapshotKeys = ['status', 'startAt', 'endAt', 'occupiedFrom', 'occupiedUntil', 'startedAt', 'completedAt', 'estimatedEndAt', 'staffId']
+  for (const e of data.appointment_events) {
+    keys(e, [...stampFields, 'appointmentId', 'actorId', 'revision', 'kind', 'occurredAt', 'before', 'after'], ['reason'])
+    const a = ref('appointments', e.appointmentId), actor = ref('accounts', e.actorId)
+    int(e.revision, 0, a.revision); assert(time(e.occurredAt) >= time(a.confirmedAt) && time(e.occurredAt) <= time(a.updatedAt))
+    assert(['created', 'rescheduled', 'started', 'completed', 'cancelled', 'no_show', 'eta_updated', 'corrected'].includes(e.kind))
+    const requiredSnapshot = ['status', 'startAt', 'endAt', 'occupiedFrom', 'occupiedUntil', 'staffId']
+    keys(e.before, e.kind === 'created' ? [] : requiredSnapshot, snapshotKeys); keys(e.after, requiredSnapshot, snapshotKeys)
+    if (e.reason !== undefined) str(e.reason, 500)
+    const transitions = { created: [undefined, 'confirmed'], rescheduled: ['confirmed', 'confirmed'], started: ['confirmed', 'in_progress'], completed: ['in_progress', 'completed'], cancelled: ['confirmed', 'cancelled'], no_show: ['confirmed', 'no_show'], eta_updated: ['in_progress', 'in_progress'] }
+    if (e.kind !== 'corrected') assert.deepEqual([e.before.status, e.after.status], transitions[e.kind], 'audit kind/transition')
+    const owner = actor.roles.includes('owner')
+    const customer = ref('customers', a.customerId)
+    const ownCustomer = customer.accountId && oid(customer.accountId) === oid(actor._id)
+    const assigned = e.before.staffId && oid(ref('staff', e.before.staffId).accountId) === oid(actor._id)
+    if (e.kind === 'created') {
+      assert(e.revision === 0 && Object.keys(e.before).length === 0)
+      assert.equal(oid(e.actorId), oid(a.createdByAccountId)); assert.equal(time(e.occurredAt), time(a.confirmedAt))
+    }
+    if (['rescheduled', 'cancelled'].includes(e.kind)) {
+      assert(owner || ownCustomer, 'owner/customer appointment command')
+      const lead = time(e.before.startAt) - time(e.occurredAt)
+      if (!owner) assert(lead >= 7200000, 'customer change cutoff 2 hours')
+      else if (lead < 7200000) assert(e.reason, 'owner late change reason')
+      if (e.kind === 'rescheduled') {
+        const leadNew = time(e.after.startAt) - time(e.occurredAt)
+        assert(leadNew >= (owner ? 0 : 1800000) && leadNew <= 7 * 86400000, 'reschedule lead/horizon')
+        assert.equal(time(e.after.startAt) % 900000, 0, 'reschedule grid')
+      }
+    }
+    if (['started', 'completed', 'eta_updated'].includes(e.kind)) assert(owner || assigned, 'owner/assigned stylist command')
+    if (e.kind === 'no_show') { assert(owner, 'owner no-show command'); assert.equal(time(e.occurredAt), time(a.noShowAt)) }
+    if (e.kind === 'cancelled') assert.equal(time(e.occurredAt), time(a.cancelledAt))
+    if (e.kind === 'started') assert.equal(time(e.after.startedAt), time(e.occurredAt))
+    if (e.kind === 'completed') assert.equal(time(e.after.completedAt), time(e.occurredAt))
+    if (e.kind === 'eta_updated') assert(time(e.after.estimatedEndAt) > time(e.after.endAt) && time(e.after.estimatedEndAt) > time(e.occurredAt), 'future ETA')
+    if (e.kind === 'corrected') {
+      assert(actor.roles.includes('owner') && e.reason, 'owner and reason for correction')
+      assert((e.before.status === 'in_progress' && e.after.status === 'confirmed') || (e.before.status === 'completed' && e.after.status === 'in_progress'), 'correction transition')
+    }
+    if (!['created', 'rescheduled'].includes(e.kind)) for (const k of ['startAt', 'endAt', 'staffId']) assert.deepEqual(e.after[k], e.before[k], 'lifecycle preserves planned appointment')
+    for (const s of [e.before, e.after]) for (const [k, v] of Object.entries(s)) {
+      if (k === 'staffId') ref('staff', v)
+      else if (k.endsWith('At') || ['occupiedFrom', 'occupiedUntil'].includes(k)) time(v)
+      else assert(['confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'].includes(v))
+    }
+    for (const s of [e.before, e.after].filter(s => Object.keys(s).length)) {
+      const start = time(s.startAt), end = time(s.endAt)
+      assert.equal(end - start, a.totalDurationMinutes * 60000, 'audit total duration')
+      const actual = s.status === 'completed' || s.status === 'in_progress'
+      assert.equal(s.startedAt !== undefined, actual, 'audit actual start')
+      assert.equal(s.completedAt !== undefined, s.status === 'completed', 'audit actual completion')
+      if (s.estimatedEndAt !== undefined) assert(s.status === 'in_progress' && time(s.estimatedEndAt) > end)
+      if (actual) assert(time(s.startedAt) <= time(e.occurredAt))
+      if (s.completedAt) assert(time(s.completedAt) >= time(s.startedAt) && time(s.completedAt) <= time(e.occurredAt))
+      const from = s.status === 'completed' ? time(s.startedAt) : s.status === 'in_progress' ? Math.min(start, time(s.startedAt)) : start
+      const until = s.status === 'completed' ? time(s.completedAt) + 600000 : s.status === 'in_progress' ? Math.max(end, s.estimatedEndAt ? time(s.estimatedEndAt) : end) + 600000 : end + 600000
+      assert.equal(time(s.occupiedFrom), from, 'audit occupiedFrom'); assert.equal(time(s.occupiedUntil), until, 'audit occupiedUntil')
+    }
+  }
+  for (const a of data.appointments) {
+    const events = data.appointment_events.filter(e => oid(e.appointmentId) === oid(a._id)).sort((x,y) => x.revision-y.revision)
+    assert.equal(events.length, a.revision + 1, 'complete event history')
+    events.forEach((e,i) => {
+      assert.equal(e.revision,i)
+      if (i) { assert.deepEqual(e.before, events[i-1].after, 'audit chain'); assert(time(e.occurredAt) >= time(events[i-1].occurredAt), 'audit chronological order') }
+    })
+    const rescheduled = events.filter(e => e.kind === 'rescheduled').at(-1)
+    assert.equal(Boolean(a.lastRescheduledAt), Boolean(rescheduled), 'last reschedule audit')
+    if (rescheduled) assert.equal(time(a.lastRescheduledAt), time(rescheduled.occurredAt))
+    if (a.lastCommand) assert.equal(oid(a.lastCommand.actorId), oid(events.at(-1).actorId), 'command actor matches audit')
+    const current = Object.fromEntries(snapshotKeys.filter(k => a[k] !== undefined).map(k => [k,a[k]]))
+    assert.deepEqual(events.at(-1).after, current, 'audit current state')
   }
   const dtoKeys = ['id', 'slug', 'name', 'description', 'category', 'durationMinutes', 'priceVnd', 'imageUrl']
   keys(data.response, ['data'])
@@ -200,8 +343,7 @@ if (process.argv.includes('--self-test')) {
     d => { d.appointments[0].totalPriceVnd++ },
     d => { d.appointments[0].status = 'paid' },
     d => { d.appointments[0].completedAt = d.appointments[0].endAt },
-    d => { d.staff[0].weeklyHours = [] },
-    d => { d.appointments[1].startAt = d.appointments[0].startAt; d.appointments[1].endAt = { $date: '2026-10-05T03:15:00.000Z' }; d.appointments[1].occupiedUntil = { $date: '2026-10-05T03:25:00.000Z' } },
+    d => { d.staff_shifts = [] },
     d => { d.appointments[0].localDate = '2026-10-04' },
     d => { d.response.data[0].bookingDurationMinutes = 60 },
     d => { d.customers[1].accountId = d.customers[0].accountId },
@@ -221,10 +363,129 @@ if (process.argv.includes('--self-test')) {
     d => { d.images[0].format = 'svg' },
     d => { d.images[0].uploadedByAccountId = d.accounts[0]._id },
     d => { d.services[0].images[0].alt = null },
+
     d => { d.response.data[0].imageUrl = d.images[3].url },
+    d => { d.accounts[2].roles = ['receptionist'] },
+    d => { delete d.accounts[0].emailVerifiedAt },
+    d => { delete d.accounts[0].passwordHash },
+    d => { d.auth_challenges[0].expiresAt = d.auth_challenges[0].resendAvailableAt },
+    d => { d.auth_challenges[0].failedAttempts = 6 },
+    d => { d.auth_challenges[0].purpose = 'activate_customer' },
+    d => { d.auth_challenges[0].resendAvailableAt = d.auth_challenges[0].issuedAt },
+    d => { d.staff_shifts.push({...d.staff_shifts[0], _id: {$oid: 'f'.repeat(24)}}) },
+    d => { delete d.appointments[0].customerSnapshot.phone },
+    d => { d.appointments[0].bookingMode = 'owner_walkin' },
+    d => { d.booking_requests[0].expiresAt = d.booking_requests[0].createdAt },
+    d => { d.appointment_events.pop() },
+    d => { d.appointment_events[0].after.status = 'cancelled' },
+    d => { const a = d.appointments[0]; a.startAt = { $date: '2026-10-05T02:05:00.000Z' } },
+    d => { const a = d.appointments[0]; a.confirmedAt = a.createdAt = a.updatedAt = { $date: '2026-10-05T01:31:00.000Z' } },
+    d => { const a = d.appointments[0]; a.confirmedAt = a.createdAt = a.updatedAt = { $date: '2026-09-20T01:00:00.000Z' } },
+    d => { d.appointments[0].items = Array.from({ length: 6 }, () => d.appointments[0].items[0]) },
+    d => { d.booking_requests.push({ ...d.booking_requests[0], _id: { $oid: 'f'.repeat(24) } }) },
+    d => { d.services[0].images = false },
+    d => { const s = d.services[0]; s.isActive = false; delete s.images; s.coverImageId = { $oid: 'f'.repeat(24) }; d.response.data = d.response.data.filter(x => x.id !== s.id) },
+    d => { d.accounts[0].status = 'disabled'; d.accounts[0].emailVerifiedAt = false },
+    d => { d.auth_challenges[0].verifiedAt = false },
+    d => { d.appointments.at(-1).estimatedEndAt = false },
+    d => { d.appointments[3].lastCommand = false },
+    d => { d.customers[1].accountId = false },
+    d => { d.appointment_events.find(e => e.kind === 'completed').kind = 'started' },
+    d => { d.appointment_events.find(e => e.kind === 'no_show').actorId = d.accounts[1]._id },
+    d => { d.appointment_events.find(e => e.kind === 'completed').actorId = d.accounts[0]._id },
+
   ]
   mutations.forEach((mutate, i) => { const copy = structuredClone(data); mutate(copy); assert.throws(() => validate(copy), `negative case ${i + 1}`) })
   console.log(`PASS: ${mutations.length} invalid in-memory variants rejected; not DB/concurrency tests.`)
+
+  const positiveCases = [
+    ['profile phone may be absent before booking', d => { delete d.customers[0].phone }],
+    ['current capabilities do not rewrite historical bookings', d => { d.staff[0].serviceIds = [] }],
+    ['hidden catalog preserves snapshots', d => { d.services[0].isActive = false; d.response.data = d.response.data.filter(s => s.id !== d.services[0].id) }],
+    ['optional gallery is absent', d => { delete d.services[0].images }],
+    ['five service snapshots fit one dated shift', d => {
+      const extra = [4, 5].map(n => ({ ...structuredClone(d.services[0]), _id: { $oid: String(400 + n).padStart(24, '0') }, id: `service-example-${n}`, slug: `example-${n}`, isActive: false, durationMinutes: { min: 30, max: 30 }, bookingDurationMinutes: 30, priceVnd: 100000 }))
+      d.services.push(...extra)
+      const a = structuredClone(d.appointments[0])
+      a._id = { $oid: '000000000000000000000509' }; a.bookingMode = 'owner_scheduled'; a.createdByAccountId = d.accounts[2]._id
+      a.startAt = { $date: '2026-10-06T02:00:00.000Z' }; a.localDate = '2026-10-06'
+      a.items = d.services.map(s => ({ serviceId: s.id, name: s.name, priceVnd: s.priceVnd, durationMinutes: s.bookingDurationMinutes }))
+      a.totalPriceVnd = a.items.reduce((n, i) => n + i.priceVnd, 0); a.totalDurationMinutes = a.items.reduce((n, i) => n + i.durationMinutes, 0)
+      a.endAt = { $date: new Date(time(a.startAt) + a.totalDurationMinutes * 60000).toISOString() }
+      a.occupiedFrom = a.startAt; a.occupiedUntil = { $date: new Date(time(a.endAt) + 600000).toISOString() }
+      d.appointments.push(a)
+      const snapshot = Object.fromEntries(['status', 'startAt', 'endAt', 'occupiedFrom', 'occupiedUntil', 'staffId'].map(k => [k, a[k]]))
+      d.appointment_events.push({ _id: { $oid: '000000000000000000000950' }, appointmentId: a._id, actorId: a.createdByAccountId, revision: 0, kind: 'created', occurredAt: a.confirmedAt, before: {}, after: snapshot, createdAt: a.createdAt, updatedAt: a.createdAt })
+    }],
+  ]
+  for (const [label, mutate] of positiveCases) { const copy = structuredClone(data); mutate(copy); assert.doesNotThrow(() => validate(copy), label) }
+  const customerOverlap = structuredClone(data)
+  customerOverlap.appointments[2].customerId = customerOverlap.appointments[0].customerId
+  assert.throws(() => validate(customerOverlap), /customer profile overlap/)
+  const noContact = structuredClone(data)
+  delete noContact.appointments.find(a => a.status === 'no_show').contactAttemptedAt
+  assert.throws(() => validate(noContact))
+  const corrected = structuredClone(data)
+  const a = corrected.appointments.find(x => x.status === 'completed')
+  const before = structuredClone(corrected.appointment_events.find(e => oid(e.appointmentId) === oid(a._id) && e.revision === a.revision).after)
+  a.status = 'in_progress'; delete a.completedAt; a.occupiedFrom = a.startAt
+  a.occupiedUntil = { $date: new Date(time(a.endAt) + 600000).toISOString() }
+  a.updatedAt = { $date: '2026-10-04T02:56:00.000Z' }; a.revision++; a.lastCommand.resultRevision = a.revision; a.lastCommand.actorId = corrected.accounts[2]._id
+  const after = Object.fromEntries(['status', 'startAt', 'endAt', 'occupiedFrom', 'occupiedUntil', 'startedAt', 'staffId'].map(k => [k, a[k]]))
+  const correction = { _id: { $oid: '000000000000000000000951' }, appointmentId: a._id, actorId: corrected.accounts[2]._id, revision: a.revision, kind: 'corrected', occurredAt: a.updatedAt, before, after, reason: 'Dữ liệu giả: bấm hoàn tất nhầm', createdAt: a.updatedAt, updatedAt: a.updatedAt }
+  corrected.appointment_events.push(correction)
+  assert.doesNotThrow(() => validate(corrected), 'owner correction preserves prior completed event')
+  delete correction.reason; assert.throws(() => validate(corrected), /owner and reason/)
+  correction.reason = 'Dữ liệu giả'; correction.actorId = corrected.accounts[1]._id
+  assert.throws(() => validate(corrected), /owner and reason/)
+  console.log(`PASS: ${positiveCases.length + 1} valid variants accepted; customer overlap, no-show contact and owner/reason correction checks.`)
+
+  const date = ms => ({ $date: new Date(ms).toISOString() })
+  const snapshot = a => Object.fromEntries(['status', 'startAt', 'endAt', 'occupiedFrom', 'occupiedUntil', 'startedAt', 'completedAt', 'estimatedEndAt', 'staffId'].filter(k => a[k] !== undefined).map(k => [k, a[k]]))
+  const move = (d, start) => {
+    const a = d.appointments[0]
+    a.startAt = date(start); a.endAt = date(start + a.totalDurationMinutes * 60000)
+    a.occupiedFrom = a.startAt; a.occupiedUntil = date(time(a.endAt) + 600000); a.localDate = local(start).date
+    d.appointment_events.find(e => oid(e.appointmentId) === oid(a._id)).after = snapshot(a)
+    return a
+  }
+  const horizon = structuredClone(data)
+  const h = horizon.appointments[0]
+  h.confirmedAt = h.createdAt = h.updatedAt = date(time(h.startAt) - 7 * 86400000 - 60000)
+  assert.throws(() => validate(horizon), /booking horizon 168 hours/, 'seven local dates must not exceed 168 hours')
+  const etaCustomer = structuredClone(data)
+  move(etaCustomer, Date.parse('2026-10-06T02:00:00.000Z'))
+  etaCustomer.appointments.at(-1).customerId = etaCustomer.appointments[0].customerId
+  assert.throws(() => validate(etaCustomer), /customer profile overlap/, 'ETA must not exempt planned customer overlap')
+  const etaConflict = structuredClone(data)
+  const next = move(etaConflict, Date.parse('2026-10-06T03:15:00.000Z'))
+  next.staffId = etaConflict.appointments.at(-1).staffId
+  etaConflict.appointment_events.find(e => oid(e.appointmentId) === oid(next._id)).after = snapshot(next)
+  assert.doesNotThrow(() => validate(etaConflict), 'recording ETA may affect an already booked later slot')
+  const rescheduled = structuredClone(data)
+  const res = rescheduled.appointments[0], previous = snapshot(res)
+  move(rescheduled, Date.parse('2026-10-05T01:15:00.000Z'))
+  const created = rescheduled.appointment_events.find(e => oid(e.appointmentId) === oid(res._id))
+  created.after = previous
+  res.revision = 1; res.lastRescheduledAt = res.updatedAt = date(Date.parse('2026-10-05T01:00:00.000Z'))
+  res.lastCommand = { key: 'fake-reschedule-command', actorId: rescheduled.accounts[2]._id, hash: 'c'.repeat(64), resultRevision: 1 }
+  const change = { _id: { $oid: '000000000000000000000952' }, appointmentId: res._id, actorId: res.lastCommand.actorId, revision: 1, kind: 'rescheduled', occurredAt: res.updatedAt, before: previous, after: snapshot(res), reason: 'Dữ liệu giả: chủ hỗ trợ sát giờ', createdAt: res.updatedAt, updatedAt: res.updatedAt }
+  rescheduled.appointment_events.push(change)
+  assert.doesNotThrow(() => validate(rescheduled), 'owner reschedules customer-origin booking without customer lead time')
+  delete change.reason; assert.throws(() => validate(rescheduled), /owner late change reason/)
+  change.reason = 'Dữ liệu giả'; change.actorId = rescheduled.accounts[0]._id; res.lastCommand.actorId = change.actorId
+  assert.throws(() => validate(rescheduled), /customer change cutoff 2 hours/)
+  change.actorId = rescheduled.accounts[2]._id; res.lastCommand.actorId = change.actorId
+  previous.endAt = previous.startAt
+  assert.throws(() => validate(rescheduled), /audit total duration/, 'historical snapshots must be consistent even after reschedule')
+  const lateCancel = structuredClone(data)
+  const cancel = lateCancel.appointments.find(x => x.status === 'cancelled')
+  const cancelledEvent = lateCancel.appointment_events.find(e => e.kind === 'cancelled')
+  cancel.cancelledAt = cancel.updatedAt = date(time(cancel.startAt) + 600000)
+  cancelledEvent.occurredAt = cancelledEvent.updatedAt = cancel.updatedAt
+  cancelledEvent.actorId = cancel.lastCommand.actorId = lateCancel.accounts[2]._id; cancelledEvent.reason = 'Dữ liệu giả: khách gọi hủy khi chưa phục vụ'
+  assert.doesNotThrow(() => validate(lateCancel), 'owner can cancel confirmed appointment after planned time, before actual service')
+  console.log('PASS: review regressions — 168h horizon, ETA overlap, owner reschedule/cancel, cutoff and historical audit; 3 more valid variants, 5 targeted rejections.')
 }
 
 // File links and named collection coverage, not a semantic proof of the design.

@@ -1,0 +1,29 @@
+[
+  {
+    "_id": {
+      "$oid": "000000000000000000000801"
+    },
+    "accountId": {
+      "$oid": "000000000000000000000104"
+    },
+    "purpose": "activate_staff",
+    "generation": 1,
+    "codeDigest": "FAKE_HMAC_DIGEST_NOT_A_REAL_OTP",
+    "issuedAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    },
+    "expiresAt": {
+      "$date": "2026-10-01T01:05:00.000Z"
+    },
+    "resendAvailableAt": {
+      "$date": "2026-10-01T01:01:00.000Z"
+    },
+    "failedAttempts": 0,
+    "createdAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    }
+  }
+]
