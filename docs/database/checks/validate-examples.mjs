@@ -59,15 +59,15 @@ function validate(data) {
     int(s.bookingDurationMinutes, s.durationMinutes.min, s.durationMinutes.max)
     int(s.priceVnd, 0, 100000000); int(s.displayOrder, 0, 100000); bool(s.isActive)
     if (s.__v !== undefined) int(s.__v, 0, Number.MAX_SAFE_INTEGER)
-    if (s.images) {
-    arr(s.images, 1, 10)
-    unique(s.images.map(i => oid(i.imageId)))
-    for (const i of s.images) {
-      keys(i, ['imageId'], ['alt']); ref('images', i.imageId)
-      if (i.alt !== undefined) str(i.alt, 200)
-    }
     ref('images', s.coverImageId)
-    assert(s.images.some(i => oid(i.imageId) === oid(s.coverImageId)), 'cover must belong to gallery')
+    if (s.images !== undefined) {
+      arr(s.images, 1, 10)
+      unique(s.images.map(i => oid(i.imageId)))
+      for (const i of s.images) {
+        keys(i, ['imageId'], ['alt']); ref('images', i.imageId)
+        if (i.alt !== undefined) str(i.alt, 200)
+      }
+      assert(s.images.some(i => oid(i.imageId) === oid(s.coverImageId)), 'cover must belong to gallery')
     }
   }
 
@@ -80,7 +80,7 @@ function validate(data) {
     assert(['pending_verification', 'pending_password', 'active', 'disabled'].includes(a.status))
     int(a.authRevision, 0, Number.MAX_SAFE_INTEGER)
     if (a.passwordHash !== undefined) str(a.passwordHash, 255, 20)
-    if (a.emailVerifiedAt) assert(time(a.emailVerifiedAt) <= time(a.updatedAt))
+    if (a.emailVerifiedAt !== undefined) assert(time(a.emailVerifiedAt) <= time(a.updatedAt))
     if (['active', 'pending_password'].includes(a.status)) assert(a.emailVerifiedAt, 'verified account required')
     if (a.status === 'active') assert(a.passwordHash, 'active account needs password')
     if (a.status === 'pending_verification' && a.roles.includes('customer')) assert(a.passwordHash, 'signup needs password hash')
@@ -98,15 +98,16 @@ function validate(data) {
     const issued = time(c.issuedAt), expires = time(c.expiresAt)
     assert.equal(expires - issued, 300000); assert.equal(time(c.resendAvailableAt) - issued, 60000)
     assert(issued >= time(c.createdAt) && issued <= time(c.updatedAt))
-    for (const k of ['consumedAt', 'verifiedAt']) if (c[k]) assert(time(c[k]) >= issued && time(c[k]) < expires && time(c[k]) <= time(c.updatedAt))
+    for (const k of ['consumedAt', 'verifiedAt']) if (c[k] !== undefined) assert(time(c[k]) >= issued && time(c[k]) < expires && time(c[k]) <= time(c.updatedAt))
     assert.equal(Boolean(c.verifiedAt), Boolean(c.consumedAt), 'successful verification consumes code')
     if (c.verifiedAt) assert(c.failedAttempts < 5, 'exhausted code cannot verify')
     assert.equal(Boolean(c.grantDigest), Boolean(c.grantExpiresAt), 'grant pair')
-    if (c.grantDigest) {
+    if (c.grantDigest !== undefined) {
       assert(c.purpose !== 'activate_customer' && c.verifiedAt, 'password grant purpose')
       str(c.grantDigest, 255, 20); assert(time(c.grantExpiresAt) > time(c.verifiedAt) && time(c.grantExpiresAt) <= expires)
     }
-    if (c.grantConsumedAt) assert(c.grantDigest && time(c.grantConsumedAt) >= time(c.verifiedAt) && time(c.grantConsumedAt) < time(c.grantExpiresAt))
+    if (c.grantExpiresAt !== undefined) time(c.grantExpiresAt)
+    if (c.grantConsumedAt !== undefined) assert(c.grantDigest && time(c.grantConsumedAt) >= time(c.verifiedAt) && time(c.grantConsumedAt) < time(c.grantExpiresAt))
   }
   unique(data.images.map(i => `${i.cloudName}:${i.cloudinaryAssetId}`))
   unique(data.images.map(i => `${i.cloudName}:${i.publicId}`))
@@ -118,13 +119,13 @@ function validate(data) {
     assert(u.protocol === 'https:' && u.hostname === 'res.cloudinary.com' && !u.username && !u.password && u.pathname.startsWith(`/${i.cloudName}/image/upload/`), 'image URL/cloud mismatch')
     int(i.width, 1, 20000); int(i.height, 1, 20000); int(i.bytes, 1, 10485760)
     assert(['jpg', 'png', 'webp'].includes(i.format), 'image format'); bool(i.isActive)
-    if (i.uploadedByAccountId) assert(ref('accounts', i.uploadedByAccountId).roles.some(r => r === 'owner'), 'image uploader role')
+    if (i.uploadedByAccountId !== undefined) assert(ref('accounts', i.uploadedByAccountId).roles.includes('owner'), 'image uploader role')
     // Imported legacy assets may lack an uploader. Existing links may point to archived assets.
   }
   for (const name of ['customers', 'staff']) {
     unique(data[name].filter(x => x.accountId).map(x => oid(x.accountId)))
     for (const doc of data[name]) {
-      if (doc.accountId) assert(ref('accounts', doc.accountId).roles.some(r => name === 'staff' ? ['stylist', 'owner'].includes(r) : r === 'customer'), 'profile role')
+      if (doc.accountId !== undefined) assert(ref('accounts', doc.accountId).roles.some(r => name === 'staff' ? ['stylist', 'owner'].includes(r) : r === 'customer'), 'profile role')
       str(doc.displayName)
     }
   }
@@ -168,6 +169,7 @@ function validate(data) {
     keys(a.customerSnapshot, ['displayName', 'phone']); str(a.customerSnapshot.displayName)
     if (a.customerSnapshot.phone !== undefined) phone(a.customerSnapshot.phone)
     str(a.staffNameSnapshot); arr(a.items, 1, 5); unique(a.items.map(i => i.serviceId))
+    for (const k of ['startedAt', 'completedAt', 'cancelledAt', 'noShowAt', 'lastRescheduledAt', 'estimatedEndAt', 'contactAttemptedAt']) if (a[k] !== undefined) time(a[k])
     for (const i of a.items) {
       keys(i, ['serviceId', 'name', 'priceVnd', 'durationMinutes'])
       assert(serviceMap.has(i.serviceId), 'item reference'); str(i.name)
@@ -195,8 +197,7 @@ function validate(data) {
     const creation = data.appointment_events.find(e => oid(e.appointmentId) === oid(a._id) && e.kind === 'created')
     const originalStart = a.lastRescheduledAt ? time(creation.after.startAt) : start
     assert(confirmed <= originalStart)
-    const localDaysAhead = (Date.parse(local(originalStart).date) - Date.parse(local(confirmed).date)) / 86400000
-    assert(localDaysAhead >= 0 && localDaysAhead <= 7, 'booking horizon fixture')
+    assert(originalStart - confirmed <= 7 * 86400000, 'booking horizon 168 hours')
     if (a.bookingMode === 'customer') assert(originalStart - confirmed >= 1800000, 'customer lead 30 minutes')
     int(a.revision, 0, Number.MAX_SAFE_INTEGER)
     assert.equal(Object.hasOwn(a, 'lastCommand'), a.revision > 0, 'receipt required after a command')
@@ -206,11 +207,10 @@ function validate(data) {
     for (const key of [...expected, ...(a.lastRescheduledAt ? ['lastRescheduledAt'] : [])]) assert(time(a[key]) >= confirmed && time(a[key]) <= time(a.updatedAt))
     if (a.startedAt) assert(time(a.startedAt) >= confirmed, 'actual start after creation')
     if (a.completedAt) assert(time(a.completedAt) >= time(a.startedAt))
-    if (a.cancelledAt) assert(time(a.cancelledAt) < start)
-    if (a.noShowAt) assert(time(a.noShowAt) >= start + 15 * 60000 && a.contactAttemptedAt && time(a.contactAttemptedAt) <= time(a.noShowAt))
+    if (a.noShowAt) assert(time(a.noShowAt) >= start + 15 * 60000 && a.contactAttemptedAt && time(a.contactAttemptedAt) >= confirmed && time(a.contactAttemptedAt) <= time(a.noShowAt))
     else assert(!a.contactAttemptedAt)
     if (a.lastRescheduledAt) assert(time(a.lastRescheduledAt) < start)
-    if (a.lastCommand) {
+    if (a.lastCommand !== undefined) {
       keys(a.lastCommand, ['key', 'actorId', 'hash', 'resultRevision'])
       str(a.lastCommand.key, 100, 16); ref('accounts', a.lastCommand.actorId)
       assert.match(a.lastCommand.hash, /^[0-9a-f]{64}$/); assert.equal(a.lastCommand.resultRevision, a.revision)
@@ -219,7 +219,7 @@ function validate(data) {
 
       // Planned reservation must fit a scheduled shift. Overrun is recorded and alerted, not rejected.
       assert(data.staff_shifts.some(h => oid(h.staffId) === oid(s._id) && h.status === 'active' && time(h.startAt) <= Math.min(start, time(a.occupiedFrom)) && time(h.endAt) >= end + 600000), 'outside dated shift')
-      for (const o of data.staff_time_off.filter(o => oid(o.staffId) === oid(s._id))) assert(!overlaps(start, until, time(o.startAt), time(o.endAt)), 'time off overlap')
+      for (const o of data.staff_time_off.filter(o => oid(o.staffId) === oid(s._id))) assert(!overlaps(Math.min(start, time(a.occupiedFrom)), end + 600000, time(o.startAt), time(o.endAt)), 'planned time off overlap')
     }
   }
 
@@ -234,7 +234,9 @@ function validate(data) {
       const base = x => x.status === 'in_progress' ? [time(x.startAt), time(x.endAt) + 600000] : [time(x.occupiedFrom), time(x.occupiedUntil)]
       assert(!overlaps(...base(a), ...base(b)), 'planned staff overlap is not an ETA exception')
     }
-    if (ordinary && oid(a.customerId) === oid(b.customerId))
+    // ETA may cause an existing later appointment to be affected, but it never
+    // exempts a pre-existing overlap of the planned service intervals.
+    if (oid(a.customerId) === oid(b.customerId))
       assert(!overlaps(time(a.occupiedFrom), time(a.completedAt || a.endAt), time(b.occupiedFrom), time(b.completedAt || b.endAt)), 'customer profile overlap')
   }
   unique(data.booking_requests.map(r => oid(r.actorId) + ':' + r.key))
@@ -251,23 +253,71 @@ function validate(data) {
     const a = ref('appointments', e.appointmentId), actor = ref('accounts', e.actorId)
     int(e.revision, 0, a.revision); assert(time(e.occurredAt) >= time(a.confirmedAt) && time(e.occurredAt) <= time(a.updatedAt))
     assert(['created', 'rescheduled', 'started', 'completed', 'cancelled', 'no_show', 'eta_updated', 'corrected'].includes(e.kind))
-    keys(e.before, [], snapshotKeys); keys(e.after, ['status'], snapshotKeys)
+    const requiredSnapshot = ['status', 'startAt', 'endAt', 'occupiedFrom', 'occupiedUntil', 'staffId']
+    keys(e.before, e.kind === 'created' ? [] : requiredSnapshot, snapshotKeys); keys(e.after, requiredSnapshot, snapshotKeys)
     if (e.reason !== undefined) str(e.reason, 500)
-    if (e.kind === 'created') assert(e.revision === 0 && Object.keys(e.before).length === 0)
+    const transitions = { created: [undefined, 'confirmed'], rescheduled: ['confirmed', 'confirmed'], started: ['confirmed', 'in_progress'], completed: ['in_progress', 'completed'], cancelled: ['confirmed', 'cancelled'], no_show: ['confirmed', 'no_show'], eta_updated: ['in_progress', 'in_progress'] }
+    if (e.kind !== 'corrected') assert.deepEqual([e.before.status, e.after.status], transitions[e.kind], 'audit kind/transition')
+    const owner = actor.roles.includes('owner')
+    const customer = ref('customers', a.customerId)
+    const ownCustomer = customer.accountId && oid(customer.accountId) === oid(actor._id)
+    const assigned = e.before.staffId && oid(ref('staff', e.before.staffId).accountId) === oid(actor._id)
+    if (e.kind === 'created') {
+      assert(e.revision === 0 && Object.keys(e.before).length === 0)
+      assert.equal(oid(e.actorId), oid(a.createdByAccountId)); assert.equal(time(e.occurredAt), time(a.confirmedAt))
+    }
+    if (['rescheduled', 'cancelled'].includes(e.kind)) {
+      assert(owner || ownCustomer, 'owner/customer appointment command')
+      const lead = time(e.before.startAt) - time(e.occurredAt)
+      if (!owner) assert(lead >= 7200000, 'customer change cutoff 2 hours')
+      else if (lead < 7200000) assert(e.reason, 'owner late change reason')
+      if (e.kind === 'rescheduled') {
+        const leadNew = time(e.after.startAt) - time(e.occurredAt)
+        assert(leadNew >= (owner ? 0 : 1800000) && leadNew <= 7 * 86400000, 'reschedule lead/horizon')
+        assert.equal(time(e.after.startAt) % 900000, 0, 'reschedule grid')
+      }
+    }
+    if (['started', 'completed', 'eta_updated'].includes(e.kind)) assert(owner || assigned, 'owner/assigned stylist command')
+    if (e.kind === 'no_show') { assert(owner, 'owner no-show command'); assert.equal(time(e.occurredAt), time(a.noShowAt)) }
+    if (e.kind === 'cancelled') assert.equal(time(e.occurredAt), time(a.cancelledAt))
+    if (e.kind === 'started') assert.equal(time(e.after.startedAt), time(e.occurredAt))
+    if (e.kind === 'completed') assert.equal(time(e.after.completedAt), time(e.occurredAt))
+    if (e.kind === 'eta_updated') assert(time(e.after.estimatedEndAt) > time(e.after.endAt) && time(e.after.estimatedEndAt) > time(e.occurredAt), 'future ETA')
     if (e.kind === 'corrected') {
       assert(actor.roles.includes('owner') && e.reason, 'owner and reason for correction')
       assert((e.before.status === 'in_progress' && e.after.status === 'confirmed') || (e.before.status === 'completed' && e.after.status === 'in_progress'), 'correction transition')
     }
+    if (!['created', 'rescheduled'].includes(e.kind)) for (const k of ['startAt', 'endAt', 'staffId']) assert.deepEqual(e.after[k], e.before[k], 'lifecycle preserves planned appointment')
     for (const s of [e.before, e.after]) for (const [k, v] of Object.entries(s)) {
       if (k === 'staffId') ref('staff', v)
       else if (k.endsWith('At') || ['occupiedFrom', 'occupiedUntil'].includes(k)) time(v)
       else assert(['confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'].includes(v))
     }
+    for (const s of [e.before, e.after].filter(s => Object.keys(s).length)) {
+      const start = time(s.startAt), end = time(s.endAt)
+      assert.equal(end - start, a.totalDurationMinutes * 60000, 'audit total duration')
+      const actual = s.status === 'completed' || s.status === 'in_progress'
+      assert.equal(s.startedAt !== undefined, actual, 'audit actual start')
+      assert.equal(s.completedAt !== undefined, s.status === 'completed', 'audit actual completion')
+      if (s.estimatedEndAt !== undefined) assert(s.status === 'in_progress' && time(s.estimatedEndAt) > end)
+      if (actual) assert(time(s.startedAt) <= time(e.occurredAt))
+      if (s.completedAt) assert(time(s.completedAt) >= time(s.startedAt) && time(s.completedAt) <= time(e.occurredAt))
+      const from = s.status === 'completed' ? time(s.startedAt) : s.status === 'in_progress' ? Math.min(start, time(s.startedAt)) : start
+      const until = s.status === 'completed' ? time(s.completedAt) + 600000 : s.status === 'in_progress' ? Math.max(end, s.estimatedEndAt ? time(s.estimatedEndAt) : end) + 600000 : end + 600000
+      assert.equal(time(s.occupiedFrom), from, 'audit occupiedFrom'); assert.equal(time(s.occupiedUntil), until, 'audit occupiedUntil')
+    }
   }
   for (const a of data.appointments) {
     const events = data.appointment_events.filter(e => oid(e.appointmentId) === oid(a._id)).sort((x,y) => x.revision-y.revision)
     assert.equal(events.length, a.revision + 1, 'complete event history')
-    events.forEach((e,i) => { assert.equal(e.revision,i); if(i) assert.deepEqual(e.before, events[i-1].after, 'audit chain') })
+    events.forEach((e,i) => {
+      assert.equal(e.revision,i)
+      if (i) { assert.deepEqual(e.before, events[i-1].after, 'audit chain'); assert(time(e.occurredAt) >= time(events[i-1].occurredAt), 'audit chronological order') }
+    })
+    const rescheduled = events.filter(e => e.kind === 'rescheduled').at(-1)
+    assert.equal(Boolean(a.lastRescheduledAt), Boolean(rescheduled), 'last reschedule audit')
+    if (rescheduled) assert.equal(time(a.lastRescheduledAt), time(rescheduled.occurredAt))
+    if (a.lastCommand) assert.equal(oid(a.lastCommand.actorId), oid(events.at(-1).actorId), 'command actor matches audit')
     const current = Object.fromEntries(snapshotKeys.filter(k => a[k] !== undefined).map(k => [k,a[k]]))
     assert.deepEqual(events.at(-1).after, current, 'audit current state')
   }
@@ -333,6 +383,16 @@ if (process.argv.includes('--self-test')) {
     d => { const a = d.appointments[0]; a.confirmedAt = a.createdAt = a.updatedAt = { $date: '2026-09-20T01:00:00.000Z' } },
     d => { d.appointments[0].items = Array.from({ length: 6 }, () => d.appointments[0].items[0]) },
     d => { d.booking_requests.push({ ...d.booking_requests[0], _id: { $oid: 'f'.repeat(24) } }) },
+    d => { d.services[0].images = false },
+    d => { const s = d.services[0]; s.isActive = false; delete s.images; s.coverImageId = { $oid: 'f'.repeat(24) }; d.response.data = d.response.data.filter(x => x.id !== s.id) },
+    d => { d.accounts[0].status = 'disabled'; d.accounts[0].emailVerifiedAt = false },
+    d => { d.auth_challenges[0].verifiedAt = false },
+    d => { d.appointments.at(-1).estimatedEndAt = false },
+    d => { d.appointments[3].lastCommand = false },
+    d => { d.customers[1].accountId = false },
+    d => { d.appointment_events.find(e => e.kind === 'completed').kind = 'started' },
+    d => { d.appointment_events.find(e => e.kind === 'no_show').actorId = d.accounts[1]._id },
+    d => { d.appointment_events.find(e => e.kind === 'completed').actorId = d.accounts[0]._id },
 
   ]
   mutations.forEach((mutate, i) => { const copy = structuredClone(data); mutate(copy); assert.throws(() => validate(copy), `negative case ${i + 1}`) })
@@ -379,6 +439,53 @@ if (process.argv.includes('--self-test')) {
   correction.reason = 'Dữ liệu giả'; correction.actorId = corrected.accounts[1]._id
   assert.throws(() => validate(corrected), /owner and reason/)
   console.log(`PASS: ${positiveCases.length + 1} valid variants accepted; customer overlap, no-show contact and owner/reason correction checks.`)
+
+  const date = ms => ({ $date: new Date(ms).toISOString() })
+  const snapshot = a => Object.fromEntries(['status', 'startAt', 'endAt', 'occupiedFrom', 'occupiedUntil', 'startedAt', 'completedAt', 'estimatedEndAt', 'staffId'].filter(k => a[k] !== undefined).map(k => [k, a[k]]))
+  const move = (d, start) => {
+    const a = d.appointments[0]
+    a.startAt = date(start); a.endAt = date(start + a.totalDurationMinutes * 60000)
+    a.occupiedFrom = a.startAt; a.occupiedUntil = date(time(a.endAt) + 600000); a.localDate = local(start).date
+    d.appointment_events.find(e => oid(e.appointmentId) === oid(a._id)).after = snapshot(a)
+    return a
+  }
+  const horizon = structuredClone(data)
+  const h = horizon.appointments[0]
+  h.confirmedAt = h.createdAt = h.updatedAt = date(time(h.startAt) - 7 * 86400000 - 60000)
+  assert.throws(() => validate(horizon), /booking horizon 168 hours/, 'seven local dates must not exceed 168 hours')
+  const etaCustomer = structuredClone(data)
+  move(etaCustomer, Date.parse('2026-10-06T02:00:00.000Z'))
+  etaCustomer.appointments.at(-1).customerId = etaCustomer.appointments[0].customerId
+  assert.throws(() => validate(etaCustomer), /customer profile overlap/, 'ETA must not exempt planned customer overlap')
+  const etaConflict = structuredClone(data)
+  const next = move(etaConflict, Date.parse('2026-10-06T03:15:00.000Z'))
+  next.staffId = etaConflict.appointments.at(-1).staffId
+  etaConflict.appointment_events.find(e => oid(e.appointmentId) === oid(next._id)).after = snapshot(next)
+  assert.doesNotThrow(() => validate(etaConflict), 'recording ETA may affect an already booked later slot')
+  const rescheduled = structuredClone(data)
+  const res = rescheduled.appointments[0], previous = snapshot(res)
+  move(rescheduled, Date.parse('2026-10-05T01:15:00.000Z'))
+  const created = rescheduled.appointment_events.find(e => oid(e.appointmentId) === oid(res._id))
+  created.after = previous
+  res.revision = 1; res.lastRescheduledAt = res.updatedAt = date(Date.parse('2026-10-05T01:00:00.000Z'))
+  res.lastCommand = { key: 'fake-reschedule-command', actorId: rescheduled.accounts[2]._id, hash: 'c'.repeat(64), resultRevision: 1 }
+  const change = { _id: { $oid: '000000000000000000000952' }, appointmentId: res._id, actorId: res.lastCommand.actorId, revision: 1, kind: 'rescheduled', occurredAt: res.updatedAt, before: previous, after: snapshot(res), reason: 'Dữ liệu giả: chủ hỗ trợ sát giờ', createdAt: res.updatedAt, updatedAt: res.updatedAt }
+  rescheduled.appointment_events.push(change)
+  assert.doesNotThrow(() => validate(rescheduled), 'owner reschedules customer-origin booking without customer lead time')
+  delete change.reason; assert.throws(() => validate(rescheduled), /owner late change reason/)
+  change.reason = 'Dữ liệu giả'; change.actorId = rescheduled.accounts[0]._id; res.lastCommand.actorId = change.actorId
+  assert.throws(() => validate(rescheduled), /customer change cutoff 2 hours/)
+  change.actorId = rescheduled.accounts[2]._id; res.lastCommand.actorId = change.actorId
+  previous.endAt = previous.startAt
+  assert.throws(() => validate(rescheduled), /audit total duration/, 'historical snapshots must be consistent even after reschedule')
+  const lateCancel = structuredClone(data)
+  const cancel = lateCancel.appointments.find(x => x.status === 'cancelled')
+  const cancelledEvent = lateCancel.appointment_events.find(e => e.kind === 'cancelled')
+  cancel.cancelledAt = cancel.updatedAt = date(time(cancel.startAt) + 600000)
+  cancelledEvent.occurredAt = cancelledEvent.updatedAt = cancel.updatedAt
+  cancelledEvent.actorId = cancel.lastCommand.actorId = lateCancel.accounts[2]._id; cancelledEvent.reason = 'Dữ liệu giả: khách gọi hủy khi chưa phục vụ'
+  assert.doesNotThrow(() => validate(lateCancel), 'owner can cancel confirmed appointment after planned time, before actual service')
+  console.log('PASS: review regressions — 168h horizon, ETA overlap, owner reschedule/cancel, cutoff and historical audit; 3 more valid variants, 5 targeted rejections.')
 }
 
 // File links and named collection coverage, not a semantic proof of the design.

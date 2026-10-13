@@ -1,6 +1,6 @@
 # SOL-016 — DB baseline MVP
 
-Cập nhật **14/10/2026** từ SOL-011 theo [PHẠM VI đã chốt](https://docs.google.com/spreadsheets/d/1mKBFo0c1PcSJEVwbI80AAsorL47a7VyGk-nE0hIGLbw/edit?gid=785319952#gid=785319952). BR sản phẩm đã được chủ dự án duyệt; thiết kế kỹ thuật này chờ review PR SOL-016. **Chưa triển khai model/API hoặc áp dụng validator/index/migration lên DB thật.**
+Cập nhật **14/10/2026** từ SOL-011 theo [PHẠM VI đã chốt](https://docs.google.com/spreadsheets/d/1mKBFo0c1PcSJEVwbI80AAsorL47a7VyGk-nE0hIGLbw/edit?gid=785319952#gid=785319952). BR sản phẩm đã được chủ dự án duyệt; baseline kỹ thuật nghiệm thu qua PR SOL-016. **Chưa triển khai model/API hoặc áp dụng validator/index/migration lên DB thật.**
 
 ## Đọc từ đây
 

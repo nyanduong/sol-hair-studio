@@ -1,6 +1,6 @@
 # Schema DB baseline MVP — SOL-016
 
-Thiết kế kỹ thuật chờ review, BR đã chốt; chưa là model/validator đang chạy. [Quy tắc ghi](business-rules.md), [query/index](queries-and-indexes.md), [mẫu giả](examples/README.md) dùng cùng field dưới đây.
+Baseline thiết kế kỹ thuật theo BR đã chốt; chưa là model/validator đang chạy. [Quy tắc ghi](business-rules.md), [query/index](queries-and-indexes.md), [mẫu giả](examples/README.md) dùng cùng field dưới đây.
 
 ## Quy ước
 

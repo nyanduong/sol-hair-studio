@@ -12,7 +12,7 @@ Server đọc dịch vụ active, tính tổng giá/thời lượng từ booking
 <a id="time"></a>
 ## BR-02. Thời gian và khoảng giữ
 
-- Timezone Asia/Ho_Chi_Minh, server UTC instant. Giới hạn 7 ngày theo ngày địa phương: chênh lệch localDate 0..7; vẫn phải có ca cụ thể. Đây là diễn giải kỹ thuật cần review, không tự mở tuần chưa có ca.
+- Timezone Asia/Ho_Chi_Minh, server UTC instant. Giới hạn startAt≤server now+7×24 giờ (168 giờ), kiểm bằng UTC instant; ngày hiển thị/xếp ca dùng timezone địa phương. Vẫn phải có ca cụ thể, không tự mở tuần chưa có ca.
 - Khách startAt≥server now+30 phút; giờ bắt đầu :00/:15/:30/:45, giây/millisecond 0. Chủ đặt tương lai dùng grid; **owner_walkin** lấy now server khi ghi nhận, không cho client backdate hoặc giả role.
 - Thời lượng dịch vụ là tổng item; buffer sau cả lịch 10 phút, không tính vào giá/thời lượng dịch vụ. Toàn khoảng giữ nằm trong một ca active, không giao nghỉ/ca khác/lịch khác; không tự điền giờ mở cửa chưa cung cấp.
 - Khoảng dùng **[start,end)**; tiếp theo có start bằng occupiedUntil được liền kề, rồi chọn mốc 15 phút hợp lệ tiếp theo. Xong 11:00 → dọn tới 11:10 → slot 11:15.
@@ -26,7 +26,7 @@ Server đọc dịch vụ active, tính tổng giá/thời lượng từ booking
 
 Completed mở phần giờ không dùng sau dọn, không đổi startAt/endAt đã hẹn. Bắt đầu sớm chỉ khi đã có khách, stylist rảnh, trong ca và khoảng vận hành không ảnh hưởng lịch khác. Lịch mới sau mở giờ vẫn đủ dịch vụ+dọn trước lịch kế tiếp, grid/lead-time/horizon đúng.
 
-Nếu in_progress đã quá endAt mà chưa có ETA hợp lệ hoặc ETA cũng đã qua: **chưa biết giờ rảnh**, không quảng cáo slot giao phần đang bận; yêu cầu cập nhật ETA hoặc hoàn tất để tính lại. Không tự hoàn tất, dời hoặc hủy lịch. Actual ghi đúng server, không sửa sự kiện thực tế để làm cho test overlap xanh.
+Nếu in_progress đã quá endAt mà chưa có ETA hợp lệ hoặc ETA cũng đã qua: **chưa biết giờ rảnh**, không quảng cáo slot giao phần đang bận cho cả stylist và mã hồ sơ khách; yêu cầu cập nhật ETA hoặc hoàn tất để tính lại. Không tự hoàn tất, dời hoặc hủy lịch. Actual ghi đúng server, không sửa sự kiện thực tế để làm cho test overlap xanh.
 
 <a id="shifts"></a>
 ## BR-03. Ca, nghỉ và năng lực
@@ -45,7 +45,7 @@ Mọi writer ảnh hưởng availability (create/reschedule/cancel/start/complet
 1. Xác định tài nguyên từ pre-read, chỉ để biết tập guard, không coi đó là dữ liệu quyền đáng tin cậy.
 2. Transaction thực sự `$inc bookingRevision` trên **customers** và **staff** cần bảo vệ; thứ tự toàn cục customer IDs sorted rồi staff IDs sorted. Đổi stylist khóa cả người cũ/mới; sửa ca khóa staff, mọi booking cũng ghi staff guard. Trần MAX_SAFE_INTEGER từ chối, không reset.
 3. Đọc lại appointment/role/ca/năng lực/receipt dưới cùng session. Nếu tập tài nguyên thay đổi so với pre-read, abort và chạy lại với tập đúng, không mở khóa khác thứ tự giữa transaction.
-4. Cùng staff kiểm khoảng vận hành bao gồm dọn, cùng customerId kiểm khoảng phục vụ (không ép khách chờ cleanup của stylist). Khách khác chung phone không bị coi là cùng người. Bỏ current appointment khi đổi.
+4. Cùng staff kiểm khoảng vận hành bao gồm dọn, cùng customerId kiểm khoảng phục vụ: confirmed đến endAt, in_progress đến max(endAt,ETA), completed đến completedAt; không cộng cleanup cho khách. Khách khác chung phone không bị coi là cùng người. Bỏ current appointment khi đổi.
 5. CAS `_id,revision,status`, ghi appointment + receipt/event trong cùng transaction; chỉ trả thành công sau commit.
 
 Nếu actual kéo dài làm lịch hẹn kế tiếp bị ảnh hưởng, cho ghi nhận thực tế/ETA và cảnh báo, không giả vờ DB có thể ngăn thực tế đó. **Create/reschedule/correction** không được tạo thêm xung đột; ETA/actual được phản ánh trung thực và chủ xử lý thủ công.

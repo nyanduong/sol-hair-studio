@@ -45,7 +45,7 @@ MongoDB tự có _id unique. Chỉ cài sau audit duplicate/shape; optional acco
 | staff_shifts | {staffId:1,status:1,startAt:1} | Ca giao ngày; endAt residual |
 | staff_time_off | {staffId:1,startAt:1} | Nghỉ giao khoảng; endAt residual |
 | appointments | {staffId:1,status:1,occupiedFrom:1} | Staff overlap, occupiedUntil residual |
-| appointments | {customerId:1,status:1,occupiedFrom:1} | Customer overlap; actual/planned end residual, không cleanup |
+| appointments | {customerId:1,status:1,occupiedFrom:1} | Customer overlap; actual/planned/ETA end residual, không cleanup |
 | appointments | {customerId:1,startAt:-1,_id:-1} | Lịch khách |
 | appointments | {localDate:1,startAt:1,_id:1} | Lịch tiệm |
 | appointments | {staffId:1,localDate:1,startAt:1,_id:1} | Lịch nhân viên |
@@ -58,7 +58,7 @@ Không unique(staffId,startAt): hai giờ bắt đầu khác nhau vẫn có th�
 
 ## Kiểm khoảng đúng
 
-Với interval [from,until), overlap khi existingFrom < until và existingUntil > from. Lọc status confirmed/in_progress/completed rồi xét khoảng [BR thời gian](business-rules.md#time); cancelled/no_show không chặn. Customer dùng giờ phục vụ, staff gồm dọn. Completed vẫn chặn thời gian thực tế đã phục vụ+dọn; không giữ nguyên toàn khoảng dự kiến khi hoàn tất sớm.
+Với interval [from,until), overlap khi existingFrom < until và existingUntil > from. Lọc status confirmed/in_progress/completed rồi xét khoảng [BR thời gian](business-rules.md#time); cancelled/no_show không chặn. Customer dùng giờ phục vụ: confirmed→endAt, in_progress→max(endAt,ETA), completed→completedAt; staff cộng dọn. ETA quá hạn/chưa biết giờ kết thúc không mở lịch mới giao phần đang phục vụ của cùng customer hoặc staff. Ghi nhận ETA làm ảnh hưởng lịch đã có thì cảnh báo, không tự dời. Completed vẫn chặn thời gian thực tế đã phục vụ+dọn; không giữ nguyên toàn khoảng dự kiến khi hoàn tất sớm.
 
 Không chỉ query các document occupiedUntil>now rồi quảng cáo slot: in_progress đã quá ETA cần nhánh phát hiện riêng (staffId,status=in_progress), coi giờ rảnh chưa xác định cho đến ETA/complete. Overrun cảnh báo danh sách lịch giao ETA; không tự dời.
 
