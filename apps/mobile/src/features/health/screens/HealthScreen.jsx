@@ -27,8 +27,9 @@ export default function HealthScreen() {
           onRetry={retry}
         />
         <Text style={styles.hint}>
-          Android Emulator thường dùng 10.0.2.2. Điện thoại thật phải dùng địa
-          chỉ LAN của máy chạy API trong apps/mobile/.env.
+          Bản dev tự dùng máy chạy Expo làm host API ở cổng 4000. Hãy chạy
+          API và kết nối cùng mạng. Nếu API ở máy hoặc cổng khác, đặt
+          EXPO_PUBLIC_API_BASE_URL trong apps/mobile/.env rồi tải lại app.
         </Text>
       </ScrollView>
       <StatusBar style="dark" />

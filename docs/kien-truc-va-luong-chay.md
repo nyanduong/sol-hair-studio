@@ -96,7 +96,10 @@ apps/web/src/
 ```text
 apps/mobile/
 ├── src/
-│   ├── config/env.js                 Đọc và chuẩn hóa EXPO_PUBLIC_API_BASE_URL
+│   ├── config/
+│   │   ├── env.js                   Ghép cấu hình API với host Expo và nền tảng
+│   │   ├── resolve-api-base-url.js   Ưu tiên URL cấu hình; tự nhận host trong dev
+│   │   └── tests/                   Test chọn host, đổi mạng và cấu hình riêng
 │   ├── navigation/RootNavigator.jsx  Khai báo native stack một màn hình, ẩn header
 │   ├── features/health/
 │   │   ├── screens/HealthScreen.jsx  Ghép màn hình, SafeAreaView và StatusBar
