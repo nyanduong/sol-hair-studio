@@ -1,85 +1,65 @@
+import { useEffect, useRef } from 'react'
+
 const links = [
   { href: '#services', label: 'Dịch vụ' },
   { href: '#experience', label: 'Trải nghiệm' },
   { href: '#stories', label: 'Góc Sol' },
+  { href: '#contact', label: 'Về chúng tôi' },
 ]
 
-function Brand() {
-  return (
-    <a href="#home" className="flex items-center gap-3" aria-label="Sol Hair Studio — Trang chủ">
-      <span className="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-terracotta/20 bg-canvas">
-        <img
-          src="/logo/sol-logo.png"
-          alt=""
-          className="h-full w-full rounded-full object-cover"
-          decoding="async"
-        />
-      </span>
-      <span className="leading-none">
-        <span className="block font-display text-[1.2rem] font-semibold tracking-[0.2em] text-ink sm:text-[1.35rem]">
-          SOL HAIR STUDIO
-        </span>
-        <span className="mt-1 block text-[0.55rem] font-medium tracking-[0.32em] text-muted">
-          BEAUTY SHINES WITHIN
-        </span>
-      </span>
-    </a>
-  )
-}
-
 export default function SiteHeader() {
+  const menuRef = useRef(null)
+  const summaryRef = useRef(null)
+  const closeMenu = () => { if (menuRef.current) menuRef.current.open = false }
+
+  useEffect(() => {
+    function dismiss(event) {
+      if (event.type === 'keydown') {
+        if (event.key !== 'Escape' || !menuRef.current?.open) return
+        closeMenu()
+        summaryRef.current?.focus()
+      } else if (!menuRef.current?.contains(event.target)) closeMenu()
+    }
+    const desktop = window.matchMedia('(min-width: 1024px)')
+    const onBreakpoint = () => { if (desktop.matches) closeMenu() }
+    document.addEventListener('pointerdown', dismiss)
+    document.addEventListener('keydown', dismiss)
+    desktop.addEventListener('change', onBreakpoint)
+    return () => {
+      document.removeEventListener('pointerdown', dismiss)
+      document.removeEventListener('keydown', dismiss)
+      desktop.removeEventListener('change', onBreakpoint)
+    }
+  }, [])
+
+  function navigate(event) {
+    closeMenu()
+    // Move focus out of the collapsed menu and into its destination.
+    document.querySelector(event.currentTarget.hash)?.focus({ preventScroll: true })
+  }
+
   return (
-    <header className="sticky top-0 z-40 border-b border-border/70 bg-canvas/90 backdrop-blur-md">
-      <div className="mx-auto flex h-[76px] max-w-7xl items-center justify-between px-4 sm:h-20 sm:px-6 lg:px-8">
-        <Brand />
-        <nav aria-label="Điều hướng chính" className="hidden items-center gap-9 lg:flex">
-          {links.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="text-sm text-ink/75 transition hover:text-terracotta"
-            >
-              {link.label}
-            </a>
-          ))}
-          <a
-            href="#contact"
-            className="rounded-full bg-terracotta px-5 py-3 text-sm font-semibold text-white transition hover:bg-terracotta-dark"
-          >
-            Đặt lịch
-          </a>
+    <header className="sticky top-0 z-40 border-b border-border/60 bg-canvas/95 backdrop-blur-md">
+      <a href="#main-content" className="absolute left-4 top-3 -translate-y-24 rounded-full bg-ink px-5 py-3 text-sm text-white focus:translate-y-0">Bỏ qua điều hướng</a>
+      <div className="mx-auto flex min-h-20 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+        <a href="#home" aria-label="Sol Hair Studio — Trang chủ" className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+          <img src="/logo/sol-logo.png" alt="" width="44" height="44" className="h-10 w-10 shrink-0 object-contain sm:h-11 sm:w-11" decoding="async" />
+          <span className="min-w-0 leading-none">
+            <span className="block font-display text-[1.05rem] font-semibold tracking-[0.13em] sm:text-xl sm:tracking-[0.18em]">SOL HAIR STUDIO</span>
+            <span className="mt-1.5 block text-[0.46rem] font-medium tracking-[0.18em] text-muted sm:text-[0.5rem] sm:tracking-[0.25em]">BEAUTY SHINES WITHIN</span>
+          </span>
+        </a>
+        <nav aria-label="Điều hướng chính" className="hidden items-center gap-7 lg:flex">
+          {links.map(({ href, label }) => <a key={href} href={href} className="inline-flex min-h-11 items-center text-xs text-muted transition-colors hover:text-terracotta">{label}</a>)}
+          <a href="#booking" className="inline-flex min-h-11 items-center rounded-full bg-terracotta px-5 text-xs font-semibold text-white transition-colors hover:bg-terracotta-dark">Đặt lịch</a>
         </nav>
-        <details className="group relative lg:hidden">
-          <summary className="grid h-10 w-10 cursor-pointer list-none place-items-center rounded-full border border-border text-ink [&::-webkit-details-marker]:hidden">
+        <details ref={menuRef} className="relative shrink-0 lg:hidden">
+          <summary ref={summaryRef} className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-full border border-border text-ink [&::-webkit-details-marker]:hidden">
             <span className="sr-only">Mở điều hướng</span>
-            <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
-              <path
-                d="M4 7h16M4 12h16M4 17h16"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-            </svg>
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-5 w-5"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
           </summary>
-          <nav
-            aria-label="Điều hướng chính trên điện thoại"
-            className="absolute right-0 top-12 grid min-w-52 gap-1 rounded-2xl border border-border bg-white p-2 shadow-xl"
-          >
-            {links.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="rounded-xl px-4 py-3 text-sm text-ink transition hover:bg-soft-surface"
-              >
-                {link.label}
-              </a>
-            ))}
-            <a
-              href="#contact"
-              className="rounded-xl px-4 py-3 text-sm font-semibold text-terracotta transition hover:bg-soft-surface"
-            >
-              Đặt lịch
-            </a>
+          <nav aria-label="Điều hướng chính trên điện thoại" className="absolute right-0 top-14 grid w-60 max-w-[calc(100vw-2rem)] gap-1 rounded-2xl border border-border bg-canvas p-2 shadow-lg">
+            {[...links, { href: '#booking', label: 'Đặt lịch' }].map(({ href, label }) => <a key={href} href={href} onClick={navigate} className="flex min-h-11 items-center rounded-xl px-4 text-sm hover:bg-soft-surface">{label}</a>)}
           </nav>
         </details>
       </div>

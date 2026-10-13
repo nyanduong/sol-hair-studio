@@ -1,74 +1,27 @@
 import RevealOnScroll from './RevealOnScroll.jsx'
 
+// Sample editorial content, pending owner review; no CMS/detail routes exist.
 const stories = [
-  {
-    image: '/images/editorial-milktea.jpg',
-    title: 'Sắc nâu ấm trở lại với vẻ đẹp tự nhiên, dễ chăm sóc',
-    description:
-      'Những sắc nâu dịu và giàu chiều sâu mang đến thay đổi vừa đủ, tôn làn da mà vẫn giữ nét riêng.',
-  },
-  {
-    image: '/images/experience-cut.jpg',
-    title: 'Layer mềm và chuyển động nhẹ cho mái tóc hàng ngày',
-    description:
-      'Một phom cắt được cân chỉnh theo gương mặt giúp tóc vào nếp tự nhiên, không cần tạo kiểu cầu kỳ.',
-  },
-  {
-    image: '/images/editorial-color.jpg',
-    title: 'Chăm sóc mái tóc sau nhuộm để màu luôn mềm bóng',
-    description:
-      'Từ cách gội đến dưỡng ẩm, vài thói quen nhỏ sẽ giúp màu tóc bền đẹp và bề mặt tóc óng khỏe hơn.',
-  },
+  { image: '/images/editorial-milktea.jpg', title: 'Sắc nâu ấm trở lại đầy cuốn hút' },
+  { image: '/images/experience-cut.jpg', title: 'Layer mềm mại cho mái tóc hằng ngày' },
+  { image: '/images/editorial-color.jpg', title: 'Chăm sóc sau nhuộm để tóc luôn mềm bóng' },
 ]
 
 export default function EditorialSection() {
   return (
-    <section
-      id="stories"
-      aria-labelledby="stories-title"
-      className="scroll-mt-24 bg-white/70 py-14 sm:py-16 lg:py-20"
-    >
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <RevealOnScroll className="mb-8 flex flex-col gap-4 sm:mb-9 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="mb-3 text-[0.68rem] font-semibold tracking-[0.24em] text-terracotta uppercase">
-              Góc Sol
-            </p>
-            <h2
-              id="stories-title"
-              className="mt-2 font-display text-3xl font-medium tracking-tight text-ink sm:text-4xl lg:text-5xl"
-            >
-              Xu hướng & cảm hứng.
-            </h2>
-            <p className="mt-3 text-sm text-muted sm:text-base">
-              Những câu chuyện, kiểu tóc và xu hướng đang được quan tâm.
-            </p>
-          </div>
-          <span className="mb-1 hidden text-xs text-muted sm:block">Gợi ý biên tập mẫu</span>
+    <section id="stories" tabIndex={-1} aria-labelledby="stories-title" className="py-7 sm:py-8">
+      <div className="mx-auto grid max-w-6xl gap-6 px-4 sm:px-6 lg:grid-cols-[0.9fr_1.5fr] lg:items-start lg:gap-10 lg:px-8">
+        <RevealOnScroll>
+          <p className="text-[0.6rem] font-semibold tracking-[0.24em] text-terracotta uppercase">Góc Sol</p>
+          <h2 id="stories-title" className="mt-2 font-display text-3xl font-medium sm:text-[2.1rem]">Xu hướng & cảm hứng.</h2>
+          <p className="mt-2 text-xs leading-relaxed text-muted">Những câu chuyện, kiểu tóc và gợi ý chăm sóc.</p>
+          <p className="mt-2 text-[0.6rem] text-muted">Nội dung biên tập mẫu</p>
         </RevealOnScroll>
-
-        <div className="grid grid-cols-1 gap-x-6 gap-y-9 sm:grid-cols-2 lg:grid-cols-3 lg:gap-x-8">
-          {stories.map((story, index) => (
-            <RevealOnScroll key={story.title} delay={index * 80}>
-              <article>
-                <div className="group overflow-hidden rounded-[20px] bg-soft-surface">
-                  <img
-                    src={story.image}
-                    alt=""
-                    className="aspect-[1.6] w-full object-cover transition duration-[600ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.03]"
-                    loading="lazy"
-                  />
-                </div>
-                <p className="mt-4 text-[0.62rem] font-semibold tracking-[0.19em] text-muted uppercase">
-                  Nội dung mẫu · Góc Sol
-                </p>
-                <h3 className="mt-2 font-display text-xl leading-tight text-ink sm:text-2xl">
-                  {story.title}
-                </h3>
-                <p className="mt-2 text-sm leading-6 text-muted">{story.description}</p>
-              </article>
-            </RevealOnScroll>
-          ))}
+        <div className="grid grid-cols-1 gap-5 min-[420px]:grid-cols-3 sm:gap-6">
+          {stories.map(({ image, title }, index) => <RevealOnScroll as="article" key={title} delay={index * 80} className="group min-w-0">
+            <div className="overflow-hidden rounded-xl"><img src={image} alt="" loading="lazy" className="aspect-[2.2] w-full object-cover transition-transform duration-700 motion-safe:group-hover:scale-105 motion-reduce:transition-none" /></div>
+            <h3 className="mt-2 font-display text-lg font-medium leading-tight">{title}</h3>
+          </RevealOnScroll>)}
         </div>
       </div>
     </section>

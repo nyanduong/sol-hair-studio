@@ -1,44 +1,26 @@
-const currencyFormatter = new Intl.NumberFormat('vi-VN')
+import { useState } from 'react'
+import { formatDuration, formatPrice } from '../format-service.js'
 
 export default function ServiceCard({ service }) {
-  const { min, max } = service.durationMinutes
+  const [failedImageUrl, setFailedImageUrl] = useState(null)
 
   return (
-    <article className="group rounded-[22px] border border-border/80 bg-white p-3 shadow-[0_10px_32px_rgba(71,51,39,0.06)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_38px_rgba(71,51,39,0.12)] sm:p-4">
-      <div className="overflow-hidden rounded-[16px] bg-soft-surface">
-        <img
-          src={service.imageUrl}
-          alt={service.name}
-          className="aspect-[1.55] w-full object-cover transition duration-[600ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.03]"
-          loading="lazy"
-        />
+    <article className="group transition-[translate,box-shadow,border-color] duration-300 motion-safe:hover:-translate-y-1 hover:border-terracotta/40 hover:shadow-lg motion-reduce:transition-none flex h-full min-w-0 flex-col rounded-2xl border border-border/60 bg-white p-2 shadow-[0_4px_16px_rgba(71,51,39,0.04)]">
+      <div className="aspect-[2.25] overflow-hidden rounded-xl bg-soft-surface">
+        {failedImageUrl === service.imageUrl ? (
+          <div role="img" aria-label={`Chưa tải được ảnh ${service.name}`} className="flex h-full flex-col items-center justify-center gap-2 p-3 text-center text-xs text-muted">
+            <span aria-hidden="true" className="font-display text-3xl text-terracotta">Sol</span>
+            <span>Ảnh dịch vụ chưa khả dụng</span>
+          </div>
+        ) : <img src={service.imageUrl} alt={service.name} onError={() => setFailedImageUrl(service.imageUrl)} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-700 motion-safe:group-hover:scale-105 motion-reduce:transition-none" />}
       </div>
-      <div className="flex items-start justify-between gap-3 px-1 pb-1 pt-4">
-        <div>
-          <h3 className="font-display text-[1.55rem] leading-tight text-ink sm:text-[1.7rem]">
-            {service.name}
-          </h3>
-          <p className="mt-2 text-xs text-muted sm:text-sm">
-            {min}–{max} phút
-          </p>
-          <p className="mt-1 font-semibold text-terracotta">
-            {currencyFormatter.format(service.priceVnd)}đ
-          </p>
+      <div className="flex flex-1 flex-col px-2 pb-1 pt-3">
+        <h3 className="font-display text-2xl font-medium leading-tight">{service.name}</h3>
+        <p className="mt-1.5 text-xs leading-relaxed text-muted">{service.description}</p>
+        <div className="mt-auto flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 pt-4">
+          <p className="text-sm font-semibold text-terracotta">{formatPrice(service.priceVnd)}</p>
+          <p className="text-[0.65rem] text-muted">{formatDuration(service.durationMinutes)}</p>
         </div>
-        <span
-          aria-hidden="true"
-          className="mt-1 grid h-10 w-10 shrink-0 place-items-center rounded-full border border-border text-terracotta transition group-hover:border-terracotta group-hover:bg-terracotta group-hover:text-white"
-        >
-          <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
-            <path
-              d="M5 12h14m-6-6 6 6-6 6"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </span>
       </div>
     </article>
   )
