@@ -1,21 +1,27 @@
 import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native'
+import Feather from '@expo/vector-icons/Feather'
+import { useFeatureUnavailable } from '../../../components/FeatureUnavailableProvider.jsx'
 import { colors, displayFont } from '../../../theme/tokens.js'
 
 export default function HomeHeader({ onServices }) {
+  const showFeature = useFeatureUnavailable()
   const { width, fontScale } = useWindowDimensions()
   const compact = width < 390 || fontScale > 1.15
   return <View>
     <View style={styles.brandRow}>
       <Image source={require('../../../../assets/brand/sol-logo.png')} style={styles.logo} accessible={false} />
       <View style={styles.brandCopy}><Text style={styles.brand}>SOL HAIR STUDIO</Text><Text style={styles.tagline}>BEAUTY SHINES WITHIN</Text></View>
+      <Pressable accessibilityRole="button" accessibilityLabel="Thông báo" onPress={() => showFeature('Thông báo')} style={styles.notification}>
+        <Feather name="bell" size={26} color={colors.ink} />
+      </Pressable>
     </View>
     <View style={[styles.hero, compact && styles.heroStack]}>
       <View style={styles.copy}>
         <Text style={styles.greeting}>Xin chào,</Text>
         <Text accessibilityRole="header" style={styles.title}>Một phiên bản đẹp hơn của bạn bắt đầu từ hôm nay.</Text>
         <Text style={styles.intro}>Khám phá dịch vụ, phong cách và cảm hứng dành riêng cho mái tóc của bạn.</Text>
-        <Pressable accessibilityRole="button" onPress={onServices} style={({ pressed }) => [styles.button, pressed && { opacity: 0.75 }]}>
-          <Text style={styles.buttonText}>Khám phá dịch vụ →</Text>
+        <Pressable accessibilityRole="button" onPress={() => showFeature('Đặt lịch')} style={({ pressed }) => [styles.button, pressed && { opacity: 0.75 }]}>
+          <Text style={styles.buttonText}>Đặt lịch ngay →</Text>
         </Pressable>
       </View>
       <View style={[styles.media, compact && styles.mediaWide]}>
@@ -31,6 +37,7 @@ export default function HomeHeader({ onServices }) {
 }
 const styles = StyleSheet.create({
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 16 },
+  notification: { width: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   logo: { width: 44, height: 44, resizeMode: 'contain' }, brandCopy: { flex: 1 },
   brand: { color: colors.ink, fontFamily: displayFont, fontSize: 19, letterSpacing: 2 },
   tagline: { color: colors.muted, fontSize: 9, letterSpacing: 1.5, marginTop: 4 },

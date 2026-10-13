@@ -5,7 +5,7 @@ import { useServices } from '../hooks/useServices.js'
 import { serviceColumns } from '../service-presentation.js'
 import styles from '../styles/ServicesScreen.styles.js'
 
-export default function ServicesList({ navigation, header, footer }) {
+export default function ServicesList({ navigation, header, footer, showToolbar = true }) {
   const { state, retry } = useServices()
   const { width, fontScale } = useWindowDimensions()
   const columns = serviceColumns(width, fontScale)
@@ -30,7 +30,7 @@ export default function ServicesList({ navigation, header, footer }) {
     ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
     contentContainerStyle={styles.container}
     refreshing={isLoading} onRefresh={retry}
-    ListHeaderComponent={<View>{header}<View style={styles.toolbar}>
+    ListHeaderComponent={<View>{header}{showToolbar && <View style={styles.toolbar}>
       <Text style={styles.count}>{state.kind === 'success' ? `${services.length} dịch vụ` : 'Danh mục dịch vụ'}</Text>
       <Pressable
         accessibilityRole="button"
@@ -42,7 +42,7 @@ export default function ServicesList({ navigation, header, footer }) {
       >
         <Text style={styles.reloadText}>Tải lại</Text>
       </Pressable>
-    </View></View>}
+    </View>}</View>}
     ListEmptyComponent={<ServicesStatus state={state} onRetry={retry} />}
     ListFooterComponent={<View>
       {footer}

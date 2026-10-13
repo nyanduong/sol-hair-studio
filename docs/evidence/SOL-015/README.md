@@ -2,6 +2,16 @@
 
 Ngày kiểm tra: 13/10/2026. Nhánh `feat/SOL-015-mobile-ui-refinement`, từ main `6930384` (PR #14). Ảnh và kiểm tra trong tài liệu này thuộc thay đổi SOL-015 đi cùng commit chứa tài liệu.
 
+## Bổ sung theo review Owner ngày 13/10/2026
+
+Thanh dưới có đủ 5 mục và icon Feather; Home/Services điều hướng thật, Đặt lịch/Lịch hẹn/Tài khoản mở modal dùng chung. Chuông và hai CTA Đặt lịch ngay dùng cùng `FeatureUnavailableProvider`/`FeatureUnavailableModal` trong `apps/mobile/src/components`. Home ẩn toolbar tải lại/số lượng; vẫn giữ pull-to-refresh và error retry. Bổ sung duy nhất `@expo/vector-icons` qua Expo installer, lockfile root. Các mô tả hai mục/badge chưa khả dụng bên dưới là bằng chứng vòng đầu, đã được thay theo review này.
+
+Kiểm tra lại trên LDPlayer: CTA hero, CTA banner, Lịch hẹn, Tài khoản và chuông mở modal đúng tên; Đã hiểu, nền ngoài và Android Back đóng modal, giữ nguyên màn phía sau. Health vẫn báo kết nối. Lint, 54 tests và build toàn repo chạy lại PASS. iOS native vẫn SKIPPED.
+
+- [Home với 5 mục, chuông và CTA](android-home-five-items.png)
+- [Modal dùng chung](android-feature-modal.png)
+- [Banner có CTA Đặt lịch ngay](android-booking-banner.png)
+
 ## Kiểm tra tự động
 
 - `npm run lint`: PASS toàn repo.
