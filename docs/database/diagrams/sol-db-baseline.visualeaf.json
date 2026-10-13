@@ -1,7 +1,7 @@
 {
   "id": "6acd8054aab53d593dd3942f",
   "connectionType": "SQL",
-  "name": "Sample Schema",
+  "name": "Sol Hair Studio / SOL-016",
   "zoomScale": 1,
   "panX": -239.8626448984387,
   "panY": -99.99291300804566,
@@ -9,17 +9,17 @@
     {
       "id": "accounts",
       "name": "accounts",
-      "database": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
+      "database": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
       "headerColor": "",
       "position": {
-        "left": 1357.4615384615383,
-        "top": 296.46153846153896
+        "left": 0,
+        "top": 0
       },
       "size": {
-        "width": 219,
-        "height": 180,
-        "minWidth": 219,
-        "maxHeight": 180
+        "width": 330,
+        "height": 210,
+        "minWidth": 330,
+        "maxHeight": 210
       },
       "fields": [
         {
@@ -28,7 +28,7 @@
           "nullable": false,
           "path": "_id",
           "percentage": 100,
-          "icon": "fa-solid fa-key text-yellow-500"
+          "icon": ""
         },
         {
           "name": "emailNormalized",
@@ -39,428 +39,10 @@
           "icon": ""
         },
         {
-          "name": "passwordHash",
-          "type": "string",
-          "nullable": false,
-          "path": "passwordHash",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
           "name": "roles",
-          "type": "array<string>",
+          "type": "string_array",
           "nullable": false,
           "path": "roles",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "isActive",
-          "type": "bool",
-          "nullable": false,
-          "path": "isActive",
-          "percentage": 100,
-          "icon": ""
-        }
-      ],
-      "foreignKeys": [],
-      "selected": false
-    },
-    {
-      "id": "staff",
-      "name": "staff",
-      "database": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
-      "headerColor": "",
-      "position": {
-        "left": 2206.4615384615386,
-        "top": 302.2307692307695
-      },
-      "size": {
-        "width": 286,
-        "height": 318,
-        "minWidth": 286,
-        "maxHeight": 318
-      },
-      "fields": [
-        {
-          "name": "_id",
-          "type": "objectId",
-          "nullable": false,
-          "path": "_id",
-          "percentage": 100,
-          "icon": "fa-solid fa-key text-yellow-500"
-        },
-        {
-          "name": "accountId",
-          "type": "objectId",
-          "nullable": true,
-          "path": "accountId",
-          "percentage": 100,
-          "icon": "fa-solid fa-link text-blue-400"
-        },
-        {
-          "name": "displayName",
-          "type": "string",
-          "nullable": false,
-          "path": "displayName",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "isActive",
-          "type": "bool",
-          "nullable": false,
-          "path": "isActive",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "serviceIds[]",
-          "type": "string",
-          "nullable": false,
-          "path": "serviceIds[]",
-          "percentage": 100,
-          "icon": "fa-solid fa-link text-blue-400"
-        },
-        {
-          "name": "bookingRevision",
-          "type": "number",
-          "nullable": false,
-          "path": "bookingRevision",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "weeklyHours",
-          "type": "array<object>",
-          "nullable": false,
-          "path": "weeklyHours",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "weeklyHours[].weekday",
-          "type": "number",
-          "nullable": false,
-          "path": "weeklyHours[].weekday",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "weeklyHours[].intervals",
-          "type": "array<object>",
-          "nullable": false,
-          "path": "weeklyHours[].intervals",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "weeklyHours[].intervals[].startMinute",
-          "type": "number",
-          "nullable": false,
-          "path": "weeklyHours[].intervals[].startMinute",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "weeklyHours[].intervals[].endMinute",
-          "type": "number",
-          "nullable": false,
-          "path": "weeklyHours[].intervals[].endMinute",
-          "percentage": 100,
-          "icon": ""
-        }
-      ],
-      "foreignKeys": [
-        {
-          "name": "accountId (0..1 : 0..1)",
-          "refTable": "accounts",
-          "columnPairs": [
-            {
-              "localColumn": "accountId",
-              "refColumn": "_id"
-            }
-          ],
-          "onDelete": "RESTRICT",
-          "onUpdate": "RESTRICT"
-        },
-        {
-          "name": "skills",
-          "refTable": "services",
-          "columnPairs": [
-            {
-              "localColumn": "serviceIds[]",
-              "refColumn": "id"
-            }
-          ],
-          "onDelete": "RESTRICT",
-          "onUpdate": "RESTRICT"
-        }
-      ],
-      "selected": false
-    },
-    {
-      "id": "staff_time_off",
-      "name": "staff_time_off",
-      "database": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
-      "headerColor": "",
-      "position": {
-        "left": 3146.884615384616,
-        "top": 372.26923076923094
-      },
-      "size": {
-        "width": 177,
-        "height": 180,
-        "minWidth": 177,
-        "maxHeight": 180
-      },
-      "fields": [
-        {
-          "name": "_id",
-          "type": "objectId",
-          "nullable": false,
-          "path": "_id",
-          "percentage": 100,
-          "icon": "fa-solid fa-key text-yellow-500"
-        },
-        {
-          "name": "staffId",
-          "type": "objectId",
-          "nullable": false,
-          "path": "staffId",
-          "percentage": 100,
-          "icon": "fa-solid fa-link text-blue-400"
-        },
-        {
-          "name": "startAt",
-          "type": "date",
-          "nullable": false,
-          "path": "startAt",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "endAt",
-          "type": "date",
-          "nullable": false,
-          "path": "endAt",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "reason",
-          "type": "string",
-          "nullable": true,
-          "path": "reason",
-          "percentage": 100,
-          "icon": ""
-        }
-      ],
-      "foreignKeys": [
-        {
-          "name": "staffId",
-          "refTable": "staff",
-          "columnPairs": [
-            {
-              "localColumn": "staffId",
-              "refColumn": "_id"
-            }
-          ],
-          "onDelete": "RESTRICT",
-          "onUpdate": "RESTRICT"
-        }
-      ],
-      "selected": false
-    },
-    {
-      "id": "appointments",
-      "name": "appointments",
-      "database": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
-      "headerColor": "",
-      "position": {
-        "left": 2206.538461538462,
-        "top": 1130.7692307692307
-      },
-      "size": {
-        "width": 286,
-        "height": 663,
-        "minWidth": 286,
-        "maxHeight": 663
-      },
-      "fields": [
-        {
-          "name": "_id",
-          "type": "objectId",
-          "nullable": false,
-          "path": "_id",
-          "percentage": 100,
-          "icon": "fa-solid fa-key text-yellow-500"
-        },
-        {
-          "name": "customerId",
-          "type": "objectId",
-          "nullable": false,
-          "path": "customerId",
-          "percentage": 100,
-          "icon": "fa-solid fa-link text-blue-400"
-        },
-        {
-          "name": "staffId",
-          "type": "objectId",
-          "nullable": false,
-          "path": "staffId",
-          "percentage": 100,
-          "icon": "fa-solid fa-link text-blue-400"
-        },
-        {
-          "name": "createdByAccountId",
-          "type": "objectId",
-          "nullable": false,
-          "path": "createdByAccountId",
-          "percentage": 100,
-          "icon": "fa-solid fa-link text-blue-400"
-        },
-        {
-          "name": "requestKey",
-          "type": "string",
-          "nullable": false,
-          "path": "requestKey",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "customerSnapshot",
-          "type": "object",
-          "nullable": false,
-          "path": "customerSnapshot",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "customerSnapshot.displayName",
-          "type": "string",
-          "nullable": false,
-          "path": "customerSnapshot.displayName",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "customerSnapshot.phone",
-          "type": "string",
-          "nullable": true,
-          "path": "customerSnapshot.phone",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "staffNameSnapshot",
-          "type": "string",
-          "nullable": false,
-          "path": "staffNameSnapshot",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "items",
-          "type": "array<object>",
-          "nullable": false,
-          "path": "items",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "items[].serviceId",
-          "type": "string",
-          "nullable": false,
-          "path": "items[].serviceId",
-          "percentage": 100,
-          "icon": "fa-solid fa-link text-blue-400"
-        },
-        {
-          "name": "items[].name",
-          "type": "string",
-          "nullable": false,
-          "path": "items[].name",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "items[].priceVnd",
-          "type": "number",
-          "nullable": false,
-          "path": "items[].priceVnd",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "items[].durationMinutes",
-          "type": "number",
-          "nullable": false,
-          "path": "items[].durationMinutes",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "totalPriceVnd",
-          "type": "number",
-          "nullable": false,
-          "path": "totalPriceVnd",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "totalDurationMinutes",
-          "type": "number",
-          "nullable": false,
-          "path": "totalDurationMinutes",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "bufferAfterMinutes",
-          "type": "number",
-          "nullable": false,
-          "path": "bufferAfterMinutes",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "startAt",
-          "type": "date",
-          "nullable": false,
-          "path": "startAt",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "endAt",
-          "type": "date",
-          "nullable": false,
-          "path": "endAt",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "occupiedUntil",
-          "type": "date",
-          "nullable": false,
-          "path": "occupiedUntil",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "timeZone",
-          "type": "string",
-          "nullable": false,
-          "path": "timeZone",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "localDate",
-          "type": "string",
-          "nullable": false,
-          "path": "localDate",
           "percentage": 100,
           "icon": ""
         },
@@ -473,96 +55,39 @@
           "icon": ""
         },
         {
-          "name": "revision",
+          "name": "passwordHash",
+          "type": "string",
+          "nullable": true,
+          "path": "passwordHash",
+          "percentage": 50,
+          "icon": ""
+        },
+        {
+          "name": "authRevision",
           "type": "number",
           "nullable": false,
-          "path": "revision",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "lastCommand",
-          "type": "object",
-          "nullable": true,
-          "path": "lastCommand",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "lastCommand.actorId",
-          "type": "objectId",
-          "nullable": true,
-          "path": "lastCommand.actorId",
+          "path": "authRevision",
           "percentage": 100,
           "icon": ""
         }
       ],
-      "foreignKeys": [
-        {
-          "name": "customerId",
-          "refTable": "customers",
-          "columnPairs": [
-            {
-              "localColumn": "customerId",
-              "refColumn": "_id"
-            }
-          ],
-          "onDelete": "RESTRICT",
-          "onUpdate": "RESTRICT"
-        },
-        {
-          "name": "staffId",
-          "refTable": "staff",
-          "columnPairs": [
-            {
-              "localColumn": "staffId",
-              "refColumn": "_id"
-            }
-          ],
-          "onDelete": "RESTRICT",
-          "onUpdate": "RESTRICT"
-        },
-        {
-          "name": "createdByAccountId",
-          "refTable": "accounts",
-          "columnPairs": [
-            {
-              "localColumn": "createdByAccountId",
-              "refColumn": "_id"
-            }
-          ],
-          "onDelete": "RESTRICT",
-          "onUpdate": "RESTRICT"
-        },
-        {
-          "name": "items[].serviceId -> id",
-          "refTable": "services",
-          "columnPairs": [
-            {
-              "localColumn": "items[].serviceId",
-              "refColumn": "id"
-            }
-          ],
-          "onDelete": "RESTRICT",
-          "onUpdate": "RESTRICT"
-        }
-      ],
+      "foreignKeys": [],
       "selected": false
     },
     {
-      "id": "services",
-      "name": "services",
-      "database": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
+      "id": "auth_challenges",
+      "name": "auth_challenges",
+      "database": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
       "headerColor": "",
       "position": {
-        "left": 1244.0897236026517,
-        "top": 1427.025895382434
+        "left": 400,
+        "top": 0
       },
       "size": {
-        "width": 267,
-        "height": 410,
-        "minWidth": 267,
-        "maxHeight": 410
+        "width": 330,
+        "height": 260,
+        "minWidth": 330,
+        "maxHeight": 260
       },
       "fields": [
         {
@@ -571,7 +96,151 @@
           "nullable": false,
           "path": "_id",
           "percentage": 100,
-          "icon": "fa-solid fa-key text-yellow-500"
+          "icon": ""
+        },
+        {
+          "name": "accountId",
+          "type": "objectId",
+          "nullable": false,
+          "path": "accountId",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "purpose",
+          "type": "string",
+          "nullable": false,
+          "path": "purpose",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "generation",
+          "type": "number",
+          "nullable": false,
+          "path": "generation",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "codeDigest",
+          "type": "string",
+          "nullable": false,
+          "path": "codeDigest",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "expiresAt",
+          "type": "date",
+          "nullable": false,
+          "path": "expiresAt",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "resendAvailableAt",
+          "type": "date",
+          "nullable": false,
+          "path": "resendAvailableAt",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "failedAttempts",
+          "type": "number",
+          "nullable": false,
+          "path": "failedAttempts",
+          "percentage": 100,
+          "icon": ""
+        }
+      ],
+      "foreignKeys": [],
+      "selected": false
+    },
+    {
+      "id": "customers",
+      "name": "customers",
+      "database": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+      "headerColor": "",
+      "position": {
+        "left": 800,
+        "top": 0
+      },
+      "size": {
+        "width": 330,
+        "height": 185,
+        "minWidth": 330,
+        "maxHeight": 185
+      },
+      "fields": [
+        {
+          "name": "_id",
+          "type": "objectId",
+          "nullable": false,
+          "path": "_id",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "accountId",
+          "type": "objectId",
+          "nullable": true,
+          "path": "accountId",
+          "percentage": 50,
+          "icon": ""
+        },
+        {
+          "name": "displayName",
+          "type": "string",
+          "nullable": false,
+          "path": "displayName",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "nullable": true,
+          "path": "phone",
+          "percentage": 50,
+          "icon": ""
+        },
+        {
+          "name": "bookingRevision",
+          "type": "number",
+          "nullable": false,
+          "path": "bookingRevision",
+          "percentage": 100,
+          "icon": ""
+        }
+      ],
+      "foreignKeys": [],
+      "selected": false
+    },
+    {
+      "id": "services",
+      "name": "services",
+      "database": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+      "headerColor": "",
+      "position": {
+        "left": 1200,
+        "top": 0
+      },
+      "size": {
+        "width": 330,
+        "height": 260,
+        "minWidth": 330,
+        "maxHeight": 260
+      },
+      "fields": [
+        {
+          "name": "_id",
+          "type": "objectId",
+          "nullable": false,
+          "path": "_id",
+          "percentage": 100,
+          "icon": ""
         },
         {
           "name": "id",
@@ -586,46 +255,6 @@
           "type": "string",
           "nullable": false,
           "path": "slug",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "name",
-          "type": "string",
-          "nullable": false,
-          "path": "name",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "category",
-          "type": "string",
-          "nullable": false,
-          "path": "category",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "durationMinutes",
-          "type": "object",
-          "nullable": false,
-          "path": "durationMinutes",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "durationMinutes.min",
-          "type": "number",
-          "nullable": false,
-          "path": "durationMinutes.min",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "durationMinutes.max",
-          "type": "number",
-          "nullable": false,
-          "path": "durationMinutes.max",
           "percentage": 100,
           "icon": ""
         },
@@ -646,27 +275,19 @@
           "icon": ""
         },
         {
-          "name": "isActive",
-          "type": "bool",
-          "nullable": false,
-          "path": "isActive",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
           "name": "coverImageId",
           "type": "objectId",
           "nullable": false,
           "path": "coverImageId",
           "percentage": 100,
-          "icon": "fa-solid fa-link text-blue-400"
+          "icon": ""
         },
         {
           "name": "images",
-          "type": "array<object>",
-          "nullable": false,
+          "type": "array",
+          "nullable": true,
           "path": "images",
-          "percentage": 100,
+          "percentage": 50,
           "icon": ""
         },
         {
@@ -675,59 +296,26 @@
           "nullable": false,
           "path": "images[].imageId",
           "percentage": 100,
-          "icon": "fa-solid fa-link text-blue-400"
-        },
-        {
-          "name": "images[].alt",
-          "type": "string",
-          "nullable": true,
-          "path": "images[].alt",
-          "percentage": 50,
           "icon": ""
         }
       ],
-      "foreignKeys": [
-        {
-          "name": "cover",
-          "refTable": "images",
-          "columnPairs": [
-            {
-              "localColumn": "coverImageId",
-              "refColumn": "_id"
-            }
-          ],
-          "onDelete": "RESTRICT",
-          "onUpdate": "RESTRICT"
-        },
-        {
-          "name": "gallery 1..10, shared",
-          "refTable": "images",
-          "columnPairs": [
-            {
-              "localColumn": "images[].imageId",
-              "refColumn": "_id"
-            }
-          ],
-          "onDelete": "RESTRICT",
-          "onUpdate": "RESTRICT"
-        }
-      ],
+      "foreignKeys": [],
       "selected": false
     },
     {
       "id": "images",
       "name": "images",
-      "database": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
+      "database": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
       "headerColor": "",
       "position": {
-        "left": 3099.3201733926517,
-        "top": 1265.4150165239225
+        "left": 0,
+        "top": 650
       },
       "size": {
-        "width": 270,
-        "height": 387,
-        "minWidth": 270,
-        "maxHeight": 387
+        "width": 330,
+        "height": 185,
+        "minWidth": 330,
+        "maxHeight": 185
       },
       "fields": [
         {
@@ -735,14 +323,6 @@
           "type": "objectId",
           "nullable": false,
           "path": "_id",
-          "percentage": 100,
-          "icon": "fa-solid fa-key text-yellow-500"
-        },
-        {
-          "name": "cloudName",
-          "type": "string",
-          "nullable": false,
-          "path": "cloudName",
           "percentage": 100,
           "icon": ""
         },
@@ -771,108 +351,31 @@
           "icon": ""
         },
         {
-          "name": "originalName",
-          "type": "string",
-          "nullable": false,
-          "path": "originalName",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "width",
-          "type": "number",
-          "nullable": false,
-          "path": "width",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "height",
-          "type": "number",
-          "nullable": false,
-          "path": "height",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "bytes",
-          "type": "number",
-          "nullable": false,
-          "path": "bytes",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "format",
-          "type": "string",
-          "nullable": false,
-          "path": "format",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
           "name": "uploadedByAccountId",
           "type": "objectId",
           "nullable": true,
           "path": "uploadedByAccountId",
           "percentage": 50,
-          "icon": "fa-solid fa-link text-blue-400"
-        },
-        {
-          "name": "isActive",
-          "type": "bool",
-          "nullable": false,
-          "path": "isActive",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "createdAt",
-          "type": "date",
-          "nullable": false,
-          "path": "createdAt",
-          "percentage": 100,
-          "icon": ""
-        },
-        {
-          "name": "updatedAt",
-          "type": "date",
-          "nullable": false,
-          "path": "updatedAt",
-          "percentage": 100,
           "icon": ""
         }
       ],
-      "foreignKeys": [
-        {
-          "name": "uploader optional legacy",
-          "refTable": "accounts",
-          "columnPairs": [
-            {
-              "localColumn": "uploadedByAccountId",
-              "refColumn": "_id"
-            }
-          ],
-          "onDelete": "RESTRICT",
-          "onUpdate": "RESTRICT"
-        }
-      ],
+      "foreignKeys": [],
       "selected": false
     },
     {
-      "id": "customers",
-      "name": "customers",
-      "database": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
+      "id": "staff",
+      "name": "staff",
+      "database": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
       "headerColor": "",
       "position": {
-        "left": 1365.384606060606,
-        "top": 885.231
+        "left": 400,
+        "top": 650
       },
       "size": {
-        "width": 198,
-        "height": 157,
-        "minWidth": 198,
-        "maxHeight": 157
+        "width": 330,
+        "height": 210,
+        "minWidth": 330,
+        "maxHeight": 210
       },
       "fields": [
         {
@@ -881,68 +384,567 @@
           "nullable": false,
           "path": "_id",
           "percentage": 100,
-          "icon": "fa-solid fa-key text-yellow-500"
+          "icon": ""
         },
         {
           "name": "accountId",
           "type": "objectId",
-          "nullable": true,
+          "nullable": false,
           "path": "accountId",
           "percentage": 100,
-          "icon": "fa-solid fa-link text-blue-400"
+          "icon": ""
         },
         {
-          "name": "displayName",
+          "name": "serviceIds",
+          "type": "string_array",
+          "nullable": false,
+          "path": "serviceIds",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "isActive",
+          "type": "boolean",
+          "nullable": false,
+          "path": "isActive",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "bookingRevision",
+          "type": "number",
+          "nullable": false,
+          "path": "bookingRevision",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "serviceIds[]",
           "type": "string",
           "nullable": false,
-          "path": "displayName",
+          "path": "serviceIds[]",
+          "percentage": 100,
+          "icon": ""
+        }
+      ],
+      "foreignKeys": [],
+      "selected": false
+    },
+    {
+      "id": "staff_shifts",
+      "name": "staff_shifts",
+      "database": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+      "headerColor": "",
+      "position": {
+        "left": 800,
+        "top": 650
+      },
+      "size": {
+        "width": 330,
+        "height": 210,
+        "minWidth": 330,
+        "maxHeight": 210
+      },
+      "fields": [
+        {
+          "name": "_id",
+          "type": "objectId",
+          "nullable": false,
+          "path": "_id",
           "percentage": 100,
           "icon": ""
         },
         {
-          "name": "phone",
+          "name": "staffId",
+          "type": "objectId",
+          "nullable": false,
+          "path": "staffId",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "localDate",
           "type": "string",
-          "nullable": true,
-          "path": "phone",
+          "nullable": false,
+          "path": "localDate",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "startAt",
+          "type": "date",
+          "nullable": false,
+          "path": "startAt",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "endAt",
+          "type": "date",
+          "nullable": false,
+          "path": "endAt",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "nullable": false,
+          "path": "status",
           "percentage": 100,
           "icon": ""
         }
       ],
-      "foreignKeys": [
+      "foreignKeys": [],
+      "selected": false
+    },
+    {
+      "id": "staff_time_off",
+      "name": "staff_time_off",
+      "database": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+      "headerColor": "",
+      "position": {
+        "left": 1200,
+        "top": 650
+      },
+      "size": {
+        "width": 330,
+        "height": 160,
+        "minWidth": 330,
+        "maxHeight": 160
+      },
+      "fields": [
         {
-          "name": "accountId (0..1 : 0..1)",
-          "refTable": "accounts",
-          "columnPairs": [
-            {
-              "localColumn": "accountId",
-              "refColumn": "_id"
-            }
-          ],
-          "onDelete": "RESTRICT",
-          "onUpdate": "RESTRICT"
+          "name": "_id",
+          "type": "objectId",
+          "nullable": false,
+          "path": "_id",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "staffId",
+          "type": "objectId",
+          "nullable": false,
+          "path": "staffId",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "startAt",
+          "type": "date",
+          "nullable": false,
+          "path": "startAt",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "endAt",
+          "type": "date",
+          "nullable": false,
+          "path": "endAt",
+          "percentage": 100,
+          "icon": ""
         }
       ],
+      "foreignKeys": [],
+      "selected": false
+    },
+    {
+      "id": "appointments",
+      "name": "appointments",
+      "database": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+      "headerColor": "",
+      "position": {
+        "left": 0,
+        "top": 1300
+      },
+      "size": {
+        "width": 330,
+        "height": 410,
+        "minWidth": 330,
+        "maxHeight": 410
+      },
+      "fields": [
+        {
+          "name": "_id",
+          "type": "objectId",
+          "nullable": false,
+          "path": "_id",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "customerId",
+          "type": "objectId",
+          "nullable": false,
+          "path": "customerId",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "staffId",
+          "type": "objectId",
+          "nullable": false,
+          "path": "staffId",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "createdByAccountId",
+          "type": "objectId",
+          "nullable": false,
+          "path": "createdByAccountId",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "bookingMode",
+          "type": "string",
+          "nullable": false,
+          "path": "bookingMode",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "items",
+          "type": "array",
+          "nullable": false,
+          "path": "items",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "startAt",
+          "type": "date",
+          "nullable": false,
+          "path": "startAt",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "endAt",
+          "type": "date",
+          "nullable": false,
+          "path": "endAt",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "occupiedFrom",
+          "type": "date",
+          "nullable": false,
+          "path": "occupiedFrom",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "occupiedUntil",
+          "type": "date",
+          "nullable": false,
+          "path": "occupiedUntil",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "estimatedEndAt",
+          "type": "date",
+          "nullable": true,
+          "path": "estimatedEndAt",
+          "percentage": 50,
+          "icon": ""
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "nullable": false,
+          "path": "status",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "revision",
+          "type": "number",
+          "nullable": false,
+          "path": "revision",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "items[].serviceId",
+          "type": "string",
+          "nullable": false,
+          "path": "items[].serviceId",
+          "percentage": 100,
+          "icon": ""
+        }
+      ],
+      "foreignKeys": [],
+      "selected": false
+    },
+    {
+      "id": "booking_requests",
+      "name": "booking_requests",
+      "database": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+      "headerColor": "",
+      "position": {
+        "left": 400,
+        "top": 1300
+      },
+      "size": {
+        "width": 330,
+        "height": 210,
+        "minWidth": 330,
+        "maxHeight": 210
+      },
+      "fields": [
+        {
+          "name": "_id",
+          "type": "objectId",
+          "nullable": false,
+          "path": "_id",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "actorId",
+          "type": "objectId",
+          "nullable": false,
+          "path": "actorId",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "key",
+          "type": "string",
+          "nullable": false,
+          "path": "key",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "requestHash",
+          "type": "string",
+          "nullable": false,
+          "path": "requestHash",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "appointmentId",
+          "type": "objectId",
+          "nullable": false,
+          "path": "appointmentId",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "expiresAt",
+          "type": "date",
+          "nullable": false,
+          "path": "expiresAt",
+          "percentage": 100,
+          "icon": ""
+        }
+      ],
+      "foreignKeys": [],
+      "selected": false
+    },
+    {
+      "id": "appointment_events",
+      "name": "appointment_events",
+      "database": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+      "headerColor": "",
+      "position": {
+        "left": 800,
+        "top": 1300
+      },
+      "size": {
+        "width": 330,
+        "height": 260,
+        "minWidth": 330,
+        "maxHeight": 260
+      },
+      "fields": [
+        {
+          "name": "_id",
+          "type": "objectId",
+          "nullable": false,
+          "path": "_id",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "appointmentId",
+          "type": "objectId",
+          "nullable": false,
+          "path": "appointmentId",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "actorId",
+          "type": "objectId",
+          "nullable": false,
+          "path": "actorId",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "revision",
+          "type": "number",
+          "nullable": false,
+          "path": "revision",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "nullable": false,
+          "path": "kind",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "before",
+          "type": "object",
+          "nullable": false,
+          "path": "before",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "after",
+          "type": "object",
+          "nullable": false,
+          "path": "after",
+          "percentage": 100,
+          "icon": ""
+        },
+        {
+          "name": "reason",
+          "type": "string",
+          "nullable": false,
+          "path": "reason",
+          "percentage": 100,
+          "icon": ""
+        }
+      ],
+      "foreignKeys": [],
       "selected": false
     }
   ],
   "connections": [
     {
-      "id": "6acd81acaab53d593dd39477",
+      "id": "sol016-ref-0",
       "source": {
-        "db": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
-        "collection": "services",
-        "path": "coverImageId",
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "customers",
+        "path": "accountId",
         "anchor": {
-          "id": "6acd81acaab53d593dd39479",
+          "id": "sol016-src-0",
           "type": "Right"
         }
       },
       "target": {
-        "db": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "accounts",
+        "path": "_id",
+        "anchor": {
+          "id": "sol016-tgt-0",
+          "type": "Left"
+        }
+      },
+      "type": "1-1",
+      "label": "optional account"
+    },
+    {
+      "id": "sol016-ref-1",
+      "source": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "staff",
+        "path": "accountId",
+        "anchor": {
+          "id": "sol016-src-1",
+          "type": "Right"
+        }
+      },
+      "target": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "accounts",
+        "path": "_id",
+        "anchor": {
+          "id": "sol016-tgt-1",
+          "type": "Left"
+        }
+      },
+      "type": "1-1",
+      "label": "owner or stylist"
+    },
+    {
+      "id": "sol016-ref-2",
+      "source": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "auth_challenges",
+        "path": "accountId",
+        "anchor": {
+          "id": "sol016-src-2",
+          "type": "Right"
+        }
+      },
+      "target": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "accounts",
+        "path": "_id",
+        "anchor": {
+          "id": "sol016-tgt-2",
+          "type": "Left"
+        }
+      },
+      "type": "N-1",
+      "label": "purpose slot"
+    },
+    {
+      "id": "sol016-ref-3",
+      "source": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "staff",
+        "path": "serviceIds[]",
+        "anchor": {
+          "id": "sol016-src-3",
+          "type": "Right"
+        }
+      },
+      "target": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "services",
+        "path": "id",
+        "anchor": {
+          "id": "sol016-tgt-3",
+          "type": "Left"
+        }
+      },
+      "type": "N-N",
+      "label": "capabilities"
+    },
+    {
+      "id": "sol016-ref-4",
+      "source": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "services",
+        "path": "coverImageId",
+        "anchor": {
+          "id": "sol016-src-4",
+          "type": "Right"
+        }
+      },
+      "target": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
         "collection": "images",
         "path": "_id",
         "anchor": {
-          "id": "6acd81acaab53d593dd3947b",
+          "id": "sol016-tgt-4",
           "type": "Left"
         }
       },
@@ -950,240 +952,286 @@
       "label": "cover"
     },
     {
-      "id": "6acd81acaab53d593dd3947c",
+      "id": "sol016-ref-5",
       "source": {
-        "db": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
         "collection": "services",
         "path": "images[].imageId",
         "anchor": {
-          "id": "6acd81acaab53d593dd3947e",
+          "id": "sol016-src-5",
           "type": "Right"
         }
       },
       "target": {
-        "db": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
         "collection": "images",
         "path": "_id",
         "anchor": {
-          "id": "6acd81acaab53d593dd39480",
+          "id": "sol016-tgt-5",
           "type": "Left"
         }
       },
       "type": "N-N",
-      "label": "gallery 1..10, shared"
+      "label": "optional gallery"
     },
     {
-      "id": "6acd81acaab53d593dd39481",
+      "id": "sol016-ref-6",
       "source": {
-        "db": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
-        "collection": "staff_time_off",
-        "path": "staffId",
-        "anchor": {
-          "id": "6acd81acaab53d593dd39483",
-          "type": "Left"
-        }
-      },
-      "target": {
-        "db": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
-        "collection": "staff",
-        "path": "_id",
-        "anchor": {
-          "id": "6acd81acaab53d593dd39485",
-          "type": "Right"
-        }
-      },
-      "type": "N-1",
-      "label": "staffId"
-    },
-    {
-      "id": "6acd81acaab53d593dd39486",
-      "source": {
-        "db": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
-        "collection": "appointments",
-        "path": "customerId",
-        "anchor": {
-          "id": "6acd81acaab53d593dd39488",
-          "type": "Left"
-        }
-      },
-      "target": {
-        "db": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
-        "collection": "customers",
-        "path": "_id",
-        "anchor": {
-          "id": "6acd81acaab53d593dd3948a",
-          "type": "Right"
-        }
-      },
-      "type": "N-1",
-      "label": "customerId"
-    },
-    {
-      "id": "6acd81acaab53d593dd3948b",
-      "source": {
-        "db": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
-        "collection": "appointments",
-        "path": "staffId",
-        "anchor": {
-          "id": "6acd81acaab53d593dd3948d",
-          "type": "Right"
-        }
-      },
-      "target": {
-        "db": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
-        "collection": "staff",
-        "path": "_id",
-        "anchor": {
-          "id": "6acd81acaab53d593dd3948f",
-          "type": "Right"
-        }
-      },
-      "type": "N-1",
-      "label": "staffId"
-    },
-    {
-      "id": "6acd81acaab53d593dd39490",
-      "source": {
-        "db": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
-        "collection": "appointments",
-        "path": "createdByAccountId",
-        "anchor": {
-          "id": "6acd81acaab53d593dd39492",
-          "type": "Left"
-        }
-      },
-      "target": {
-        "db": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
-        "collection": "accounts",
-        "path": "_id",
-        "anchor": {
-          "id": "6acd81acaab53d593dd39494",
-          "type": "Right"
-        }
-      },
-      "type": "N-1",
-      "label": "createdByAccountId"
-    },
-    {
-      "id": "6acd81acaab53d593dd39495",
-      "source": {
-        "db": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
-        "collection": "appointments",
-        "path": "items[].serviceId",
-        "anchor": {
-          "id": "6acd81acaab53d593dd39497",
-          "type": "Left"
-        }
-      },
-      "target": {
-        "db": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
-        "collection": "services",
-        "path": "id",
-        "anchor": {
-          "id": "6acd81acaab53d593dd39499",
-          "type": "Right"
-        }
-      },
-      "type": "N-1",
-      "label": "items[].serviceId -> id"
-    },
-    {
-      "id": "6acd81acaab53d593dd3949a",
-      "source": {
-        "db": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
-        "collection": "customers",
-        "path": "accountId",
-        "anchor": {
-          "id": "6acd81acaab53d593dd3949c",
-          "type": "Right"
-        }
-      },
-      "target": {
-        "db": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
-        "collection": "accounts",
-        "path": "_id",
-        "anchor": {
-          "id": "6acd81acaab53d593dd3949e",
-          "type": "Right"
-        }
-      },
-      "type": "1-1",
-      "label": "accountId (0..1 : 0..1)"
-    },
-    {
-      "id": "6acd81acaab53d593dd3949f",
-      "source": {
-        "db": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
-        "collection": "staff",
-        "path": "accountId",
-        "anchor": {
-          "id": "6acd81acaab53d593dd394a1",
-          "type": "Left"
-        }
-      },
-      "target": {
-        "db": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
-        "collection": "accounts",
-        "path": "_id",
-        "anchor": {
-          "id": "6acd81acaab53d593dd394a3",
-          "type": "Right"
-        }
-      },
-      "type": "1-1",
-      "label": "accountId (0..1 : 0..1)"
-    },
-    {
-      "id": "6acd81acaab53d593dd394a4",
-      "source": {
-        "db": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
-        "collection": "staff",
-        "path": "serviceIds[]",
-        "anchor": {
-          "id": "6acd81acaab53d593dd394a6",
-          "type": "Left"
-        }
-      },
-      "target": {
-        "db": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
-        "collection": "services",
-        "path": "id",
-        "anchor": {
-          "id": "6acd81acaab53d593dd394a8",
-          "type": "Right"
-        }
-      },
-      "type": "N-N",
-      "label": "skills"
-    },
-    {
-      "id": "6acd81acaab53d593dd394a9",
-      "source": {
-        "db": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
         "collection": "images",
         "path": "uploadedByAccountId",
         "anchor": {
-          "id": "6acd81acaab53d593dd394ab",
-          "type": "Left"
-        }
-      },
-      "target": {
-        "db": "Sol Hair Studio - DB baseline v1 + shared images - PROPOSED",
-        "collection": "accounts",
-        "path": "_id",
-        "anchor": {
-          "id": "6acd81acaab53d593dd394ad",
+          "id": "sol016-src-6",
           "type": "Right"
         }
       },
+      "target": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "accounts",
+        "path": "_id",
+        "anchor": {
+          "id": "sol016-tgt-6",
+          "type": "Left"
+        }
+      },
       "type": "N-1",
-      "label": "uploader optional legacy"
+      "label": "uploader"
+    },
+    {
+      "id": "sol016-ref-7",
+      "source": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "staff_shifts",
+        "path": "staffId",
+        "anchor": {
+          "id": "sol016-src-7",
+          "type": "Right"
+        }
+      },
+      "target": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "staff",
+        "path": "_id",
+        "anchor": {
+          "id": "sol016-tgt-7",
+          "type": "Left"
+        }
+      },
+      "type": "N-1",
+      "label": "dated shifts"
+    },
+    {
+      "id": "sol016-ref-8",
+      "source": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "staff_time_off",
+        "path": "staffId",
+        "anchor": {
+          "id": "sol016-src-8",
+          "type": "Right"
+        }
+      },
+      "target": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "staff",
+        "path": "_id",
+        "anchor": {
+          "id": "sol016-tgt-8",
+          "type": "Left"
+        }
+      },
+      "type": "N-1",
+      "label": "exceptions"
+    },
+    {
+      "id": "sol016-ref-9",
+      "source": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "appointments",
+        "path": "customerId",
+        "anchor": {
+          "id": "sol016-src-9",
+          "type": "Right"
+        }
+      },
+      "target": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "customers",
+        "path": "_id",
+        "anchor": {
+          "id": "sol016-tgt-9",
+          "type": "Left"
+        }
+      },
+      "type": "N-1",
+      "label": "profile guard"
+    },
+    {
+      "id": "sol016-ref-10",
+      "source": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "appointments",
+        "path": "staffId",
+        "anchor": {
+          "id": "sol016-src-10",
+          "type": "Right"
+        }
+      },
+      "target": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "staff",
+        "path": "_id",
+        "anchor": {
+          "id": "sol016-tgt-10",
+          "type": "Left"
+        }
+      },
+      "type": "N-1",
+      "label": "staff guard"
+    },
+    {
+      "id": "sol016-ref-11",
+      "source": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "appointments",
+        "path": "createdByAccountId",
+        "anchor": {
+          "id": "sol016-src-11",
+          "type": "Right"
+        }
+      },
+      "target": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "accounts",
+        "path": "_id",
+        "anchor": {
+          "id": "sol016-tgt-11",
+          "type": "Left"
+        }
+      },
+      "type": "N-1",
+      "label": "creator"
+    },
+    {
+      "id": "sol016-ref-12",
+      "source": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "appointments",
+        "path": "items[].serviceId",
+        "anchor": {
+          "id": "sol016-src-12",
+          "type": "Right"
+        }
+      },
+      "target": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "services",
+        "path": "id",
+        "anchor": {
+          "id": "sol016-tgt-12",
+          "type": "Left"
+        }
+      },
+      "type": "N-1",
+      "label": "snapshot source"
+    },
+    {
+      "id": "sol016-ref-13",
+      "source": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "booking_requests",
+        "path": "actorId",
+        "anchor": {
+          "id": "sol016-src-13",
+          "type": "Right"
+        }
+      },
+      "target": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "accounts",
+        "path": "_id",
+        "anchor": {
+          "id": "sol016-tgt-13",
+          "type": "Left"
+        }
+      },
+      "type": "N-1",
+      "label": "key scope"
+    },
+    {
+      "id": "sol016-ref-14",
+      "source": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "booking_requests",
+        "path": "appointmentId",
+        "anchor": {
+          "id": "sol016-src-14",
+          "type": "Right"
+        }
+      },
+      "target": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "appointments",
+        "path": "_id",
+        "anchor": {
+          "id": "sol016-tgt-14",
+          "type": "Left"
+        }
+      },
+      "type": "N-1",
+      "label": "receipt"
+    },
+    {
+      "id": "sol016-ref-15",
+      "source": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "appointment_events",
+        "path": "appointmentId",
+        "anchor": {
+          "id": "sol016-src-15",
+          "type": "Right"
+        }
+      },
+      "target": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "appointments",
+        "path": "_id",
+        "anchor": {
+          "id": "sol016-tgt-15",
+          "type": "Left"
+        }
+      },
+      "type": "N-1",
+      "label": "revision history"
+    },
+    {
+      "id": "sol016-ref-16",
+      "source": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "appointment_events",
+        "path": "actorId",
+        "anchor": {
+          "id": "sol016-src-16",
+          "type": "Right"
+        }
+      },
+      "target": {
+        "db": "Sol Hair Studio - SOL-016 MVP - TECHNICAL REVIEW",
+        "collection": "accounts",
+        "path": "_id",
+        "anchor": {
+          "id": "sol016-tgt-16",
+          "type": "Left"
+        }
+      },
+      "type": "N-1",
+      "label": "actor"
     }
   ],
   "groups": [
     {
       "id": "6acd8395aab53d593dd39521",
-      "name": "SOL HAIR STUDIO / SOL-011 / PROPOSED | 7 collections, 80 main fields | Files on Cloudinary; metadata in images | Service: cover + gallery 1..10; cover belongs to gallery; array order = display order | Archive preserves existing links; no hard-delete | DTO keeps 8 fields; imageUrl from cover | ? = optional/absent, never null | Dotted paths/arrays = embedded | References checked by app; not DB foreign keys | 1/N = maximum cardinality | services.id = String; _id = ObjectId",
+      "name": "SOL-016 | 11 collections | MongoDB application references, not foreign keys | services.id String | OTP no TTL | receipt TTL24h | owner linked staff | JSON updated offline; native round-trip unverified",
       "position": {
         "top": 441.6729210565772,
         "left": 283.8830325516175
@@ -1195,5 +1243,10 @@
       "color": "rgba(59,130,246,0.12)",
       "selected": false
     }
-  ]
+  ],
+  "_meta": {
+    "updatedAt": "2026-10-14",
+    "provenance": "Offline adaptation of SOL-011 VisuaLeaf export; not a new widget export; native round-trip unverified",
+    "source": "sol-db-baseline.mmd + schema.md"
+  }
 }

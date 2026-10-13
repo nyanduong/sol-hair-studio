@@ -1,106 +1,123 @@
 ---
-title: Sol Hair Studio - DB baseline v1 - PROPOSED
+title: Sol Hair Studio - SOL-016 MVP database baseline
 config:
   theme: neutral
   look: classic
-  htmlLabels: false
   er:
-    layoutDirection: LR
-    minEntityWidth: 190
-    fontSize: 15
+    minEntityWidth: 210
+    fontSize: 16
 ---
 erDiagram
   direction LR
   accounts {
     ObjectId _id PK
-    string emailNormalized UK "private"
-    string passwordHash "private"
-    string_array roles "1..4"
+    string emailNormalized UK
+    string_array roles "customer stylist owner"
+    string status "pending or active disabled"
+    string passwordHash "private optional until active"
+    number authRevision "session guard"
+  }
+  auth_challenges {
+    ObjectId _id PK
+    ObjectId accountId FK
+    string purpose "unique with accountId"
+    number generation "CAS"
+    string codeDigest "private HMAC"
+    date expiresAt "5 minutes no TTL"
+    date resendAvailableAt "60 seconds"
+    number failedAttempts "0 to 5"
   }
   customers {
     ObjectId _id PK
-    ObjectId accountId UK "optional"
+    ObjectId accountId "UK optional"
     string displayName "private"
-    string phone "optional/private"
-  }
-  staff {
-    ObjectId _id PK
-    ObjectId accountId UK "optional"
-    string displayName
-    string_array serviceIds "0..50"
-    number bookingRevision "guard"
+    string phone "nonunique optional profile"
+    number bookingRevision "customer guard"
   }
   services {
-    ObjectId _id PK "internal"
-    string id UK "public"
+    ObjectId _id PK
+    string id "UK public reference"
     string slug UK
-    object durationMinutes "min/max"
-    number bookingDurationMinutes
-    number priceVnd
-    ObjectId coverImageId "in gallery"
-    object_array images "embedded:1..10"
+    number bookingDurationMinutes "fixed"
+    number priceVnd "VND"
+    ObjectId coverImageId FK
+    array images "optional embedded links"
   }
   images {
     ObjectId _id PK
-    string cloudName
-    string cloudinaryAssetId "unique with cloudName"
-    string publicId "unique with cloudName"
-    string url "Cloudinary file"
-    string originalName
-    number width
-    number height
-    number bytes
-    string format "jpg/png/webp"
-    ObjectId uploadedByAccountId "optional for legacy"
-    boolean isActive "archive keeps links"
+    string cloudinaryAssetId "UK with cloudName"
+    string publicId "UK with cloudName"
+    string url "Cloudinary file outside DB"
+    ObjectId uploadedByAccountId "FK optional legacy"
   }
-  service_images {
-    ObjectId imageId "images._id"
-    string alt "optional/context"
+  staff {
+    ObjectId _id PK
+    ObjectId accountId "UK required owner or stylist"
+    string_array serviceIds "reference services id"
+    boolean isActive "new bookings"
+    number bookingRevision "staff guard"
+  }
+  staff_shifts {
+    ObjectId _id PK
+    ObjectId staffId FK
+    string localDate "dated shift"
+    date startAt "UTC"
+    date endAt "UTC"
+    string status "active cancelled"
   }
   staff_time_off {
     ObjectId _id PK
-    ObjectId staffId "required"
-    date startAt
-    date endAt
+    ObjectId staffId FK
+    date startAt "owner exception"
+    date endAt "no employee request workflow"
   }
   appointments {
     ObjectId _id PK
-    ObjectId customerId
-    ObjectId staffId
-    ObjectId createdByAccountId
-    string requestKey "unique/creator"
-    object customerSnapshot "embedded/private"
-    date startAt
-    date endAt
-    date occupiedUntil "endAt+buffer"
-    string status
-    number revision
-    object lastCommand "embedded/receipt"
+    ObjectId customerId FK
+    ObjectId staffId FK
+    ObjectId createdByAccountId FK
+    string bookingMode "customer scheduled walkin"
+    array items "embedded 1 to 5 snapshots"
+    date startAt "planned"
+    date endAt "planned sum duration"
+    date occupiedFrom "derived actual"
+    date occupiedUntil "derived includes 10 min"
+    date estimatedEndAt "optional ETA"
+    string status "lifecycle"
+    number revision "CAS"
   }
-  items {
-    string serviceId "services.id"
-    string name "snapshot"
-    number priceVnd "snapshot"
-    number durationMinutes "snapshot"
+  booking_requests {
+    ObjectId _id PK
+    ObjectId actorId FK
+    string key "UK with actorId"
+    string requestHash "canonical input"
+    ObjectId appointmentId FK
+    date expiresAt "24 hours TTL cleanup"
   }
-  weeklyHours {
-    number weekday "ISO:1..7"
-    object_array intervals "embedded:1..3"
-    number startMinute "intervals[].startMinute"
-    number endMinute "intervals[].endMinute"
+  appointment_events {
+    ObjectId _id PK
+    ObjectId appointmentId FK
+    ObjectId actorId FK
+    number revision "UK with appointmentId"
+    string kind "append only"
+    object before "bounded snapshot"
+    object after "bounded snapshot"
+    string reason "required owner correction"
   }
-  accounts |o..o| customers : "accountId"
-  accounts |o..o| staff : "accountId"
-  accounts ||..o{ appointments : "createdByAccountId"
-  customers ||..o{ appointments : "customerId"
-  staff ||..o{ appointments : "staffId"
-  staff ||..o{ staff_time_off : "staffId"
-  staff }o..o{ services : "serviceIds/id"
-  accounts |o..o{ images : "uploadedByAccountId"
-  images ||..o{ services : "coverImageId"
-  services ||--|{ service_images : "EMBEDDED:1..10"
-  images ||..o{ service_images : "imageId"
-  appointments ||--|{ items : "EMBEDDED:1..3"
-  services ||..o{ items : "serviceId/id"
-  staff ||--o{ weeklyHours : "EMBEDDED:0..7"
+  accounts |o..o| customers : "optional account"
+  accounts ||..o| staff : "owner or stylist"
+  accounts ||..o{ auth_challenges : "purpose slot"
+  services }o..o{ staff : "capabilities"
+  images ||..o{ services : "cover"
+  images }o..o{ services : "optional gallery"
+  accounts ||..o{ images : "uploader"
+  staff ||..o{ staff_shifts : "dated shifts"
+  staff ||..o{ staff_time_off : "exceptions"
+  customers ||..o{ appointments : "profile guard"
+  staff ||..o{ appointments : "staff guard"
+  accounts ||..o{ appointments : "creator"
+  services }|..o{ appointments : "1 to 5 snapshot items"
+  accounts ||..o{ booking_requests : "key scope"
+  appointments ||..o{ booking_requests : "receipt"
+  appointments ||..o{ appointment_events : "revision history"
+  accounts ||..o{ appointment_events : "actor"

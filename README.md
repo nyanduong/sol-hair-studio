@@ -94,7 +94,7 @@ Với điện thoại thật, cho phép Node.js qua Windows Firewall nếu đư�
 
 Đọc luồng và cây thư mục sau refactor tại [docs/kien-truc-va-luong-chay.md](docs/kien-truc-va-luong-chay.md).
 
-Bản thiết kế dữ liệu chờ duyệt: [DB baseline v1 — SOL-011](docs/database/README.md).
+Bản thiết kế dữ liệu chờ duyệt: [DB baseline MVP — SOL-016](docs/database/README.md).
 
 ## Kiểm tra
 
