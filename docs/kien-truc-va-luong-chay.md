@@ -1,6 +1,6 @@
 # Kiến trúc và luồng chạy
 
-Tài liệu này mô tả cấu trúc đang có trong repository. Phạm vi sản phẩm hiện tại gồm trang chủ web và API danh mục dịch vụ đọc từ MongoDB, dùng URL ảnh Cloudinary. Đặt lịch, đăng nhập, thanh toán, trang tổng quan và feature danh mục trên mobile chưa được triển khai.
+Tài liệu này mô tả cấu trúc đang có trong repository. Phạm vi sản phẩm hiện tại gồm trang chủ web, danh mục dịch vụ native trên mobile và API đọc từ MongoDB, dùng URL ảnh Cloudinary. Đặt lịch, đăng nhập, thanh toán và trang tổng quan chưa được triển khai.
 
 ## A. Nhìn tổng thể
 
@@ -100,7 +100,15 @@ apps/mobile/
 │   │   ├── env.js                   Ghép cấu hình API với host Expo và nền tảng
 │   │   ├── resolve-api-base-url.js   Ưu tiên URL cấu hình; tự nhận host trong dev
 │   │   └── tests/                   Test chọn host, đổi mạng và cấu hình riêng
-│   ├── navigation/RootNavigator.jsx  Khai báo native stack một màn hình, ẩn header
+│   ├── navigation/RootNavigator.jsx  Mở Services; Health có header và nút quay lại
+│   ├── features/services/
+│   │   ├── screens/ServicesScreen.jsx  Ghép FlatList, trạng thái và đường tới Health
+│   │   ├── components/ServiceCard.jsx  Ảnh, mô tả, giá và thời lượng từ API
+│   │   ├── components/ServicesStatus.jsx  Tải, rỗng, lỗi và thử lại
+│   │   ├── hooks/useServices.js       Giữ state, tải lại và cleanup request
+│   │   ├── api/services.api.js        Gọi GET /api/services qua HTTP helper
+│   │   ├── styles/                   StyleSheet native của screen và card
+│   │   └── tests/services.api.test.js  DTO, lỗi/thử lại, hủy và response cũ
 │   ├── features/health/
 │   │   ├── screens/HealthScreen.jsx  Ghép màn hình, SafeAreaView và StatusBar
 │   │   ├── components/HealthStatusCard.jsx  Hiển thị trạng thái và nút thử lại
@@ -123,7 +131,7 @@ apps/mobile/
 
 - API: `apps/api/src/server.js` → `apps/api/src/app.js` → `apps/api/src/routes/index.js` → `apps/api/src/modules/services/services.routes.js` → `services.controller.js` → `services.repository.js` → `services.model.js`.
 - Web: `apps/web/src/main.jsx` → `App.jsx` → `routes/AppRoutes.jsx` → `features/home/pages/HomePage.jsx` → `components/ServicePreview.jsx` → `features/services/hooks/useServices.js` → `api/services.api.js` → `lib/http.js`.
-- Mobile: `apps/mobile/index.js` → `App.jsx` → `src/navigation/RootNavigator.jsx` → `features/health/screens/HealthScreen.jsx` → `hooks/useHealth.js` → `api/health.api.js` → `lib/http.js`.
+- Mobile: `apps/mobile/index.js` → `App.jsx` → `src/navigation/RootNavigator.jsx` → `features/services/screens/ServicesScreen.jsx` → `hooks/useServices.js` → `api/services.api.js` → `lib/http.js`. Liên kết cuối danh mục mở `features/health/screens/HealthScreen.jsx`.
 
 ## D. Luồng chạy trang chủ và danh mục dịch vụ
 
@@ -131,13 +139,17 @@ Web vào `main.jsx`, nơi tạo React root và render `App` trong `StrictMode`. 
 
 `services.api.js` gọi `GET /api/services` qua HTTP helper. Khi MongoDB đã kết nối, máy chủ trả `{ data: [...] }` từ các dịch vụ đang hoạt động; mỗi mục có `id`, `slug`, `name`, `description`, `category`, `durationMinutes`, `priceVnd` và `imageUrl`. URL ảnh được tạo từ Cloudinary cloud name/public ID lúc nạp seed vào MongoDB; web dùng `imageUrl` trả về từ API. Khi database chưa được cấu hình hoặc kết nối, endpoint trả `503` với mã `DATABASE_UNAVAILABLE`, còn health check vẫn cho biết trạng thái database.
 
+Mobile mở `ServicesScreen` trước. `FlatList` dùng public `id` làm key; `ServiceCard` hiển thị ảnh qua `imageUrl`, tên, nhóm, mô tả, giá VND và khoảng thời lượng. Giao diện native dùng `StyleSheet`, không dùng component DOM hoặc CSS web. Lỗi ảnh chỉ thay phần ảnh bằng thông báo; dữ liệu dịch vụ vẫn xem được.
+
+`useServices` quản lý `loading`, `success` (gồm danh sách rỗng), `error` và tải lại. `services.api.js` chỉ chọn endpoint và lấy `data` từ envelope chung. HTTP helper tiếp tục dùng base URL môi trường/SOL-012, timeout 8 giây và abort. Cleanup hủy request khi unmount; `latest-request.js` bỏ qua kết quả cũ. Nút tải lại bị vô hiệu hóa lúc tải. Task này không đổi DTO, route API, model MongoDB hoặc tài nguyên Cloudinary.
+
 ## E. Luồng chạy health
 
 ### Mở màn hình
 
 Web vào `main.jsx`, nơi tạo React root và render `App` trong `StrictMode`. `App.jsx` đặt một `BrowserRouter`; `AppRoutes` chọn route `/health`, rồi `MainLayout` giữ nền và khung trang. `HealthPage` gọi `useHealth`. Hook khởi tạo state `loading` và chạy `loadHealth` trong `useEffect`.
 
-Mobile vào `index.js`, Expo đăng ký `App.jsx`. `App` đặt một `SafeAreaProvider` và một `NavigationContainer`; `RootNavigator` đăng ký screen `Health` với header tắt. `HealthScreen` dùng `SafeAreaView` theo bốn cạnh và gọi `useHealth` để bắt đầu cùng luồng tải.
+Mobile vào `index.js`, Expo đăng ký `App.jsx`. `App` đặt một `SafeAreaProvider` và một `NavigationContainer`; `RootNavigator` mở `Services` với header tắt. Liên kết **Kiểm tra kết nối** mở `Health` với native header và nút quay lại. `HealthScreen` dùng `SafeAreaView` theo cạnh phải, dưới và trái (header xử lý cạnh trên), rồi gọi `useHealth` để bắt đầu cùng luồng tải.
 
 ### Bấm “Kiểm tra lại”
 
@@ -166,8 +178,8 @@ Parser JSON không hợp lệ được `errorHandler` nhận diện và trả 40
 Ví dụ dưới đây mô tả nơi tiếp tục mở rộng feature danh mục; các mục này chưa nằm trong phạm vi hiện tại.
 
 - API: mở rộng `apps/api/src/modules/services/` khi cần lưu trữ bền vững hoặc quy tắc nghiệp vụ; đăng ký router tại `apps/api/src/routes/index.js`.
-- Web: trang chủ hiện dùng dịch vụ mẫu từ API. Trang danh mục đầy đủ có thể đặt page, component, hook, API và test trong `apps/web/src/features/services/` khi được giao.
-- Mobile: đặt screen, component, hook, API và test trong `apps/mobile/src/features/services/`. Đăng ký screen trong `src/navigation/RootNavigator.jsx`.
+- Web: trang chủ hiện dùng danh mục MongoDB từ API. Trang danh mục đầy đủ có thể đặt page, component, hook, API và test trong `apps/web/src/features/services/` khi được giao.
+- Mobile: mở rộng danh mục hiện có trong `apps/mobile/src/features/services/` khi được giao; screen được đăng ký trong `src/navigation/RootNavigator.jsx`.
 - Cả hai client gọi cùng hợp đồng API; mỗi client tiếp tục dùng base URL riêng theo môi trường. Không chuyển component DOM sang mobile.
 
 Không cần tạo đủ mọi tệp trước khi tính năng cần chúng.
