@@ -5,7 +5,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const collections = ['services', 'accounts', 'customers', 'staff', 'staff_time_off', 'appointments']
+const collections = ['services', 'accounts', 'customers', 'staff', 'staff_time_off', 'appointments', 'images']
 const blocking = new Set(['confirmed', 'in_progress', 'completed'])
 const stampFields = ['_id', 'createdAt', 'updatedAt']
 const keys = (v, required, optional = []) => {
@@ -52,16 +52,21 @@ function validate(data) {
   const serviceMap = new Map(data.services.map(s => [s.id, s]))
   unique(data.services.map(s => s.id)); unique(data.services.map(s => s.slug))
   for (const s of data.services) {
-    keys(s, [...stampFields, 'id', 'slug', 'name', 'description', 'category', 'durationMinutes', 'bookingDurationMinutes', 'priceVnd', 'imageUrl', 'isActive', 'displayOrder'], ['__v'])
+    keys(s, [...stampFields, 'id', 'slug', 'name', 'description', 'category', 'durationMinutes', 'bookingDurationMinutes', 'priceVnd', 'coverImageId', 'images', 'isActive', 'displayOrder'], ['__v'])
     slug(s.id, 80); slug(s.slug, 120); str(s.name); str(s.description, 2000); str(s.category, 80)
     keys(s.durationMinutes, ['min', 'max'])
     int(s.durationMinutes.min, 1, 480); int(s.durationMinutes.max, s.durationMinutes.min, 480)
     int(s.bookingDurationMinutes, s.durationMinutes.min, s.durationMinutes.max, 5)
     int(s.priceVnd, 0, 100000000); int(s.displayOrder, 0, 100000); bool(s.isActive)
     if (s.__v !== undefined) int(s.__v, 0, Number.MAX_SAFE_INTEGER)
-    str(s.imageUrl, 2048)
-    const u = new URL(s.imageUrl)
-    assert(u.protocol === 'https:' && u.hostname === 'res.cloudinary.com' && !u.username && !u.password, 'image URL')
+    arr(s.images, 1, 10)
+    unique(s.images.map(i => oid(i.imageId)))
+    for (const i of s.images) {
+      keys(i, ['imageId'], ['alt']); ref('images', i.imageId)
+      if (i.alt !== undefined) str(i.alt, 200)
+    }
+    ref('images', s.coverImageId)
+    assert(s.images.some(i => oid(i.imageId) === oid(s.coverImageId)), 'cover must belong to gallery')
   }
   unique(data.accounts.map(a => a.emailNormalized))
   for (const a of data.accounts) {
@@ -70,6 +75,19 @@ function validate(data) {
     assert.equal(a.emailNormalized, a.emailNormalized.toLowerCase()); str(a.passwordHash, 255, 20)
     arr(a.roles, 1, 4); unique(a.roles); a.roles.forEach(r => assert(['customer', 'stylist', 'receptionist', 'owner'].includes(r)))
     bool(a.isActive)
+  }
+  unique(data.images.map(i => `${i.cloudName}:${i.cloudinaryAssetId}`))
+  unique(data.images.map(i => `${i.cloudName}:${i.publicId}`))
+  for (const i of data.images) {
+    keys(i, [...stampFields, 'cloudName', 'cloudinaryAssetId', 'publicId', 'url', 'originalName', 'width', 'height', 'bytes', 'format', 'isActive'], ['uploadedByAccountId'])
+    str(i.cloudName, 100); assert.match(i.cloudName, /^[A-Za-z0-9_-]+$/)
+    str(i.cloudinaryAssetId, 128); str(i.publicId, 255); str(i.url, 2048); str(i.originalName, 255)
+    const u = new URL(i.url)
+    assert(u.protocol === 'https:' && u.hostname === 'res.cloudinary.com' && !u.username && !u.password && u.pathname.startsWith(`/${i.cloudName}/image/upload/`), 'image URL/cloud mismatch')
+    int(i.width, 1, 20000); int(i.height, 1, 20000); int(i.bytes, 1, 10485760)
+    assert(['jpg', 'png', 'webp'].includes(i.format), 'image format'); bool(i.isActive)
+    if (i.uploadedByAccountId) assert(ref('accounts', i.uploadedByAccountId).roles.some(r => ['owner', 'receptionist'].includes(r)), 'image uploader role')
+    // Imported legacy assets may lack an uploader. Existing links may point to archived assets.
   }
   for (const name of ['customers', 'staff']) {
     unique(data[name].filter(x => x.accountId).map(x => oid(x.accountId)))
@@ -162,7 +180,7 @@ function validate(data) {
   }
   const dtoKeys = ['id', 'slug', 'name', 'description', 'category', 'durationMinutes', 'priceVnd', 'imageUrl']
   keys(data.response, ['data'])
-  const projected = data.services.filter(s => s.isActive).sort((a, b) => a.displayOrder - b.displayOrder || a.id.localeCompare(b.id)).map(s => Object.fromEntries(dtoKeys.map(k => [k, s[k]])))
+  const projected = data.services.filter(s => s.isActive).sort((a, b) => a.displayOrder - b.displayOrder || a.id.localeCompare(b.id)).map(s => Object.fromEntries(dtoKeys.map(k => [k, k === 'imageUrl' ? ref('images', s.coverImageId).url : s[k]])))
   data.response.data.forEach(s => keys(s, dtoKeys))
   assert.deepEqual(data.response.data, projected, 'GET services DTO/projection/sort')
 }
@@ -172,7 +190,7 @@ const data = Object.fromEntries(await Promise.all(collections.map(async name => 
 ])))
 data.response = JSON.parse(await readFile(resolve(root, 'examples/services-response.json'), 'utf8'))
 validate(data)
-console.log(`PASS: ${collections.length} collections, ${collections.reduce((n, c) => n + data[c].length, 0)} fake documents; references, bounds, timestamps, snapshots, totals, shifts, overlap and DTO.`)
+console.log(`PASS: ${collections.length} collections, ${collections.reduce((n, c) => n + data[c].length, 0)} fake documents; references, bounds, image metadata/gallery/cover, timestamps, snapshots, totals, shifts, overlap and DTO.`)
 
 if (process.argv.includes('--self-test')) {
   const mutations = [
@@ -189,6 +207,21 @@ if (process.argv.includes('--self-test')) {
     d => { d.customers[1].accountId = d.customers[0].accountId },
     d => { delete d.appointments[3].lastCommand },
     d => { d.appointments[0].updatedAt = { $date: '2026-10-02T01:59:00.000Z' } },
+    d => { d.services[0].images[0].imageId = { $oid: 'f'.repeat(24) } },
+    d => { d.services[0].coverImageId = d.images[4]._id },
+    d => { d.services[0].images.push(structuredClone(d.services[0].images[0])) },
+    d => { d.services[0].images = [] },
+    d => { d.services[0].images = Array.from({ length: 11 }, () => structuredClone(d.services[0].images[0])) },
+    d => { d.images[1].cloudinaryAssetId = d.images[0].cloudinaryAssetId },
+    d => { d.images[1].publicId = d.images[0].publicId },
+    d => { d.images[0].url = 'https://res.cloudinary.com.evil.invalid/sol-fake/image/upload/cut' },
+    d => { d.images[0].cloudName = 'wrong-cloud' },
+    d => { d.images[0].bytes = 10485761 },
+    d => { d.images[0].width = 0 },
+    d => { d.images[0].format = 'svg' },
+    d => { d.images[0].uploadedByAccountId = d.accounts[0]._id },
+    d => { d.services[0].images[0].alt = null },
+    d => { d.response.data[0].imageUrl = d.images[3].url },
   ]
   mutations.forEach((mutate, i) => { const copy = structuredClone(data); mutate(copy); assert.throws(() => validate(copy), `negative case ${i + 1}`) })
   console.log(`PASS: ${mutations.length} invalid in-memory variants rejected; not DB/concurrency tests.`)
@@ -215,3 +248,17 @@ const schema = await readFile(resolve(root, 'schema.md'), 'utf8')
 const indexes = await readFile(resolve(root, 'queries-and-indexes.md'), 'utf8')
 for (const name of collections) for (const text of [diagram, schema, indexes]) assert(text.includes(name), `missing collection ${name}`)
 console.log(`PASS: ${linkCount} internal file/anchor links; collection names present in schema, diagram and indexes.`)
+
+const nativeDiagram = JSON.parse(await readFile(resolve(root, 'diagrams/sol-db-baseline.visualeaf.json'), 'utf8'))
+assert.deepEqual(nativeDiagram.collections.map(c => c.name).sort(), [...collections].sort(), 'native diagram collections')
+for (const connection of nativeDiagram.connections) for (const end of [connection.source, connection.target]) {
+  const collection = nativeDiagram.collections.find(c => c.name === end.collection)
+  assert(collection?.fields.some(f => f.path === end.path), `native diagram missing endpoint ${end.collection}.${end.path}`)
+}
+for (const [source, path, target, type] of [
+  ['services', 'coverImageId', 'images', 'N-1'],
+  ['services', 'images[].imageId', 'images', 'N-N'],
+  ['images', 'uploadedByAccountId', 'accounts', 'N-1'],
+]) assert(nativeDiagram.connections.some(c => c.source.collection === source && c.source.path === path && c.target.collection === target && c.target.path === '_id' && c.type === type), `native diagram image reference ${path}`)
+assert(!nativeDiagram.collections.find(c => c.name === 'services').fields.some(f => f.path === 'imageUrl'), 'native target schema stores cover, not legacy URL')
+console.log(`PASS: native diagram ${nativeDiagram.collections.length} collections, ${nativeDiagram.collections.reduce((n, c) => n + c.fields.length, 0)} fields, ${nativeDiagram.connections.length} references; endpoints and image cardinalities.`)

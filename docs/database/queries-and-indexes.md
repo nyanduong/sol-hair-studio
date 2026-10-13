@@ -15,6 +15,10 @@
 | Q8 — đề xuất | Hủy/đổi/bắt đầu/hoàn tất | _id+revision+status; guard staff cũ/mới; authorization; cập nhật một appointment |
 | Q9 — đề xuất | Sửa ca, nghỉ, năng lực hoặc ngừng staff | Guard staff; đọc mọi in_progress và confirmed có occupiedUntil>now, từ chối khi vi phạm; thay staff hoặc time_off atomically |
 | Q10 — đề xuất | Login/link hồ sơ; gửi lại request | emailNormalized; accountId khi có; (createdByAccountId,requestKey); lastCommand đọc theo appointment._id |
+| Q11 — đề xuất | Kho images: liệt kê, tìm theo tiền tố tên file | Quyền owner/receptionist; isActive eq (mặc định true); sort createdAt desc,_id desc; cursor/page 20 tối đa 50; tên prefix có escape, tối đa 100 ký tự, lọc dư bằng I15, không hứa index tối ưu tìm tên |
+| Q12 — đề xuất | Gắn/bỏ/sắp xếp ảnh và chọn cover dịch vụ | Đọc images theo tập _id tối đa 10; kiểm existence/active cho link mới; validate và CAS cover/gallery của 1 services document; B7 |
+| Q13 — đề xuất | Tra nơi đang dùng một ảnh | services.images.imageId eq, bao gồm service inactive; sort id asc; cursor/page 20 tối đa 50; đây là danh sách nơi dùng được hỗ trợ trong v1, chưa có avatar/banner |
+| Q14 — đề xuất | Đăng ký asset upload, archive/khôi phục | Unique cloudName+cloudinaryAssetId/publicId; update images._id; không có purge hoặc call Cloudinary trong MongoDB transaction |
 
 Đây là giả định tải nhỏ của một tiệm, thiên về đọc danh mục; chưa có telemetry hoặc đo explain. Không đánh giá tốc độ từ danh sách index.
 
@@ -29,7 +33,9 @@ ServiceModel.find({ isActive: true })
   .lean()
 ```
 
-Controller trả `{data:[{id,slug,name,description,category,durationMinutes,priceVnd,imageUrl}]}` hoặc 503 DATABASE_UNAVAILABLE. Projection là **danh sách loại trừ**: thêm bookingDurationMinutes vào DB mà không sửa projection sẽ làm field mới lọt ra API. Kế hoạch chuyển đổi bắt buộc đổi sang allowlist 8 field trước khi backfill. Không làm điều đó trong SOL-011. [Repository/test](../../apps/api/src/modules/services/tests/services.repository.test.js).
+Controller trả `{data:[{id,slug,name,description,category,durationMinutes,priceVnd,imageUrl}]}` hoặc 503 DATABASE_UNAVAILABLE. Projection là **danh sách loại trừ**: thêm bookingDurationMinutes/coverImageId/images vào DB mà không sửa projection sẽ làm field mới lọt ra API. Kế hoạch chuyển đổi bắt buộc đổi sang allowlist 8 field trước khi backfill. Schema đích resolve cover từ collection images và dựng imageUrl; không đưa gallery/metadata vào DTO cũ. Không làm điều đó trong SOL-011. [Repository/test](../../apps/api/src/modules/services/tests/services.repository.test.js).
+
+Q1/Q2 sau chuyển đổi: lấy services theo filter/sort cũ, gom coverImageId khác nhau rồi đọc images bằng `_id:{$in:...}` hoặc lookup tương đương; map URL và allowlist đúng 8 field. Không lọc cover theo isActive (archive vẫn giữ liên kết cũ), không truy vấn 1 lần/1 thẻ. Khi catalog lớn, cần chốt pagination trước, hiện Q1 vẫn giữ hợp đồng không phân trang. Cover thiếu là lỗi integrity, trả lỗi server JSON an toàn, không bỏ thẻ hoặc fallback tùy ý. Hành vi 503 DATABASE_UNAVAILABLE khi DB không sẵn sàng vẫn giữ. Gallery API/public endpoint chưa được giao.
 
 Web fetchServices trả response.data, ServiceCard dùng duration min/max, priceVnd và imageUrl; Home hiển thị danh mục. Mobile hiện chỉ có feature health, chưa có consumer services thực thi; DTO dự kiến dùng chung phải giữ id String khi bổ sung sau này. File [DTO mẫu](examples/services-response.json) chỉ là envelope hợp đồng, **không phải collection**.
 
@@ -77,7 +83,13 @@ Tất cả index bên dưới là **đề xuất, chưa áp dụng/chưa đọc 
 | I10 | appointments `{localDate:1,startAt:1,_id:1}` | không options | Q7 toàn tiệm | Cần field localDate derived đúng |
 | I11 | appointments `{staffId:1,localDate:1,startAt:1,_id:1}` | không options | Q7 theo stylist | Phục vụ sort khác I8; thêm chi phí ghi, đánh giá lại khi đo |
 | I12 | appointments `{createdByAccountId:1,requestKey:1}` | unique:true | Idempotency Q5/Q10 | Giữ key không TTL; tăng dung lượng theo lịch |
+| I13 | images `{cloudName:1,cloudinaryAssetId:1}` | unique:true | Q14 không đăng ký cùng asset hai lần | Đối chiếu asset và actor khi retry; unique không thay auth |
+| I14 | images `{cloudName:1,publicId:1}` | unique:true | Q14 identity resource_type=image,type=upload duy nhất v1 | Nếu hỗ trợ type/resource khác phải đổi key trước; không rename/overwrite |
+| I15 | images `{isActive:1,createdAt:-1,_id:-1}` | không options | Q11 filter + cursor/sort | Tìm tên là residual scan; không index text/regex trước khi đo |
+| I16 | services `{'images.imageId':1,id:1}` | không options, multikey | Q13 lọc nơi dùng, sort/cursor theo id | Tối đa 10 entry/service; không unique vì ảnh được tái sử dụng; explain sort chưa đo |
 
 Không index serviceIds vì <=50 staff nên quét có giới hạn chấp nhận được; không index passwordHash/phone/snapshot/notes. Không unique(staffId,startAt): không chặn giao nhau khác start. Không partial index theo blocking states ở v1 để tránh query không khớp filter; I8 dùng index thường. Partial I5/I6 nhắm MongoDB 8.0, `$type:'objectId'` được hỗ trợ; lookup dùng giá trị ObjectId nên phù hợp subset, truy vấn field missing/null không dùng để liệt kê tất cả bằng index này. [MongoDB 8.0 partial indexes](https://www.mongodb.com/docs/v8.0/core/index-partial/).
+
+Không index riêng coverImageId: cover phải là thành viên gallery, Q13 bao gồm cover qua cùng multikey I16. Không TTL trên images; archive không phải purge. Upload mới cần actor nhưng uploadedByAccountId không là bộ lọc v1, chưa index. Tất cả index images/I16 chỉ là đề xuất; chưa có lệnh tạo hoặc explain thực tế.
 
 Khi triển khai: kiểm explain bằng dataset giả có kích thước đại diện; kiểm scanned/returned, sort và write overhead. Không tạo index tự động từ request; không chạy syncIndexes để xóa index ngoài ý muốn. Index không enforce reference/role/trạng thái hoặc nhiều document overlap.

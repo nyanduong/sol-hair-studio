@@ -1,6 +1,6 @@
 # SOL-011 — DB baseline v1
 
-**PROPOSED — chờ NhanDuong21 duyệt.** Ngày lập: 29/09/2026. Đây là thiết kế, chưa được triển khai hoặc áp dụng lên MongoDB.
+**PROPOSED — chờ NhanDuong21 duyệt.** Ngày lập: 29/09/2026; cập nhật kho ảnh: 13/10/2026 theo yêu cầu chủ task. Đây là thiết kế, chưa được triển khai hoặc áp dụng lên MongoDB.
 
 ## Đọc từ đây
 
@@ -30,13 +30,16 @@ Một tiệm, timezone `Asia/Ho_Chi_Minh`; một stylist/lịch; 1–3 dịch v�
 | Collection | Vì sao cần | Trạng thái |
 | --- | --- | --- |
 | `services` | Danh mục dùng chung; giữ public id String và DTO | Đã có; đề xuất bổ sung thời lượng đặt lịch |
+| `images` | Kho metadata ảnh Cloudinary độc lập; dịch vụ chọn ảnh đại diện và 1–10 ảnh, tái sử dụng cùng asset | Đề xuất theo yêu cầu bổ sung 13/10; không upload/xóa file thật |
 | `accounts` | Danh tính đăng nhập/quyền; tách dữ liệu nhạy cảm khỏi hồ sơ | Đề xuất |
 | `customers` | Hồ sơ khách, liên kết tài khoản tùy chọn; truy vấn lịch của khách | Đề xuất |
 | `staff ` | Năng lực dịch vụ, ca lặp lại; document tranh chấp khi đặt lịch | Đề xuất |
 | `staff_time_off` | Nghỉ ngoại lệ theo khoảng thời gian; tăng theo thời gian nên không nhúng vào staff | Đề xuất |
 | `appointments` | Lịch hẹn, khoảng được giữ, snapshot và trạng thái | Đề xuất |
 
-Không tách category vì hiện chỉ là nhãn hiển thị; không có CRUD/phân cấp category. Đánh giá chưa có yêu cầu đã duyệt nên hoãn; không tạo collection `reviews`. Không thiết kế thanh toán online, giữ chỗ TTL, điểm thưởng, kho, payroll, nhiều chi nhánh hoặc hạ tầng phân tán.
+Kho ảnh: `services.coverImageId` và `services.images[].imageId` trỏ tới `images._id`; DTO danh mục vẫn có chính xác 8 field và lấy `imageUrl` từ ảnh đại diện. Bỏ ảnh khỏi dịch vụ chỉ bỏ liên kết; archive khỏi bộ chọn vẫn giữ file và liên kết cũ. V1 không hard-delete asset. Xem [schema](schema.md), [B7](business-rules.md#images), [workload/index](queries-and-indexes.md) và [migration](migration-plan.md).
+
+Không tách category vì hiện chỉ là nhãn hiển thị; không có CRUD/phân cấp category. Đánh giá chưa có yêu cầu đã duyệt nên hoãn; không tạo collection `reviews`. Không thiết kế thanh toán online, giữ chỗ TTL, điểm thưởng, kho hàng, payroll, nhiều chi nhánh hoặc hạ tầng phân tán. Chưa thêm liên kết ảnh cho avatar/banner khi chưa có chức năng tương ứng.
 
 ## Kiểm tra và điểm dừng
 

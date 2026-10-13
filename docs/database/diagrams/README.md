@@ -1,33 +1,27 @@
-# Sơ đồ DB trên VisuaLeaf
+# Sơ đồ DB baseline SOL-011
 
-- [PNG](sol-db-baseline.png) được xuất trực tiếp từ [VisuaLeaf Visual Schema](https://visualeaf.com/tools/visual-schema/widget/?data=sample) trên Chrome, kích thước **2282 × 2281**. Đây là ảnh dùng trong tài liệu theo yêu cầu chủ task.
-- [JSON do VisuaLeaf xuất](sol-db-baseline.visualeaf.json) giữ field, đường nối và vị trí trên canvas; chưa kiểm chứng nhập lại file này vào widget.
-- [Source Mermaid](sol-db-baseline.mmd) được giữ làm bản tham chiếu bằng văn bản. PNG hiện tại được xuất từ VisuaLeaf, không render từ Mermaid.
-- [Schema đầy đủ](../schema.md) vẫn là nguồn mô tả field, validation và cardinality; sơ đồ chỉ hiển thị **63 field chính, 6 collection và 8 đường reference**.
+- [PNG](sol-db-baseline.png) cập nhật ngày **13/10/2026**, kích thước **5200 × 3454**, render từ [Mermaid](sol-db-baseline.mmd) bằng Mermaid CLI và Edge; đã mở kiểm tra. PNG hiện tại không phải bản xuất trực tiếp từ VisuaLeaf.
+- [JSON do VisuaLeaf xuất](sol-db-baseline.visualeaf.json) được cập nhật trên Chrome, giữ **7 collection, 80 field chính, 11 đường reference và 1 chú giải**, cùng vị trí canvas. Chưa kiểm chứng nhập lại file này vào widget.
+- [Schema đầy đủ](../schema.md) là nguồn mô tả field, validation và cardinality; cả hai sơ đồ đều lược các field để dễ đọc và có bố cục khác nhau.
 
-## Cách đọc PNG
+## Cách đọc
 
-- `accounts`, `customers`, `staff`, `services`, `staff_time_off`, `appointments` là 6 collection. `items`, `weeklyHours`, `intervals`, snapshot và `durationMinutes` nằm trong collection cha; các đường dẫn có dấu chấm/`[]` diễn tả dữ liệu nhúng.
-- Đường nối là reference do ứng dụng kiểm tra, **không phải foreign key do MongoDB enforce**. `1/N` biểu thị số lượng tối đa; liên kết account của hồ sơ ghi rõ `0..1 : 0..1`. `skills` là quan hệ nhiều–nhiều giữa staff và services.
+- `accounts`, `customers`, `staff`, `services`, `images`, `staff_time_off`, `appointments` là **7 collection**. `service_images`, `items`, `weeklyHours` trong Mermaid là các nút mô tả **dữ liệu nhúng**, không phải collection mới; đường liền có nhãn `EMBEDDED`. VisuaLeaf hiển thị dữ liệu nhúng dưới collection cha.
+- Đường nét đứt là reference do ứng dụng kiểm tra, **không phải foreign key do MongoDB enforce**. Ký hiệu chân quạ biểu thị nhiều; vòng tròn biểu thị tùy chọn. Liên kết account của hồ sơ là `0..1 : 0..1`. `skills` là quan hệ nhiều–nhiều giữa staff và services.
+- `services.coverImageId → images._id` chọn một ảnh đại diện. `services.images[].imageId → images._id` cho phép dùng chung ảnh giữa nhiều dịch vụ. Gallery có 1–10 ID khác nhau, cover thuộc gallery, thứ tự array là thứ tự hiển thị. `alt` thuộc từng liên kết dịch vụ.
+- `images` chỉ lưu metadata, file ở Cloudinary. Archive giữ file/URL và liên kết cũ; không cho chọn mới. V1 không hard-delete, rename hoặc overwrite asset. Người upload có thể vắng mặt với ảnh legacy.
 - `items[].serviceId → services.id` là nhiều–một xét theo từng item; một appointment có 1–3 item. `services.id` là String, khác `_id` ObjectId.
-- Dấu `?` nghĩa là field tùy chọn/có thể vắng mặt, **không có nghĩa được lưu null**. Quy tắc điều kiện của `lastCommand` nằm trong schema. `lastCommand.actorId` vẫn hiện trong appointment nhưng lược đường reference tới accounts để giảm giao cắt.
-- Mermaid dùng nút phụ cho embedded document và ký hiệu chân quạ; VisuaLeaf hiển thị chúng dưới collection cha. Hai bản diễn tả cùng thiết kế, có bố cục khác nhau.
+- `optional`/dấu `?` nghĩa là có thể vắng mặt, **không có nghĩa được lưu null**. `lastCommand.actorId` nằm trong schema nhưng lược đường reference tới accounts để giảm giao cắt.
+- DTO danh mục giữ chính xác 8 field; `imageUrl` được suy ra từ URL ảnh cover. Không còn là field lưu độc lập trong schema đích của services; xem [migration](../migration-plan.md).
 
-## Cách đã dựng và xuất
+## Cách dựng và xuất lần này
 
-Ngày 29/09/2026, đã xóa các khối sample trên canvas, nhập metadata giả theo định dạng **Smart Query JSON** do UI công bố, rồi chỉnh vị trí, cardinality, nhãn và chú giải trực tiếp trên web. Không chạy Smart Query/mongosh hay kết nối DB. Canvas xuất cuối cùng chỉ có 6 collection của baseline.
+Ngày 13/10/2026, xóa các khối sample trên canvas mới của [VisuaLeaf Visual Schema](https://visualeaf.com/tools/visual-schema/widget/?data=sample), nhập metadata giả theo định dạng **Smart Query JSON** do UI công bố, chỉnh vị trí, cardinality, nhãn và chú giải trực tiếp trên web. Không chạy Smart Query/mongosh hay kết nối DB. **Save & Export → Export as JSON** tải được file; đối chiếu 7 collection/80 field/11 reference trước khi thay bản trong repo.
 
-Để xuất từ canvas đang mở:
+Sau lần tải JSON, công cụ điều khiển Chrome báo `Debugger unattached`, nên chưa xuất được PNG mới trực tiếp từ VisuaLeaf. Để ảnh tài liệu vẫn phản ánh kho images, render source Mermaid đã cập nhật bằng Mermaid CLI có sẵn trong cache, với Edge cục bộ; không cài dependency vào repo. Bằng chứng và giới hạn ở [review](../review.md).
 
-1. Đặt zoom **100%**, bỏ chọn các khối; xuất ở zoom nhỏ đã làm cỡ chữ nhãn đường nối sai trong một lần thử.
-2. Chọn **Save & Export → Export as PNG**.
-3. Chọn **Export as JSON** để lưu thêm cấu trúc và vị trí từ công cụ.
-4. Mở ảnh tải về để kiểm tra trước khi thay file trong repo. Bằng chứng lần xuất nằm ở [review](../review.md).
+## Giới hạn VisuaLeaf
 
-## Giới hạn của công cụ
+Smart Query importer đổi nhãn UI sang Tables và ghi `connectionType: "SQL"` trong JSON gốc, dù field giữ kiểu `objectId`, `date`, `array<object>` và đường dẫn nhúng của MongoDB. Thuộc tính `nullable` của công cụ được dùng để hiện dấu `?` theo chú giải. Tên workspace mặc định vẫn là `Sample Schema`; tên database và chú giải bên trong là Sol Hair Studio. Giữ nguyên bản xuất của công cụ; JSON này là **bản xuất sơ đồ**, không phải DDL, validator hay cấu hình áp dụng lên DB.
 
-Smart Query importer đổi nhãn UI sang Tables và ghi `connectionType: "SQL"` trong JSON gốc, dù field giữ kiểu `objectId`, `date`, `array<object>` và đường dẫn nhúng của MongoDB. Thuộc tính `nullable` của công cụ được dùng để hiện dấu `?` theo chú giải trên. JSON là **bản xuất sơ đồ**, không phải DDL, validator hay cấu hình để áp dụng lên DB.
-
-Lần khảo sát đầu trong trình duyệt Codex chưa tải được file; lần này Chrome đã tải được PNG và JSON qua đúng menu Export. Nút Save workspace vẫn yêu cầu ứng dụng VisuaLeaf. **Chưa kiểm chứng native round-trip**: chưa nhập lại JSON xuất ra vào một canvas mới. Vì vậy giữ cả schema và Mermaid để tham chiếu, không cam kết widget hỗ trợ khôi phục từ JSON.
-
-PNG giữ nguyên bản xuất của website: một số tiêu đề có mép chữ sát đường viền và dấu gạch dưới khó thấy khi thu nhỏ. Tên field chính xác nằm trong JSON và schema; không dùng hình để suy ra tên field khác.
+Nút Save workspace yêu cầu ứng dụng VisuaLeaf. **Chưa kiểm chứng native round-trip**: chưa nhập lại JSON xuất ra vào canvas mới; không cam kết widget hỗ trợ khôi phục từ JSON. Mermaid là source văn bản có thể chỉnh sửa/render lại độc lập. Bản PNG VisuaLeaf 6 collection ngày 29/09 đã được thay, chỉ còn mô tả lịch sử trong review.

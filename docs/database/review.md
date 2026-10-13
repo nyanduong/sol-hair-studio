@@ -2,6 +2,8 @@
 
 Chủ task duyệt: **NhanDuong21**. Bản nháp chưa APPROVED, chưa chứng minh ràng buộc MongoDB thực tế. Base phân tích `e742630382df97d44e74321d8af82a52e506450f`, PR #10 MERGED. Sheet chỉ chỉnh SOL-011 tại PHÂN CÔNG hàng 10; không sửa các quyết định PHẠM VI đang “Chưa chốt”.
 
+**Bổ sung 13/10/2026:** chủ task yêu cầu collection images làm kho ảnh dùng chung, sửa sơ đồ/tài liệu, chưa triển khai code. Baseline hiện có 7 collection; schema đích services dùng cover/gallery, DTO cũ giữ 8 field. D1–D12 vẫn chưa duyệt; giới hạn, quyền và lifecycle ảnh D13–D15 là đề xuất chi tiết. Các bằng chứng ngày 29/09 bên dưới là lịch sử, không thay thế kiểm tra bản cập nhật; kết quả mới ghi ở mục cuối.
+
 <a id="quyet-dinh"></a>
 ## Quyết định cần duyệt
 
@@ -19,8 +21,11 @@ Chủ task duyệt: **NhanDuong21**. Bản nháp chưa APPROVED, chưa chứng m
 | D10 | Ngừng dịch vụ vẫn phục vụ lịch cũ; ngừng staff phải xử lý lịch trước | Không cascade delete; chưa quyết định thời hạn lưu/ẩn dữ liệu cá nhân, phải chốt trước dùng thật | PROPOSED |
 | D11 | Hoãn đánh giá, thanh toán và audit mọi lần sửa | Chỉ lastCommand gần nhất; retry cũ hơn nhận stale và GET lại | PROPOSED |
 | D12 | Chống trùng theo stylist; chưa khóa customer | Nếu muốn cấm khách đặt trùng trên hai stylist, cần bổ sung guard customer theo thứ tự khóa thống nhất trước triển khai | PROPOSED |
+| D13 | Kho images chung; service 1–10 ảnh khác nhau, cover thuộc gallery | File ở Cloudinary, metadata ở MongoDB; DTO giữ imageUrl từ cover; chưa public gallery hoặc thêm avatar/banner | Nhu cầu kho đã yêu cầu; chi tiết PROPOSED |
+| D14 | Owner/receptionist quản lý ảnh công khai; jpg/png/webp, 10 MiB, mỗi chiều <=20000px | Metadata từ upload đã xác minh; actor legacy có thể thiếu; không hỗ trợ ảnh khách riêng tư | PROPOSED |
+| D15 | Archive giữ URL/link cũ; không hard-delete/overwrite/rename asset | Gắn mới kiểm active tại snapshot, không thu hồi gắn đang chạy; chưa có purge, lỗi Cloudinary/DB cần đối chiếu ngoài transaction | PROPOSED |
 
-Đây là bảng duyệt thiết kế, không phải backlog phân công mới. Khi duyệt xong, thứ tự triển khai khuyến nghị: bảo toàn DTO/validation services → danh tính và hồ sơ → staff/ca/nghỉ → booking/transaction/idempotency → màn hình dùng chung hợp đồng. Chưa tạo mã SOL tiếp theo.
+Đây là bảng duyệt thiết kế, không phải backlog phân công mới. Khi duyệt xong, thứ tự triển khai khuyến nghị: bảo toàn DTO/validation services → danh tính và hồ sơ → kho ảnh/gallery → staff/ca/nghỉ → booking/transaction/idempotency → màn hình dùng chung hợp đồng. Chưa tạo mã SOL tiếp theo.
 
 <a id="scenarios"></a>
 ## Checklist tình huống thiết kế
@@ -52,6 +57,15 @@ Các dòng dưới đây là **phân tích thiết kế**, không phải kết q
 | 21 | Confirmed ngày trước, hôm nay bấm bắt đầu | Từ chối; nhân sự no_show rồi đặt mới nếu khách tới | B3 |
 | 22 | Staff đang in_progress09:00, lúc10:30 sửa ca/nghỉ | Vẫn kiểm lịch đang làm dù startAt<now; không bỏ qua bằng filter tương lai | B2 và Q9 |
 | 23 | Service chưa có reference, admin muốn xóa trong lúc booking | V1 không hard-delete service; isActive chỉ ảnh hưởng booking theo snapshot đã mô tả | B6 |
+| 24 | Cùng ảnh704 gắn vào cắt và nhuộm | Một document images, hai link độc lập; alt/thứ tự theo từng service | B7, services/images mẫu |
+| 25 | Cover không thuộc gallery, ID ảnh thiếu, gallery trùng hoặc >10 | Từ chối whole-document update, giữ gallery cũ | schema, checker negative cases |
+| 26 | Bỏ cover khỏi gallery | Bắt buộc chọn cover khác trong cùng ghi atomic/CAS; không xóa asset | B7 |
+| 27 | Archive cover703 của hair spa | Không cho chọn mới; DTO hiện có vẫn cùng URL, liên kết cũ được giữ | B7, services-response.json, checker |
+| 28 | Archive ảnh chưa dùng705; restore | Vẫn tồn tại trong kho, lọc archived được; restore cho chọn lại | B7, images.json |
+| 29 | Hai người cùng sửa gallery cũ | Một CAS thành công, người còn lại conflict và đọc lại | B7; phân tích, chưa DB test |
+| 30 | Upload Cloudinary thành công, insert MongoDB lỗi/mất response | Không báo thành công tùy tiện hoặc xóa asset ngay; tra unique asset và đối chiếu biên nhận để đăng ký lại | B7; phân tích, chưa network/DB test |
+| 31 | Client khai URL host giả hoặc cloud khác, metadata vượt giới hạn, actor customer | Từ chối đăng ký/link theo schema và quyền | checker negative cases; chưa upload validation thực tế |
+| 32 | Chuyển reader services sang ảnh cover | Envelope/id/sort và đúng 8 field không đổi, không lộ gallery/asset/actor | DTO checker, migration |
 
 ## Nguồn kỹ thuật và skill
 
@@ -105,7 +119,27 @@ Sửa thêm khi chạy checker: lỗi dấu ngoặc JavaScript ở lần chạy 
 | Schema nested, reference, snapshot, validation/index và migration | Có tài liệu; đã sửa phát hiện từ hai lượt review |
 | Chống trùng có key/document tranh chấp, retry, đổi lịch atomic | Có thiết kế; integration chưa chạy |
 | JSON giả liên kết nhất quán, script built-in offline | Kiểm tra offline đạt như bảng trên |
-| PNG và JSON xuất trực tiếp từ VisuaLeaf | Đã xuất, mở PNG và đối chiếu cấu trúc JSON; giữ thêm Mermaid tham chiếu |
+| Sơ đồ hiện tại có kho images | PNG render từ Mermaid đã mở kiểm tra; JSON mới xuất từ VisuaLeaf đã đối chiếu 7 collection/80 field/11 reference; xem bằng chứng 13/10 dưới đây |
 | VisuaLeaf native round-trip | CHƯA KIỂM CHỨNG; bản xuất native có thật, chưa chứng minh nhập lại được |
 | Nhánh/commit/push/Draft PR và Sheet | Bàn giao trên nhánh `docs/SOL-011-db-baseline`; link PR và trạng thái cập nhật tại hàng SOL-011 trên Sheet |
 | Chủ task duyệt baseline | CHỜ DUYỆT — PROPOSED |
+
+## Bằng chứng cập nhật kho ảnh — 13/10/2026
+
+Tiếp tục nhánh `docs/SOL-011-db-baseline` và Draft PR #11 theo yêu cầu chủ task. Nhánh đã đồng bộ `main` tại merge commit `674e3d1` (gồm `5086b80`, SOL-012); các kiểm tra bên dưới chạy trên trạng thái đó cùng tài liệu đang sửa. Commit kho ảnh này không đổi apps, dependency, lockfile, CI hoặc cấu hình môi trường; diff PR so với main chỉ có tài liệu.
+
+| Kiểm tra | Kết quả thực tế |
+| --- | --- |
+| `node docs/database/checks/validate-examples.mjs --self-test` | Đạt: 7 collection, 23 document giả; metadata/reference/gallery/cover và DTO giữ 8 field; từ chối 28 biến thể sai trong bộ nhớ; 55 liên kết file/anchor |
+| JSON VisuaLeaf | Đã dựng và xuất trên Chrome: 7 collection, 80 field chính, 11 reference, 1 chú giải; checker đối chiếu đầu mút và 3 cardinality liên quan ảnh. Không chứng minh native round-trip |
+| PNG hiện tại | Mermaid CLI trong cache + Edge render 5200 × 3454; đã mở ảnh kiểm tra field/đường nối. Lần gọi CLI đầu dùng `-w` không còn hỗ trợ và thất bại; sửa theo `--help` rồi render thành công. Không cài package vào repo |
+| `npm run lint` | Đạt cả 3 workspace, exit 0 |
+| `npm test` | Đạt 39 test hiện có: API 12, mobile 19, web 8; không phải kiểm tra upload/DB mới |
+| `npm run build` | Đạt: API kiểm cú pháp 20 file, Expo export Android/iOS, Vite build 43 module; không chạy app trên emulator/thiết bị |
+| `git diff --check` | Đạt; thay đổi của lượt này chỉ trong docs/database |
+
+Các lệnh npm chạy trực tiếp trong checkout nhánh thiết kế với dependency đã cài, `DOTENV_CONFIG_PATH=NUL`, `EXPO_NO_DOTENV=1`, `MONGODB_URI` rỗng, `CI=1`; không khởi động API hoặc kết nối database. Build có cảnh báo cache Metro/NO_COLOR, không có lỗi.
+
+VisuaLeaf tải được JSON nhưng sau đó kết nối điều khiển Chrome báo `Debugger unattached`, nên **chưa xuất PNG mới trực tiếp từ VisuaLeaf**. PNG trong tài liệu được thay bằng bản Mermaid có đủ kho ảnh; không dùng lại hình 6 collection cũ. Giới hạn và cách đọc ghi tại [hướng dẫn sơ đồ](diagrams/README.md).
+
+**Chưa triển khai/kiểm chứng:** model/API/UI/seed/migration, Cloudinary upload/verification/archive, MongoDB validator/index/transaction, race giữa archive/link, concurrency gallery, lỗi hai hệ thống, explain/performance, native round-trip VisuaLeaf. Không đọc hoặc thay đổi asset/DB thật. D1–D15 vẫn là thiết kế chờ duyệt; yêu cầu bổ sung kho images đã được ghi nhận, chưa đồng nghĩa SOL-011 đã hoàn thành/merge.

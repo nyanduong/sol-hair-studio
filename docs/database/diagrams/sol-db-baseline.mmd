@@ -37,7 +37,26 @@ erDiagram
     object durationMinutes "min/max"
     number bookingDurationMinutes
     number priceVnd
-    string imageUrl
+    ObjectId coverImageId "in gallery"
+    object_array images "embedded:1..10"
+  }
+  images {
+    ObjectId _id PK
+    string cloudName
+    string cloudinaryAssetId "unique with cloudName"
+    string publicId "unique with cloudName"
+    string url "Cloudinary file"
+    string originalName
+    number width
+    number height
+    number bytes
+    string format "jpg/png/webp"
+    ObjectId uploadedByAccountId "optional for legacy"
+    boolean isActive "archive keeps links"
+  }
+  service_images {
+    ObjectId imageId "images._id"
+    string alt "optional/context"
   }
   staff_time_off {
     ObjectId _id PK
@@ -78,6 +97,10 @@ erDiagram
   staff ||..o{ appointments : "staffId"
   staff ||..o{ staff_time_off : "staffId"
   staff }o..o{ services : "serviceIds/id"
+  accounts |o..o{ images : "uploadedByAccountId"
+  images ||..o{ services : "coverImageId"
+  services ||--|{ service_images : "EMBEDDED:1..10"
+  images ||..o{ service_images : "imageId"
   appointments ||--|{ items : "EMBEDDED:1..3"
   services ||..o{ items : "serviceId/id"
   staff ||--o{ weeklyHours : "EMBEDDED:0..7"

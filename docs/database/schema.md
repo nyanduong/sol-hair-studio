@@ -28,11 +28,38 @@ Danh mục đọc chung. `_id` nội bộ vẫn giữ; reference nghiệp vụ t
 | `durationMinutes.max` | int/double / Number | R | Nguyên 1–480 |
 | `bookingDurationMinutes` | int/double / Number | R sau backfill, không default | Nguyên 5–480, bội 5, nằm trong min/max; chủ tiệm chọn cụ thể. Không tự lấy trung bình |
 | `priceVnd` | int/double / Number | R | Nguyên 0–100000000 VND, không nhận chuỗi/âm/lẻ; không cần Decimal128 cho v1 |
-| `imageUrl` | string / String | R | <=2048; URL HTTPS, hostname chính xác `res.cloudinary.com`, không userinfo; giữ DTO cũ |
+| `coverImageId` | objectId / ObjectId | R sau backfill | Reference `images._id`; phải có trong `images[].imageId`; một ảnh đại diện/dịch vụ |
+| `images` | array<object> / [schema con] | R sau backfill | 1–10 ảnh khác nhau; thứ tự array là thứ tự hiển thị, không thêm position thứ hai |
+| `images[].imageId` | objectId / ObjectId | R | Reference `images._id`; cùng ảnh có thể dùng ở nhiều dịch vụ |
+| `images[].alt` | string / String | O | 1–200; mô tả ảnh theo ngữ cảnh dịch vụ; khi thiếu, UI có thể dùng tên dịch vụ |
 | `isActive` | bool / Boolean | R, true | Ẩn khỏi danh mục và từ chối booking mới khi false |
 | `displayOrder` | int/double / Number | R, 0 | Nguyên 0–100000; thứ tự hiển thị, tie-break id |
 
-Model hiện tại chỉ kiểm min/max >=1 độc lập, price >=0, regex URL và unique id/slug; chưa enforce nguyên, min<=max, độ dài hoặc thời lượng đặt lịch. Không coi các ràng buộc đề xuất là đang chạy. Metadata Cloudinary không thêm: URL đã đủ cho đọc ảnh; `imagePublicId` hiện chỉ ở nguồn seed. Khi có quản lý/upload ảnh mới xem xét publicId/version, tuyệt đối không binary/base64/secret.
+Model hiện tại chỉ kiểm min/max >=1 độc lập, price >=0, regex URL và unique id/slug; chưa enforce nguyên, min<=max, độ dài hoặc thời lượng đặt lịch. Không coi các ràng buộc đề xuất là đang chạy.
+
+`imageUrl` hiện là field lưu trong services và là một trong 8 field DTO. Schema đích dùng `coverImageId` + `images`; DTO vẫn trả `imageUrl = images.url` của ảnh đại diện, không xuất các ID/metadata mới. Trong giai đoạn chuyển đổi có thể giữ `services.imageUrl` như field legacy; phải bằng URL ảnh đại diện sau khi backfill và không là nguồn ghi độc lập. Chi tiết ở [kế hoạch chuyển đổi](migration-plan.md). `images` ở đây là mảng liên kết nhúng; collection `images` bên dưới lưu metadata ảnh riêng.
+
+## images
+
+Kho ảnh dùng chung: mỗi document mô tả một asset ảnh trên Cloudinary, có thể chưa được sử dụng hoặc được nhiều dịch vụ sử dụng. File ảnh ở Cloudinary; MongoDB không lưu binary/base64, API secret hay chữ ký upload. V1 chỉ quản lý ảnh công khai của tiệm/dịch vụ; không dùng kho này cho hồ sơ nhạy cảm hoặc ảnh riêng tư của khách.
+
+| Field path | BSON / Mongoose | Required/default | Ràng buộc và ý nghĩa |
+| --- | --- | --- | --- |
+| `cloudName` | string / String | R | 1–100, `^[A-Za-z0-9_-]+$`; môi trường Cloudinary đã cấu hình, server xác nhận; không nhận cloud tùy ý từ client |
+| `cloudinaryAssetId` | string / String | R | 1–128; ID asset do Cloudinary trả; immutable; unique cùng cloudName |
+| `publicId` | string / String | R | 1–255; public ID từ upload/kiểm kê đã xác minh, không suy đoán từ URL; unique cùng cloudName trong v1 chỉ `image/upload` |
+| `url` | string / String | R | 1–2048; HTTPS, host chính xác res.cloudinary.com, không userinfo; path bắt đầu `/<cloudName>/image/upload/`; lưu secure_url của asset |
+| `originalName` | string / String | R | 1–255; tên file hiển thị/tìm kiếm, không đường dẫn máy hoặc thông tin riêng tư |
+| `width` | int/double / Number | R | Nguyên 1–20000 pixel, từ metadata Cloudinary |
+| `height` | int/double / Number | R | Nguyên 1–20000 pixel |
+| `bytes` | int/double / Number | R | Nguyên 1–10485760 (10 MiB); giới hạn upload đề xuất của ứng dụng, không phải giới hạn gói Cloudinary |
+| `format` | string / String | R | Enum jpg/png/webp; ảnh raster được phép trong v1; server kiểm nội dung/metadata, không chỉ phần mở rộng |
+| `uploadedByAccountId` | objectId / ObjectId | O | Reference accounts._id; R cho upload mới có đăng nhập; thiếu chỉ khi import asset legacy chưa biết người upload, không bịa tài khoản |
+| `isActive` | bool / Boolean | R, true | Có thể chọn/gắn mới; false nghĩa archive khỏi bộ chọn, vẫn giữ URL và mọi liên kết hiện có |
+
+`_id`, createdAt, updatedAt theo quy ước chung. V1 không có gallery ngược `serviceIds` trong images: tra nơi dùng qua `services.images.imageId`; không lưu hai danh sách phải đồng bộ. Chưa thêm avatarImageId vào staff/customers hoặc collection banner vì chưa có yêu cầu các tính năng đó; sau này có thể tham chiếu cùng kho sau khi thiết kế quyền và truy vấn nơi dùng tương ứng.
+
+Asset identity/URL/metadata kỹ thuật được giữ nguyên sau đăng ký; thay nội dung ảnh tạo asset/document mới rồi thay liên kết. Không rename/overwrite/delete trực tiếp trên Cloudinary ngoài quy trình được quản lý. Archive không xóa file, không làm URL mất hiệu lực và không yêu cầu ảnh đang tham chiếu phải active. Các quy tắc upload, liên kết, archive và lỗi hai hệ thống ở [B7](business-rules.md#images).
 
 ## accounts
 
@@ -142,13 +169,15 @@ Các mốc timestamp không liên quan phải thiếu, không null. `updatedAt` 
 | accounts → customers | Account 0..1 customer; customer 0..1 account | customers.accountId O; service xác minh account/role, unique partial bảo vệ 1:1 |
 | accounts → staff | Account 0..1 staff; staff 0..1 account | staff.accountId O; như trên; một account có thể có cả hai hồ sơ |
 | staff ↔ services | M:N; staff 0..50 services | serviceIds nhúng reference String một chiều; service layer kiểm tồn tại, không lưu staffIds ngược |
+| accounts → images | Account 0..N ảnh; ảnh 0..1 người upload | uploadedByAccountId O cho legacy, upload mới bắt buộc actor có quyền |
+| services ↔ images | M:N; service 1..10 ảnh; ảnh 0..N dịch vụ | services.images nhúng imageId/alt; coverImageId đúng 1 và là thành viên gallery; không mảng ngược trên images |
 | staff → staff_time_off | 1:N; mỗi nghỉ đúng 1 staff | Reference required, đọc cùng transaction; không cascade |
 | customer/staff → appointments | Mỗi parent 0..N lịch; lịch đúng 1 mỗi loại | Reference required; không nhúng lịch sử parent |
 | accounts → appointments | Account 0..N lịch tạo; lịch đúng 1 người tạo | createdByAccountId, kiểm quyền; lastCommand.actorId là 0..1 người thao tác gần nhất |
 | appointments → items | 1..3 embedded; item đúng 1 service | Snapshot không đồng bộ ngược; reference dịch vụ String vẫn được giữ |
 | staff → weeklyHours → intervals | 0..7 embedded ngày → 1..3 embedded ca/ngày | Cấu trúc con có giới hạn; validate whole document |
 
-Mongoose `ref`/`populate` không enforce sự tồn tại. Service layer kiểm reference trong session; v1 không hard-delete services/staff/customers/accounts, kể cả chưa thấy reference (tránh race với booking/link vừa tạo). Reference sai trả lỗi nghiệp vụ, không tạo document mồ côi. Liên kết account/hồ sơ có unique index nhưng role vẫn do service layer kiểm tra.
+Mongoose `ref`/`populate` không enforce sự tồn tại. Service layer kiểm reference trong session; v1 không hard-delete services/staff/customers/accounts/images, kể cả chưa thấy reference (tránh race với booking/link vừa tạo). Reference sai trả lỗi nghiệp vụ, không tạo document mồ côi. Liên kết account/hồ sơ có unique index nhưng role vẫn do service layer kiểm tra. Image IDs phải unique trong từng gallery, cover phải thuộc gallery; multikey index không tự enforce các quy tắc này. Allowlist DTO phải có trước mọi field backfill mới.
 
 ## Trách nhiệm validation
 

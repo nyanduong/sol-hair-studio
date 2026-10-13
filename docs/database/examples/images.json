@@ -1,0 +1,119 @@
+[
+  {
+    "_id": {
+      "$oid": "000000000000000000000701"
+    },
+    "cloudName": "sol-fake",
+    "cloudinaryAssetId": "fake-asset-701",
+    "publicId": "cut",
+    "url": "https://res.cloudinary.com/sol-fake/image/upload/cut",
+    "originalName": "cat-tao-kieu.jpg",
+    "width": 1600,
+    "height": 1200,
+    "bytes": 250000,
+    "format": "jpg",
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    },
+    "uploadedByAccountId": {
+      "$oid": "000000000000000000000103"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "000000000000000000000702"
+    },
+    "cloudName": "sol-fake",
+    "cloudinaryAssetId": "fake-asset-702",
+    "publicId": "color",
+    "url": "https://res.cloudinary.com/sol-fake/image/upload/color",
+    "originalName": "nhuom-thoi-trang.jpg",
+    "width": 1600,
+    "height": 1200,
+    "bytes": 260000,
+    "format": "jpg",
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    },
+    "uploadedByAccountId": {
+      "$oid": "000000000000000000000103"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "000000000000000000000703"
+    },
+    "cloudName": "sol-fake",
+    "cloudinaryAssetId": "fake-asset-703",
+    "publicId": "spa",
+    "url": "https://res.cloudinary.com/sol-fake/image/upload/spa",
+    "originalName": "hair-spa.jpg",
+    "width": 1600,
+    "height": 1200,
+    "bytes": 270000,
+    "format": "jpg",
+    "isActive": false,
+    "createdAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "000000000000000000000704"
+    },
+    "cloudName": "sol-fake",
+    "cloudinaryAssetId": "fake-asset-704",
+    "publicId": "shared-detail",
+    "url": "https://res.cloudinary.com/sol-fake/image/upload/shared-detail",
+    "originalName": "chi-tiet-kieu-toc.webp",
+    "width": 1600,
+    "height": 1200,
+    "bytes": 180000,
+    "format": "webp",
+    "uploadedByAccountId": {
+      "$oid": "000000000000000000000103"
+    },
+    "isActive": true,
+    "createdAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "000000000000000000000705"
+    },
+    "cloudName": "sol-fake",
+    "cloudinaryAssetId": "fake-asset-705",
+    "publicId": "unused-archived",
+    "url": "https://res.cloudinary.com/sol-fake/image/upload/unused-archived",
+    "originalName": "anh-chua-su-dung.png",
+    "width": 800,
+    "height": 600,
+    "bytes": 120000,
+    "format": "png",
+    "uploadedByAccountId": {
+      "$oid": "000000000000000000000103"
+    },
+    "isActive": false,
+    "createdAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-10-01T01:00:00.000Z"
+    }
+  }
+]

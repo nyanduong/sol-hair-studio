@@ -14,7 +14,6 @@
     },
     "bookingDurationMinutes": 60,
     "priceVnd": 450000,
-    "imageUrl": "https://res.cloudinary.com/sol-fake/image/upload/cut",
     "isActive": true,
     "displayOrder": 0,
     "createdAt": {
@@ -22,7 +21,24 @@
     },
     "updatedAt": {
       "$date": "2026-10-01T01:00:00.000Z"
-    }
+    },
+    "coverImageId": {
+      "$oid": "000000000000000000000701"
+    },
+    "images": [
+      {
+        "imageId": {
+          "$oid": "000000000000000000000701"
+        },
+        "alt": "Cắt & tạo kiểu"
+      },
+      {
+        "imageId": {
+          "$oid": "000000000000000000000704"
+        },
+        "alt": "Chi tiet kieu toc sau khi cat"
+      }
+    ]
   },
   {
     "_id": {
@@ -39,7 +55,6 @@
     },
     "bookingDurationMinutes": 120,
     "priceVnd": 1200000,
-    "imageUrl": "https://res.cloudinary.com/sol-fake/image/upload/color",
     "isActive": true,
     "displayOrder": 1,
     "createdAt": {
@@ -47,7 +62,23 @@
     },
     "updatedAt": {
       "$date": "2026-10-01T01:00:00.000Z"
-    }
+    },
+    "coverImageId": {
+      "$oid": "000000000000000000000702"
+    },
+    "images": [
+      {
+        "imageId": {
+          "$oid": "000000000000000000000702"
+        },
+        "alt": "Nhuộm thời trang"
+      },
+      {
+        "imageId": {
+          "$oid": "000000000000000000000704"
+        }
+      }
+    ]
   },
   {
     "_id": {
@@ -64,7 +95,6 @@
     },
     "bookingDurationMinutes": 75,
     "priceVnd": 600000,
-    "imageUrl": "https://res.cloudinary.com/sol-fake/image/upload/spa",
     "isActive": true,
     "displayOrder": 2,
     "createdAt": {
@@ -72,6 +102,17 @@
     },
     "updatedAt": {
       "$date": "2026-10-01T01:00:00.000Z"
-    }
+    },
+    "coverImageId": {
+      "$oid": "000000000000000000000703"
+    },
+    "images": [
+      {
+        "imageId": {
+          "$oid": "000000000000000000000703"
+        },
+        "alt": "Hair spa phục hồi"
+      }
+    ]
   }
 ]
