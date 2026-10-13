@@ -38,3 +38,11 @@ Controlled browser-only interception of `/api/services` verified [loading](loadi
 The implementation retains existing logo, fonts, video and editorial assets. `hero-poster.jpg` is a frame extracted from the existing hero video; it introduces no external image source. The experience image differs from the reference prototype and remains subject to Owner asset approval. Editorial content is explicitly marked as sample content. Official contact details and asset/font approval are still pending; unverified address, phone, social and legal links are omitted.
 
 Booking links lead to a section explaining that online booking is unavailable. There is no booking workflow, service detail route, authentication, payment or CMS. API contracts, database, mobile source, dependencies and lockfile are unchanged. Owner visual/content acceptance and PR merge remain outstanding; this evidence does not mark the task completed.
+
+## Animation follow-up — prototype parity
+
+Reference inspected: https://nyanduong.github.io/sol-hair-prototype/ (13 October 2026). Its reveal uses 18px vertical movement, 650ms duration and cubic-bezier(0.2, 0.65, 0.3, 1). Restored that motion on hero/section content, with 100ms hero-media delay and 80ms service/editorial card staggering. Cards lift 4px and images scale to 1.05 on hover; reduced motion disables those transforms and transitions. Existing layouts, API states and unavailable-booking behavior remain intact.
+
+Browser observations: hero opacity progresses through intermediate values; cards have 0/80/160ms delays; scrolling to the bottom reveals editorial and CTA at opacity 1/translate 0. At 320px with reduced motion, all reveal content is visible, transition-property is none, video is paused, and document client/scroll widths are both 305px. Focus within a reveal makes it immediately visible for keyboard users. Screenshots: [desktop](motion-after-desktop.jpg), [320px reduced motion](motion-reduced-320.jpg). Static screenshots illustrate the final state, not animation timing.
+
+Follow-up checks: web lint PASS, 14 web tests PASS, web build PASS, git diff --check PASS. An initial edit had a JSX closing-tag and effect lint error; both were corrected before successful checks.

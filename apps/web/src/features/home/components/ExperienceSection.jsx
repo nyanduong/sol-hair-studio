@@ -1,3 +1,5 @@
+import RevealOnScroll from './RevealOnScroll.jsx'
+
 // Editorial direction only; not a claim about unverified salon facilities/staff.
 const highlights = [
   { icon: 'leaf', title: 'Một nhịp sống chậm', description: 'Dành một khoảng thời gian cho chính mình.' },
@@ -13,12 +15,12 @@ export default function ExperienceSection() {
   return (
     <section id="experience" tabIndex={-1} aria-labelledby="experience-title" className="py-7 sm:py-9">
       <div className="mx-auto grid max-w-6xl items-center gap-7 px-4 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:gap-12 lg:px-8">
-        <div className="relative aspect-[1.9] overflow-hidden rounded-2xl bg-soft-surface">
-          <img src="/images/experience-cut.jpg" alt="Cảm hứng tạo kiểu cho mái tóc dài" loading="lazy" className="h-full w-full object-cover" />
+        <RevealOnScroll className="group relative aspect-[1.9] overflow-hidden rounded-2xl bg-soft-surface">
+          <img src="/images/experience-cut.jpg" alt="Cảm hứng tạo kiểu cho mái tóc dài" loading="lazy" className="h-full w-full object-cover transition-transform duration-700 motion-safe:group-hover:scale-105 motion-reduce:transition-none" />
           <div className="absolute inset-0 bg-linear-to-r from-transparent via-transparent to-ink/65" />
           <blockquote className="absolute right-5 top-1/2 max-w-[38%] -translate-y-1/2 font-display text-lg leading-snug text-white sm:right-6 sm:text-xl">“Mỗi mái tóc là một câu chuyện đẹp.”<cite className="mt-3 block font-sans text-[0.45rem] not-italic tracking-[0.2em] uppercase">— Sol Hair Studio</cite></blockquote>
-        </div>
-        <div>
+        </RevealOnScroll>
+        <RevealOnScroll delay={100}>
           <p className="text-[0.6rem] font-semibold tracking-[0.24em] text-terracotta uppercase">Trải nghiệm Sol</p>
           <h2 id="experience-title" className="mt-2 font-display text-3xl font-medium leading-tight sm:text-[2.1rem]">Chăm chút trong từng điểm chạm.</h2>
           <p className="mt-2 max-w-lg text-xs leading-relaxed text-muted">Một mái tóc đẹp bắt đầu từ những điều nhỏ: cảm hứng, sự chăm sóc và một phong cách khiến bạn thấy là chính mình.</p>
@@ -29,7 +31,7 @@ export default function ExperienceSection() {
               <p className="mt-1 text-[0.65rem] leading-relaxed text-muted">{description}</p>
             </li>)}
           </ul>
-        </div>
+        </RevealOnScroll>
       </div>
     </section>
   )

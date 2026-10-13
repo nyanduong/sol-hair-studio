@@ -1,3 +1,5 @@
+import RevealOnScroll from './RevealOnScroll.jsx'
+
 // Sample editorial content, pending owner review; no CMS/detail routes exist.
 const stories = [
   { image: '/images/editorial-milktea.jpg', title: 'Sắc nâu ấm trở lại đầy cuốn hút' },
@@ -9,17 +11,17 @@ export default function EditorialSection() {
   return (
     <section id="stories" tabIndex={-1} aria-labelledby="stories-title" className="py-7 sm:py-8">
       <div className="mx-auto grid max-w-6xl gap-6 px-4 sm:px-6 lg:grid-cols-[0.9fr_1.5fr] lg:items-start lg:gap-10 lg:px-8">
-        <div>
+        <RevealOnScroll>
           <p className="text-[0.6rem] font-semibold tracking-[0.24em] text-terracotta uppercase">Góc Sol</p>
           <h2 id="stories-title" className="mt-2 font-display text-3xl font-medium sm:text-[2.1rem]">Xu hướng & cảm hứng.</h2>
           <p className="mt-2 text-xs leading-relaxed text-muted">Những câu chuyện, kiểu tóc và gợi ý chăm sóc.</p>
           <p className="mt-2 text-[0.6rem] text-muted">Nội dung biên tập mẫu</p>
-        </div>
+        </RevealOnScroll>
         <div className="grid grid-cols-1 gap-5 min-[420px]:grid-cols-3 sm:gap-6">
-          {stories.map(({ image, title }) => <article key={title} className="min-w-0">
-            <img src={image} alt="" loading="lazy" className="aspect-[2.2] w-full rounded-xl object-cover" />
+          {stories.map(({ image, title }, index) => <RevealOnScroll as="article" key={title} delay={index * 80} className="group min-w-0">
+            <div className="overflow-hidden rounded-xl"><img src={image} alt="" loading="lazy" className="aspect-[2.2] w-full object-cover transition-transform duration-700 motion-safe:group-hover:scale-105 motion-reduce:transition-none" /></div>
             <h3 className="mt-2 font-display text-lg font-medium leading-tight">{title}</h3>
-          </article>)}
+          </RevealOnScroll>)}
         </div>
       </div>
     </section>
