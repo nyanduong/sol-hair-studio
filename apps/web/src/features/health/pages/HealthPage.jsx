@@ -6,7 +6,8 @@ export default function HealthPage() {
   const { state, retry } = useHealth()
 
   return (
-    <section className="mx-auto w-full max-w-3xl" aria-labelledby="page-title">
+    <section className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6" aria-labelledby="page-title">
+      <a href="/" className="mb-6 inline-flex min-h-11 items-center text-sm text-terracotta">← Về trang chủ</a>
       <p className="mb-[18px] text-xs font-extrabold tracking-[0.18em] text-[#8d4939]">
         SOL HAIR STUDIO
       </p>
@@ -17,8 +18,8 @@ export default function HealthPage() {
         Nền tảng dùng chung đã sẵn sàng.
       </h1>
       <p className="mb-9 max-w-2xl text-[1.08rem] text-[#716d69]">
-        Đây là màn hình kiểm tra kết nối giữa website React và API chung. Danh
-        mục dịch vụ sẽ được triển khai trong công việc tiếp theo trên Sheet.
+        Kiểm tra kết nối giữa website và API dùng chung. Danh mục dịch vụ
+        trên trang chủ sử dụng cùng API này.
       </p>
       <HealthStatusCard
         state={state}

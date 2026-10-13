@@ -10,5 +10,8 @@ export async function fetchServices(apiBaseUrl, { signal } = {}) {
 }
 
 export function getServicesErrorMessage(error) {
-  return error instanceof Error ? error.message : 'Không thể tải danh mục dịch vụ.'
+  if (error instanceof Error && error.message.includes('hết thời gian chờ')) {
+    return 'Tải dịch vụ quá lâu. Vui lòng thử lại.'
+  }
+  return 'Không thể tải danh mục dịch vụ. Vui lòng kiểm tra kết nối và thử lại.'
 }
