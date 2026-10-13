@@ -1,0 +1,51 @@
+import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native'
+import { colors, displayFont } from '../../../theme/tokens.js'
+
+export default function HomeHeader({ onServices }) {
+  const { width, fontScale } = useWindowDimensions()
+  const compact = width < 390 || fontScale > 1.15
+  return <View>
+    <View style={styles.brandRow}>
+      <Image source={require('../../../../assets/brand/sol-logo.png')} style={styles.logo} accessible={false} />
+      <View style={styles.brandCopy}><Text style={styles.brand}>SOL HAIR STUDIO</Text><Text style={styles.tagline}>BEAUTY SHINES WITHIN</Text></View>
+    </View>
+    <View style={[styles.hero, compact && styles.heroStack]}>
+      <View style={styles.copy}>
+        <Text style={styles.greeting}>Xin chào,</Text>
+        <Text accessibilityRole="header" style={styles.title}>Một phiên bản đẹp hơn của bạn bắt đầu từ hôm nay.</Text>
+        <Text style={styles.intro}>Khám phá dịch vụ, phong cách và cảm hứng dành riêng cho mái tóc của bạn.</Text>
+        <Pressable accessibilityRole="button" onPress={onServices} style={({ pressed }) => [styles.button, pressed && { opacity: 0.75 }]}>
+          <Text style={styles.buttonText}>Khám phá dịch vụ →</Text>
+        </Pressable>
+      </View>
+      <View style={[styles.media, compact && styles.mediaWide]}>
+        <Image source={require('../../../../assets/brand/hero.jpg')} accessibilityLabel="Mái tóc nâu trong buổi tạo kiểu" style={styles.photo} resizeMode="cover" />
+        <View style={styles.caption}><Text style={styles.captionText}>Chạm vào phiên bản tự tin hơn.</Text></View>
+      </View>
+    </View>
+    <View style={styles.section}>
+      <Text accessibilityRole="header" style={styles.sectionTitle}>DỊCH VỤ CỦA SOL</Text>
+      <Pressable accessibilityRole="button" onPress={onServices} style={styles.all}><Text style={styles.allText}>Xem tất cả →</Text></Pressable>
+    </View>
+  </View>
+}
+const styles = StyleSheet.create({
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 16 },
+  logo: { width: 44, height: 44, resizeMode: 'contain' }, brandCopy: { flex: 1 },
+  brand: { color: colors.ink, fontFamily: displayFont, fontSize: 19, letterSpacing: 2 },
+  tagline: { color: colors.muted, fontSize: 9, letterSpacing: 1.5, marginTop: 4 },
+  hero: { flexDirection: 'row', gap: 16, paddingTop: 10, paddingBottom: 24, alignItems: 'stretch' },
+  heroStack: { flexDirection: 'column' }, copy: { flex: 1, justifyContent: 'center' },
+  greeting: { color: colors.ink, fontSize: 15, marginBottom: 8 },
+  title: { color: colors.ink, fontFamily: displayFont, fontSize: 30, lineHeight: 35 },
+  intro: { color: colors.muted, fontSize: 14, lineHeight: 21, marginTop: 12 },
+  button: { minHeight: 48, backgroundColor: colors.copper, borderRadius: 28, padding: 14, marginTop: 18, alignItems: 'center', justifyContent: 'center' },
+  buttonText: { color: colors.surface, fontWeight: '600', fontSize: 13, textAlign: 'center' },
+  media: { flex: 0.9, minHeight: 280, borderRadius: 24, overflow: 'hidden', backgroundColor: colors.soft },
+  mediaWide: { flex: undefined, minHeight: 0, height: 210 }, photo: { width: '100%', height: '100%', position: 'absolute' },
+  caption: { marginTop: 'auto', backgroundColor: '#24211fcc', padding: 14 },
+  captionText: { color: colors.surface, fontFamily: displayFont, fontSize: 20 },
+  section: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 4, marginBottom: 12 },
+  sectionTitle: { color: colors.copper, fontSize: 13, letterSpacing: 2, fontWeight: '700' },
+  all: { minHeight: 44, minWidth: 90, justifyContent: 'center' }, allText: { color: colors.muted, fontSize: 13 },
+})

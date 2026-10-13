@@ -61,7 +61,7 @@ npm run dev:mobile
 - Web mặc định: `http://localhost:5173` và đọc `VITE_API_BASE_URL`.
 - Ứng dụng di động đọc `EXPO_PUBLIC_API_BASE_URL`.
 
-Mobile mở màn hình danh mục dịch vụ trước, lấy ảnh, tên, mô tả, giá và thời lượng từ `GET /api/services`. Màn hình có trạng thái tải, rỗng, lỗi và nút thử lại/tải lại. Liên kết **Kiểm tra kết nối** cuối danh sách mở màn hình health; nút quay lại đưa về danh mục. Không cần đăng nhập để xem danh mục.
+Mobile mở Home với thương hiệu Sol, ảnh hero và dịch vụ từ `GET /api/services`. Thanh điều hướng chuyển giữa **Trang chủ** và **Dịch vụ**; danh mục tự xuống một cột khi màn hẹp hoặc chữ hệ thống lớn. Cả hai màn giữ trạng thái tải, rỗng, lỗi, thử lại và tải lại. Liên kết **Kiểm tra kết nối** cuối danh sách mở Health; nút quay lại trở về màn trước. Đặt lịch hiển thị rõ là chưa khả dụng; không cần đăng nhập để xem dịch vụ.
 
 Trong bản mobile dev, để trống `EXPO_PUBLIC_API_BASE_URL` để tự lấy host từ Expo/Metro và gọi API ở cổng `4000` trên cùng máy. Cách này theo địa chỉ Expo khi đổi Wi-Fi, tránh giữ IP LAN cũ trong `.env`. Trên Android Emulator, Expo host loopback được đổi thành `10.0.2.2`; khi không có host Expo, Android dev cũng dùng địa chỉ này, iOS dùng `localhost`.
 
