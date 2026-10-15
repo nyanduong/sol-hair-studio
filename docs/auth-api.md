@@ -39,7 +39,7 @@ Prefix `/api/auth`. Thành công: `{status:"success",data:...}`. Lỗi: `{status
 | POST /forgot-password | email | Alias request purpose=reset_password |
 | POST /reset-password | email,grant,password | Alias complete purpose=reset_password |
 | POST /login | email,password | token,tokenType,expiresAt,account |
-| POST /logout | {} | Thu hồi phiên hiện tại, cần Bearer |
+| POST /logout | {} | Vô hiệu mọi token của tài khoản, cần Bearer |
 | GET /me | — | Account và customer của chính mình, cần Bearer |
 | PATCH /me | displayName,phone? | Cập nhật customer của chính mình |
 | POST /staff | email | 201: stylist pending; chỉ owner active |
@@ -52,13 +52,15 @@ purpose chỉ nhận `activate_customer`, `activate_staff`, `reset_password`. Cl
 2. Staff: owner gọi /staff → nhân viên nhận OTP → /otp/verify với activate_staff → /password/complete cùng purpose và grant → login. Trước hoàn tất password không được active. Grant không phải phiên đăng nhập.
 3. Reset: /forgot-password → /otp/verify với reset_password → /reset-password với grant → login bằng mật khẩu mới. Mật khẩu cũ và mọi phiên cũ mất hiệu lực; disabled không được tự active.
 
-OTP 6 số, hạn 5 phút, dùng một lần; resend sau 60 giây, thay generation/digest và vô hiệu mã/proof cũ. Sai đủ 5 lần vô hiệu generation; hết hạn vẫn phải chờ cooldown. Grant chỉ dùng một lần, đúng account/purpose/generation/authRevision, hạn không vượt hạn OTP ban đầu. Client hết thời gian phải xin OTP mới. OTP tiêu thụ và thay đổi account nằm cùng transaction. Sai OTP được ghi attempt trước khi trả lỗi. Không TTL auth_otps; TTL chỉ dọn auth_sessions, backend vẫn kiểm hạn phiên.
+OTP 6 số, hạn 5 phút, dùng một lần; resend sau 60 giây, thay generation/digest và vô hiệu mã/proof cũ. Sai đủ 5 lần vô hiệu generation; hết hạn vẫn phải chờ cooldown. Grant chỉ dùng một lần, đúng account/purpose/generation/authRevision, hạn không vượt hạn OTP ban đầu. Client hết thời gian phải xin OTP mới. OTP tiêu thụ và thay đổi account nằm cùng transaction. Sai OTP được ghi attempt trước khi trả lỗi. Collection `auth_challenges` không TTL để giữ cooldown và attempt guard; backend kiểm hạn mã/proof, không chờ xóa dữ liệu.
 
 ### Phiên và tích hợp quyền
 
-Gửi `Authorization: Bearer <token>`; token ngẫu nhiên 256 bit, hạn 8 giờ, DB chỉ lưu SHA-256 digest. Client giữ token theo cơ chế lưu trữ an toàn của nền tảng, xóa khi logout/401; không đưa vào URL hoặc log. Logout thu hồi phiên hiện tại. Password/email/status thay đổi cần tăng authRevision để vô hiệu tất cả phiên/proof cũ. Không có refresh token; hết phiên cần đăng nhập lại.
+Gửi `Authorization: Bearer <token>`; access token là JWT ký HS256 bằng khóa dẫn xuất từ AUTH_SECRET, hạn 8 giờ. Claims gồm sub (accountId), authRevision, jti, iat, exp, issuer và audience; không nhúng mật khẩu hoặc dữ liệu khách. Backend xác minh chữ ký, thuật toán, issuer/audience, hạn token rồi đọc lại account active và authRevision. Quyền lấy từ DB hiện tại, không tin role do client gửi hoặc JWT bị sửa.
 
-`requireAuth` từ `apps/api/src/middlewares/auth.js` xác minh phiên và account active, gắn `request.identity` gồm accountId,roles,status,authRevision,sessionId và customerId nếu có. `requireRoles('owner')` hoặc `requireRoles('stylist','owner')` kiểm role. Không tin role hoặc identity do body/header tùy ý gửi lên.
+Không có collection auth_sessions: baseline dùng accounts.authRevision làm session guard. Logout tăng authRevision và vô hiệu mọi token cũ trên tất cả thiết bị; đổi password/email/status cũng phải tăng revision. JWT cũ trước khi chuyển đổi không còn hợp lệ; client cần login lại. Không có refresh token. Client lưu token an toàn theo nền tảng, xóa khi logout/401, không đặt trong URL hoặc log.
+
+`requireAuth` từ `apps/api/src/middlewares/auth.js` gắn request.identity gồm accountId,roles,status,authRevision và customerId nếu có. `requireRoles('owner')` hoặc `requireRoles('stylist','owner')` kiểm role, không thay thế kiểm quyền trên từng hồ sơ/lịch.
 
 M2 chỉ cho owner ghi service/upload. M3 gọi `createStaffAccount({actorId,actorRevision,email,ip})`, dùng accountId trả về để gắn staff; M3 chịu hồ sơ/năng lực/ca và xử lý staff không active. Gửi mail thất bại vẫn có account pending: tìm lại theo email và resend, không tạo account khác. Chức năng này chưa tạo hồ sơ staff thay M3.
 
@@ -76,10 +78,14 @@ Không có public signup owner và không có script seed owner. Người vận 
 
 Nghiệm thu ngày 15/10/2026: SMTP Gmail đã gửi tới hộp thư do người dùng chỉ định; người dùng cung cấp OTP nhận trong email mới nhất và API activate đã được gọi thành công. Các bước chặn mã tái dùng, login, me, chặn customer cấp nhân viên, logout và từ chối phiên cũ đều PASS. Dùng replica set dev thật trên loopback với DB smoke riêng đã tự xóa, không ghi vào DB nhóm. Không lưu mã, địa chỉ email, mật khẩu hoặc token thật trong tài liệu này.
 
-Các lệnh `npm run lint`, `npm test` (106 test: API 64, mobile 28, web 14), `npm run build` và checker DB baseline đã PASS. Export Android/iOS không chứng minh UI native đã chạy. Nghiệm thu UI Web/Android và luồng xuyên module theo SOL-020 cần bằng chứng riêng. Chỉ đánh dấu Hoàn thành trên Sheet sau review/CI/nghiệm thu/merge PR.
+Các lệnh `npm run lint`, `npm test` (xem số test tại kết quả chạy hiện tại), `npm run build` và checker DB baseline đã PASS. Export Android/iOS không chứng minh UI native đã chạy. Nghiệm thu UI Web/Android và luồng xuyên module theo SOL-020 cần bằng chứng riêng. Chỉ đánh dấu Hoàn thành trên Sheet sau review/CI/nghiệm thu/merge PR.
 
 MongoDB cũ cổng 27017 đã chuyển sang `rs0`, giữ dữ liệu và được kiểm tra HTTP login, đọc hồ sơ bằng token, logout thành công cho 7 tài khoản mẫu (1 owner, 3 stylist, 3 customer). Không thêm file seed hoặc mật khẩu mẫu vào source.
 
 Tham khảo triển khai: [Node crypto](https://nodejs.org/api/crypto.html), [Mongoose transactions](https://mongoosejs.com/docs/transactions.html), [Nodemailer SMTP](https://nodemailer.com/smtp).
 
-Tên runtime `auth_otps` thay cho `auth_challenges` trong baseline SOL-016 để dễ hiểu: lưu trạng thái OTP và proof đặt/reset mật khẩu. Đây là đổi tên collection, không đổi nghiệp vụ hoặc hợp đồng HTTP. DB có dữ liệu cũ cần rename collection, không xóa mã/cooldown.
+## Đồng bộ baseline SOL-016
+
+SOL-017 dùng đúng accounts, auth_challenges và customers. Staff thuộc M3; các schema dịch vụ/ảnh/ca/lịch khác trong sơ đồ là thiết kế toàn dự án, không được tự tạo endpoint hoặc collection rỗng chỉ để giống số bảng trong ảnh.
+
+Tên auth_otps trước đây phải migrate về auth_challenges, giữ nguyên _id, accountId, generation, digest và thời điểm để không reset cooldown/attempt. Nếu đích đã có dữ liệu cùng account/purpose khác nội dung, dừng migration để đối chiếu; không ghi đè. Bỏ auth_sessions sau khi sao lưu và ngừng phiên cũ; phiên mới dùng JWT/authRevision. Accounts/customers/challenges không sinh __v; không đổi email, passwordHash hoặc liên kết profile khi migrate. Grant staff được ràng buộc với authRevision sau chuyển pending_password.
