@@ -79,7 +79,7 @@ const accountSchema = new mongoose.Schema(
       },
     },
   },
-  { timestamps: true },
+  { timestamps: true, versionKey: false, collection: 'accounts' },
 )
 
 // A single shop has one owner; concurrent operator bootstrap cannot create two.

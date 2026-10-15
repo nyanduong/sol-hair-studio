@@ -50,7 +50,7 @@ const customerSchema = new mongoose.Schema(
       },
     },
   },
-  { timestamps: true },
+  { timestamps: true, versionKey: false, collection: 'customers' },
 )
 
 customerSchema.index(

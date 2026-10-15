@@ -13,7 +13,7 @@ export async function requireAuth(request, response, next) {
   }
   try {
     const header = request.get('authorization') || ''
-    const match = /^Bearer ([A-Za-z0-9_-]{43})$/i.exec(header)
+    const match = header.length <= 2055 && /^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/i.exec(header)
     request.identity = await authenticate(match?.[1])
     next()
   } catch (error) { return sendAuthError(error, response, next) }

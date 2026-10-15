@@ -2,6 +2,8 @@ import mongoose from 'mongoose'
 import request from 'supertest'
 import { MongoMemoryReplSet } from 'mongodb-memory-server'
 import { SMTPServer } from 'smtp-server'
+import crypto from 'node:crypto'
+import { SignJWT, decodeJwt } from 'jose'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.hoisted(() => {
@@ -17,8 +19,7 @@ vi.hoisted(() => {
 import { app } from '../../../app.js'
 import { connectToDatabase, disconnectFromDatabase } from '../../../config/database.js'
 import { AccountModel } from '../accounts.model.js'
-import { AuthOtpModel } from '../auth-otps.model.js'
-import { AuthSessionModel } from '../auth-sessions.model.js'
+import { AuthChallengeModel } from '../auth-challenges.model.js'
 import { CustomerModel } from '../../customers/customers.model.js'
 import { resetMailTransport, setMailTransport } from '../mailer.js'
 import { hashPassword } from '../password.js'
@@ -32,6 +33,13 @@ const body = (overrides = {}) => ({ email, password, displayName: 'Khách thử'
 const post = (path, input) => request(app).post(`/api/auth/${path}`).send(input)
 const code = () => mailer.getLastEmail().code
 const bearer = (token) => `Bearer ${token}`
+
+async function testToken(payload, { issuer = 'sol-hair-studio', audience = 'sol-hair-clients', alg = 'HS256' } = {}) {
+  const key = crypto.createHmac('sha256', process.env.AUTH_SECRET).update('sol-hair-studio/access-token').digest()
+  return new SignJWT(payload).setProtectedHeader({ alg, typ: 'JWT' })
+    .setIssuedAt().setJti(crypto.randomUUID()).setIssuer(issuer).setAudience(audience)
+    .setExpirationTime(payload.exp ?? '8h').sign(key)
+}
 
 async function register(overrides) {
   return post('register', body(overrides)).expect(201)
@@ -48,18 +56,18 @@ async function owner() {
   return { account, token: result.body.data.token }
 }
 async function unlockCooldown(purpose = 'activate_customer') {
-  await AuthOtpModel.updateMany({ purpose }, { $set: { resendAvailableAt: new Date(0) } })
+  await AuthChallengeModel.updateMany({ purpose }, { $set: { resendAvailableAt: new Date(0) } })
 }
 
 beforeAll(async () => {
   replica = await MongoMemoryReplSet.create({ replSet: { count: 1 }, binary: { version: '8.0.17' } })
   await connectToDatabase(replica.getUri('sol017_test'))
-  for (const model of [AccountModel, CustomerModel, AuthOtpModel, AuthSessionModel]) await model.init()
+  for (const model of [AccountModel, CustomerModel, AuthChallengeModel]) await model.init()
   passwordHash = await hashPassword(password)
 }, 180000)
 
 beforeEach(async () => {
-  for (const model of [AccountModel, CustomerModel, AuthOtpModel, AuthSessionModel]) await model.deleteMany({})
+  for (const model of [AccountModel, CustomerModel, AuthChallengeModel]) await model.deleteMany({})
   resetRateLimits()
   const sentEmails = []
   mailer = {
@@ -84,9 +92,11 @@ describe('SOL-017 API + real isolated MongoDB replica set', { timeout: 30000 }, 
     expect(account.passwordHash).not.toBe(password)
     expect(account.emailVerifiedAt).toBeUndefined()
     await post('login', { email, password }).expect(403)
-    const challenge = await AuthOtpModel.findOne({ accountId: account._id })
+    const challenge = await AuthChallengeModel.findOne({ accountId: account._id }).select('+codeDigest')
     expect(+challenge.expiresAt - +challenge.issuedAt).toBe(300000)
     expect(+challenge.resendAvailableAt - +challenge.issuedAt).toBe(60000)
+    expect(+challenge.createdAt).toBeLessThanOrEqual(+challenge.issuedAt)
+    expect(+challenge.issuedAt).toBeLessThanOrEqual(+challenge.updatedAt)
     expect(challenge.codeDigest).not.toContain(code())
     await post('activate', { email, code: code() }).expect(200)
     const login = await post('login', { email, password }).expect(200)
@@ -95,8 +105,10 @@ describe('SOL-017 API + real isolated MongoDB replica set', { timeout: 30000 }, 
     expect(me.body.data.customer.displayName).toBe('Khách thử')
     expect(me.body.data.roles).toEqual(['customer'])
     expect(JSON.stringify(me.body)).not.toMatch(/passwordHash|codeDigest|grantDigest|tokenDigest/)
-    const stored = await AuthSessionModel.findOne({ accountId: account._id }).select('+tokenDigest')
-    expect(stored.tokenDigest).not.toBe(token)
+    const claims = decodeJwt(token)
+    expect(claims.sub).toBe(String(account._id))
+    expect(claims.exp - claims.iat).toBe(28800)
+    expect(await mongoose.connection.db.listCollections({ name: 'auth_sessions' }).toArray()).toHaveLength(0)
     await post('activate', { email, code: code() }).expect(400)
   })
 
@@ -115,7 +127,7 @@ describe('SOL-017 API + real isolated MongoDB replica set', { timeout: 30000 }, 
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})
     try { await post('register', body()).expect(500) } finally { spy.mockRestore(); log.mockRestore() }
     expect(await AccountModel.countDocuments()).toBe(0)
-    expect(await AuthOtpModel.countDocuments()).toBe(0)
+    expect(await AuthChallengeModel.countDocuments()).toBe(0)
     expect(mailer.getSentEmails()).toHaveLength(0)
   })
 
@@ -136,7 +148,7 @@ describe('SOL-017 API + real isolated MongoDB replica set', { timeout: 30000 }, 
     const wrong = correct === '111111' ? '222222' : '111111'
     const results = await Promise.all(Array.from({ length: 6 }, () => post('activate', { email, code: wrong })))
     expect(results.every((x) => x.status === 400)).toBe(true)
-    expect((await AuthOtpModel.findOne({ purpose: 'activate_customer' })).failedAttempts).toBe(5)
+    expect((await AuthChallengeModel.findOne({ purpose: 'activate_customer' })).failedAttempts).toBe(5)
     await post('activate', { email, code: correct }).expect(400)
   })
 
@@ -146,7 +158,7 @@ describe('SOL-017 API + real isolated MongoDB replica set', { timeout: 30000 }, 
     await unlockCooldown()
     const resend = await Promise.all([post('resend-activation', { email }), post('resend-activation', { email })])
     expect(resend.filter((x) => x.status === 200)).toHaveLength(1)
-    expect((await AuthOtpModel.findOne({ purpose: 'activate_customer' })).generation).toBe(2)
+    expect((await AuthChallengeModel.findOne({ purpose: 'activate_customer' })).generation).toBe(2)
     if (previousCode !== code()) await post('activate', { email, code: previousCode }).expect(400)
     const currentCode = code()
     const results = await Promise.all([post('activate', { email, code: currentCode }), post('activate', { email, code: currentCode })])
@@ -160,7 +172,7 @@ describe('SOL-017 API + real isolated MongoDB replica set', { timeout: 30000 }, 
     const spy = vi.spyOn(AccountModel, 'updateOne').mockRejectedValueOnce(new Error('account write failed'))
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})
     try { await post('activate', { email, code: correct }).expect(500) } finally { spy.mockRestore(); log.mockRestore() }
-    expect((await AuthOtpModel.findOne({ purpose: 'activate_customer' })).consumedAt).toBeUndefined()
+    expect((await AuthChallengeModel.findOne({ purpose: 'activate_customer' })).consumedAt).toBeUndefined()
     expect((await AccountModel.findOne({ emailNormalized: email })).status).toBe('pending_verification')
     await post('activate', { email, code: correct }).expect(200)
   })
@@ -168,7 +180,7 @@ describe('SOL-017 API + real isolated MongoDB replica set', { timeout: 30000 }, 
   it('rejects expired codes and wrong purpose without activating', async () => {
     await register()
     await post('otp/verify', { email, purpose: 'activate_staff', code: code() }).expect(400)
-    await AuthOtpModel.updateOne({ purpose: 'activate_customer' }, { $set: { expiresAt: new Date(0) } })
+    await AuthChallengeModel.updateOne({ purpose: 'activate_customer' }, { $set: { expiresAt: new Date(0) } })
     await post('activate', { email, code: code() }).expect(400)
     expect((await AccountModel.findOne({ emailNormalized: email })).status).toBe('pending_verification')
   })
@@ -187,6 +199,7 @@ describe('SOL-017 API + real isolated MongoDB replica set', { timeout: 30000 }, 
     const verified = await post('otp/verify', { email: staffEmail, purpose: 'activate_staff', code: code() }).expect(200)
     const grant = verified.body.data.grant
     expect((await AccountModel.findById(staff._id)).status).toBe('pending_password')
+    expect((await AccountModel.findById(staff._id)).authRevision).toBe(1)
     await request(app).get('/api/auth/me').set('Authorization', bearer(grant)).expect(401)
     await post('password/complete', { email: staffEmail, purpose: 'reset_password', grant, password }).expect(400)
     const input = { email: staffEmail, purpose: 'activate_staff', grant, password }
@@ -233,20 +246,39 @@ describe('SOL-017 API + real isolated MongoDB replica set', { timeout: 30000 }, 
     await post('forgot-password', { email }).expect(200)
     await post('reset-password', { email, grant: verified.body.data.grant, password }).expect(400)
     const next = await post('otp/verify', { email, purpose: 'reset_password', code: code() }).expect(200)
-    await AuthOtpModel.updateOne({ purpose: 'reset_password' }, { $set: { grantExpiresAt: new Date(0) } })
+    await AuthChallengeModel.updateOne({ purpose: 'reset_password' }, { $set: { grantExpiresAt: new Date(0) } })
     await post('reset-password', { email, grant: next.body.data.grant, password }).expect(400)
   })
 
-  it('logout, token expiry and disabled account invalidate access without relying on TTL', async () => {
+  it('logout revokes every token via account revision and rejects expired or disabled access', async () => {
     const token = await activeCustomer()
+    const second = await post('login', { email, password }).expect(200)
     await request(app).post('/api/auth/logout').set('Authorization', bearer(token)).send({}).expect(200)
-    await request(app).get('/api/auth/me').set('Authorization', bearer(token)).expect(401)
+    for (const old of [token, second.body.data.token]) {
+      await request(app).get('/api/auth/me').set('Authorization', bearer(old)).expect(401)
+    }
     const next = await post('login', { email, password }).expect(200)
-    await AuthSessionModel.updateMany({}, { $set: { expiresAt: new Date(0) } })
-    await request(app).get('/api/auth/me').set('Authorization', bearer(next.body.data.token)).expect(401)
-    const last = await post('login', { email, password }).expect(200)
+    const claims = decodeJwt(next.body.data.token)
+    const expired = await testToken({ sub: claims.sub, authRevision: claims.authRevision, exp: Math.floor(Date.now() / 1000) - 1 })
+    await request(app).get('/api/auth/me').set('Authorization', bearer(expired)).expect(401)
     await AccountModel.updateOne({ emailNormalized: email }, { $set: { status: 'disabled' } })
-    await request(app).get('/api/auth/me').set('Authorization', bearer(last.body.data.token)).expect(401)
+    await request(app).get('/api/auth/me').set('Authorization', bearer(next.body.data.token)).expect(401)
+  })
+
+  it('rejects forged JWTs, wrong issuer/audience, missing claims and stale revisions', async () => {
+    const token = await activeCustomer()
+    const claims = decodeJwt(token)
+    const parts = token.split('.')
+    parts[1] = Buffer.from(JSON.stringify({ ...claims, authRevision: 999, roles: ['owner'] })).toString('base64url')
+    const invalid = [parts.join('.'), 'opaque-old-session-token',
+      await testToken({ sub: claims.sub, authRevision: claims.authRevision }, { issuer: 'other-app' }),
+      await testToken({ sub: claims.sub, authRevision: claims.authRevision }, { audience: 'other-client' }),
+      await testToken({ sub: claims.sub, authRevision: claims.authRevision + 1 }),
+      await testToken({ sub: claims.sub }),
+      await testToken({ sub: claims.sub, authRevision: claims.authRevision }, { alg: 'HS384' }),
+    ]
+    for (const value of invalid) await request(app).get('/api/auth/me').set('Authorization', bearer(value)).expect(401)
+    await request(app).get('/api/auth/me').set('Authorization', bearer(token)).expect(200)
   })
 
   it('checks owner authority inside the service as well as the HTTP middleware', async () => {
