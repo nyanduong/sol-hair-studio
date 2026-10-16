@@ -8,7 +8,7 @@
     "start": "node src/server.js",
     "seed:services": "node scripts/seed-services.js",
     "lint": "eslint .",
-    "test": "vitest run",
+    "test": "vitest run --no-file-parallelism",
     "test:watch": "vitest",
     "build": "node scripts/check-source.js"
   },
