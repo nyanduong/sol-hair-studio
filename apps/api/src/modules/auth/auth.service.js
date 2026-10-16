@@ -138,12 +138,9 @@ async function deliver(mail) {
 
 export async function registerCustomer(input) {
   const emailNormalized = limited(input)
-  const displayName = nameValue(input.displayName)
-  const phone = phoneValue(input.phone)
   const passwordHash = await hashPassword(passwordValue(input.password))
   const result = await transaction(async (session) => {
     const [account] = await AccountModel.create([{ emailNormalized, passwordHash, roles: ['customer'], status: 'pending_verification' }], { session })
-    await CustomerModel.create([{ accountId: account._id, displayName, ...(phone ? { phone } : {}) }], { session })
     return { account: accountDto(account), mail: await issueChallenge(account, 'activate_customer', session) }
   })
   await deliver(result.mail)
@@ -312,7 +309,14 @@ export async function getMyProfile(identity) {
 export async function updateMyProfile(identity, input) {
   const displayName = nameValue(input.displayName)
   const phone = phoneValue(input.phone)
-  const customer = await CustomerModel.findOneAndUpdate({ accountId: identity.accountId }, { $set: { displayName, ...(phone ? { phone } : {}) } }, { returnDocument: 'after', runValidators: true })
-  if (!customer) fail('CUSTOMER_NOT_FOUND', 'Không có hồ sơ khách.', 404)
+  await transaction(async (session) => {
+    const account = await lockAccount({ _id: identity.accountId, roles: 'customer', status: 'active', authRevision: identity.authRevision }, session)
+    if (!account) fail('UNAUTHORIZED', 'Tài khoản đã thay đổi; vui lòng đăng nhập lại.', 401)
+    await CustomerModel.findOneAndUpdate(
+      { accountId: identity.accountId },
+      { $set: { displayName, ...(phone ? { phone } : {}) } },
+      { upsert: true, runValidators: true, setDefaultsOnInsert: true, session },
+    )
+  })
   return getMyProfile(identity)
 }

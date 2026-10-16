@@ -29,7 +29,7 @@ import { createStaffAccount } from '../auth.service.js'
 let replica, mailer, passwordHash
 const password = 'CustomerPass123!'
 const email = 'customer@example.test'
-const body = (overrides = {}) => ({ email, password, displayName: 'Khách thử', ...overrides })
+const body = (overrides = {}) => ({ email, password, ...overrides })
 const post = (path, input) => request(app).post(`/api/auth/${path}`).send(input)
 const code = () => mailer.getLastEmail().code
 const bearer = (token) => `Bearer ${token}`
@@ -102,7 +102,8 @@ describe('SOL-017 API + real isolated MongoDB replica set', { timeout: 30000 }, 
     const login = await post('login', { email, password }).expect(200)
     const token = login.body.data.token
     const me = await request(app).get('/api/auth/me').set('Authorization', bearer(token)).expect(200)
-    expect(me.body.data.customer.displayName).toBe('Khách thử')
+    expect(me.body.data.customer).toBeUndefined()
+    expect(await CustomerModel.countDocuments({ accountId: account._id })).toBe(0)
     expect(me.body.data.roles).toEqual(['customer'])
     expect(JSON.stringify(me.body)).not.toMatch(/passwordHash|codeDigest|grantDigest|tokenDigest/)
     const claims = decodeJwt(token)
@@ -113,7 +114,7 @@ describe('SOL-017 API + real isolated MongoDB replica set', { timeout: 30000 }, 
   })
 
   it('validates bad input and rejects duplicate email using the actual unique index', async () => {
-    for (const invalid of [{ email: 3 }, { password: 'short' }, { displayName: '' }, { phone: null }, { phone: '0901234567' }]) {
+    for (const invalid of [{ email: 3 }, { password: 'short' }, { password: '123456' }]) {
       await post('register', body(invalid)).expect(400)
     }
     await register()
@@ -122,8 +123,8 @@ describe('SOL-017 API + real isolated MongoDB replica set', { timeout: 30000 }, 
     await request(app).post('/api/auth/login').send([]).expect(400)
   })
 
-  it('rolls back account creation if profile insertion fails', async () => {
-    const spy = vi.spyOn(CustomerModel, 'create').mockRejectedValueOnce(new Error('test database failure'))
+  it('rolls back account creation if OTP challenge insertion fails', async () => {
+    const spy = vi.spyOn(AuthChallengeModel, 'findOneAndUpdate').mockRejectedValueOnce(new Error('test database failure'))
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})
     try { await post('register', body()).expect(500) } finally { spy.mockRestore(); log.mockRestore() }
     expect(await AccountModel.countDocuments()).toBe(0)
@@ -279,6 +280,28 @@ describe('SOL-017 API + real isolated MongoDB replica set', { timeout: 30000 }, 
     ]
     for (const value of invalid) await request(app).get('/api/auth/me').set('Authorization', bearer(value)).expect(401)
     await request(app).get('/api/auth/me').set('Authorization', bearer(token)).expect(200)
+  })
+
+  it('creates a real customer profile only when the active user supplies their name', async () => {
+    const token = await activeCustomer()
+    expect(await CustomerModel.countDocuments()).toBe(0)
+    for (const invalid of [{ displayName: '' }, { displayName: 'Khách', phone: null }, { displayName: 'Khách', phone: '0901234567' }]) {
+      await request(app).patch('/api/auth/me').set('Authorization', bearer(token)).send(invalid).expect(400)
+    }
+    expect(await CustomerModel.countDocuments()).toBe(0)
+    const requests = await Promise.all([
+      request(app).patch('/api/auth/me').set('Authorization', bearer(token)).send({ displayName: 'Khách thử', phone: '+84901234567' }),
+      request(app).patch('/api/auth/me').set('Authorization', bearer(token)).send({ displayName: 'Khách thử', phone: '+84901234567' }),
+    ])
+    expect(requests.map(r => r.status)).toEqual([200, 200])
+    expect(await CustomerModel.countDocuments()).toBe(1)
+    const profile = requests[0].body.data.customer
+    expect(profile.displayName).toBe('Khách thử')
+    expect(profile.phone).toBe('+84901234567')
+    await request(app).patch('/api/auth/me').set('Authorization', bearer(token)).send({ displayName: 'Tên mới' }).expect(200)
+    const me = await request(app).get('/api/auth/me').set('Authorization', bearer(token)).expect(200)
+    expect(me.body.data.customer.customerId).toBe(profile.customerId)
+    expect(me.body.data.customer.phone).toBe('+84901234567')
   })
 
   it('checks owner authority inside the service as well as the HTTP middleware', async () => {

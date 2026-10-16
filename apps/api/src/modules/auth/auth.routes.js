@@ -5,7 +5,7 @@ import * as auth from './auth.service.js'
 
 export const authRouter = Router()
 const post = (path, fn, fields) => authRouter.post(`/auth/${path}`, authHandler(fn, { fields }))
-authRouter.post('/auth/register', authHandler(auth.registerCustomer, { status: 201, fields: ['email', 'password', 'displayName', 'phone'] }))
+authRouter.post('/auth/register', authHandler(auth.registerCustomer, { status: 201, fields: ['email', 'password'] }))
 post('activate', auth.verifyCustomerActivation, ['email', 'code'])
 post('resend-activation', auth.resendCustomerActivationOtp, ['email'])
 post('otp/request', auth.requestOtp, ['email', 'purpose'])

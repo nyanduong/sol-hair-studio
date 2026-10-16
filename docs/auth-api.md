@@ -18,7 +18,7 @@ SMTP_PASSWORD=<provider password>
 MAIL_FROM=<verified sender>
 ```
 
-Đây là tên biến và placeholder, không phải thông tin đăng nhập thật. SMTP port 465 thường dùng SMTP_SECURE=true; port 587 dùng STARTTLS, production bắt buộc TLS. Không có fallback gửi mail giả. Thiếu secret trả 503; gửi mail lỗi trả 502 và tài khoản vẫn pending. Gửi lại OTP sau 60 giây để phục hồi. Account/customer/challenge được tạo cùng transaction nên lỗi ghi DB không để tài khoản dở dang.
+Đây là tên biến và placeholder, không phải thông tin đăng nhập thật. SMTP port 465 thường dùng SMTP_SECURE=true; port 587 dùng STARTTLS, production bắt buộc TLS. Không có fallback gửi mail giả. Thiếu secret trả 503; gửi mail lỗi trả 502 và tài khoản vẫn pending. Gửi lại OTP sau 60 giây để phục hồi. Account/challenge được tạo cùng transaction nên lỗi ghi DB không để tài khoản dở dang.
 
 Chạy `npm run dev:api` ở root. MongoDB phải hỗ trợ transaction (replica set hoặc cluster phù hợp). Không chạy auth trên MongoDB standalone. Health và catalog hiện có vẫn giữ đường dẫn cũ.
 
@@ -30,7 +30,7 @@ Prefix `/api/auth`. Thành công: `{status:"success",data:...}`. Lỗi: `{status
 
 | Method/path | Body | Kết quả / quyền |
 | --- | --- | --- |
-| POST /register | email,password,displayName,phone? | 201: account pending customer, gửi OTP |
+| POST /register | email,password | 201: account pending customer, gửi OTP |
 | POST /activate | email,code | Kích hoạt customer |
 | POST /resend-activation | email | Gửi lại OTP customer |
 | POST /otp/request | email,purpose | Cấp/gửi lại OTP đúng purpose |
@@ -41,14 +41,14 @@ Prefix `/api/auth`. Thành công: `{status:"success",data:...}`. Lỗi: `{status
 | POST /login | email,password | token,tokenType,expiresAt,account |
 | POST /logout | {} | Vô hiệu mọi token của tài khoản, cần Bearer |
 | GET /me | — | Account và customer của chính mình, cần Bearer |
-| PATCH /me | displayName,phone? | Cập nhật customer của chính mình |
+| PATCH /me | displayName,phone? | Tạo/cập nhật hồ sơ customer của chính mình |
 | POST /staff | email | 201: stylist pending; chỉ owner active |
 
 purpose chỉ nhận `activate_customer`, `activate_staff`, `reset_password`. Client truyền role/status/actor/accountId không được sử dụng để cấp quyền. Email trim/lowercase; mật khẩu 8–128 ký tự; tên 1–120; phone nếu cung cấp phải E.164. Phone không unique; không tự gộp hồ sơ theo số điện thoại.
 
 ### Các luồng
 
-1. Customer: register → nhận OTP → activate → login.
+1. Customer: register bằng email + password → nhận OTP → activate → login. Đăng ký chưa tạo customer profile và không cần tên/phone. GET /me chưa có field customer khi chưa bổ sung hồ sơ. PATCH /me với displayName hợp lệ tạo/cập nhật một hồ sơ liên kết account; phone có thể bổ sung sau. Trước đặt lịch, M4 phải yêu cầu đủ tên + phone và customerId từ identity; không tự đặt tên giả hoặc lấy email làm tên.
 2. Staff: owner gọi /staff → nhân viên nhận OTP → /otp/verify với activate_staff → /password/complete cùng purpose và grant → login. Trước hoàn tất password không được active. Grant không phải phiên đăng nhập.
 3. Reset: /forgot-password → /otp/verify với reset_password → /reset-password với grant → login bằng mật khẩu mới. Mật khẩu cũ và mọi phiên cũ mất hiệu lực; disabled không được tự active.
 
