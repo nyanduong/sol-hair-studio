@@ -1,5 +1,5 @@
 
-import { findCustomerAppointments } from "./appointments.repository.js"
+import { findCustomerAppointments, findStylistAppointments, findAppointmentStaffByAccountId } from "./appointments.repository.js"
 
 // Lỗi nghiệp vụ; controller sẽ chuyển thành HTTP response.
 export class AppointmentError extends Error {
@@ -8,6 +8,60 @@ export class AppointmentError extends Error {
         this.name = 'AppointmentError'
         this.code = code
         this.status = status
+    }
+}
+
+// Giải mã cursor dùng chung cho các danh sách lịch.
+function decodeAppointmentCursor(token) {
+    if(token === undefined) return undefined
+
+    if(
+        typeof token !== 'string' ||
+        token.length === 0 ||
+        token.length > 512 ||
+        !/^[A-Za-z0-9_-]+$/.test(token)
+    ) {
+        throw new AppointmentError('Cursor Invalid', {
+            code: 'INVALID_CURSOR',
+            status: 400,
+        })
+    }
+
+    try {
+        const decoded = Buffer.from(token, 'base64url')
+        if (decoded.toString('base64url') !== token) {
+            throw new Error('Invalid cursor encoding')
+        }
+
+        const payload = JSON.parse(decoded.toString('utf8'))
+
+        if (
+            payload === null ||
+            typeof payload !== 'object' ||
+            Array.isArray(payload) ||
+            Object.keys(payload).length !== 2 ||
+            typeof payload.startAt !== 'string' ||
+            typeof payload.id !== 'string' ||
+            !/^[a-fA-F0-9]{24}$/.test(payload.id)
+        ) {
+            throw new Error('Invalid cursor payload')
+        }
+
+        const startAt = new Date(payload.startAt)
+
+        if ( !Number.isFinite(startAt.getTime()) ||  startAt.toISOString() !== payload.startAt) {
+            throw new Error('Invalid cursor timestamp')
+        }
+        return {
+            startAt,
+            id: payload.id,
+        }
+
+    } catch (error) {
+        throw new AppointmentError('Cursor không hợp lệ.', {
+            code: 'INVALID_CURSOR',
+            status: 400,
+        })
     }
 }
 
@@ -35,60 +89,11 @@ export function parseCustomerAppointmentQuery(query = {} ) {
         }
         limit = Number(query.limit)
     }
-    if(query.cursor === undefined) {
-        return { limit }
+
+    return {
+        limit,
+        cursor: decodeAppointmentCursor(query.cursor),
     }
-    const token = query.cursor
-    if(
-        typeof token !== 'string' ||
-        token.length === 0 ||
-        token.length > 512 ||
-        !/^[A-Za-z0-9_-]+$/.test(token)
-    ) {
-        throw new AppointmentError('Cursor invalid', {
-            code: 'INVALID_CURSOR',
-            status: 400,
-        })
-    }
-
-    let cursor
-    try {
-        const decoded = Buffer.from(token, 'base64url')
-
-        if (decoded.toString('base64url') !== token) {
-            throw new Error('Invalid cursor encoding')
-        }
-
-        const payload = JSON.parse(decoded.toString('utf8'))
-
-        if(
-            payload === null ||
-            typeof payload !== 'object' ||
-            Array.isArray(payload) ||
-            Object.keys(payload).length !== 2 ||
-            typeof payload.startAt !== 'string' ||
-            typeof payload.id !== 'string' ||
-            !/^[a-fA-F0-9]{24}$/.test(payload.id)
-        ) {
-            throw new Error('Invalid cursor payload')
-        }
-
-        const startAt = new Date(payload.startAt)
-
-        if (!Number.isFinite(startAt.getTime()) ||startAt.toISOString() !== payload.startAt) {
-            throw new Error('Invalid cursor timestamp')
-        }
-
-        cursor = {startAt, id: payload.id,}
-
-    } catch (error) {
-        // Chỉ bắt lỗi giải mã; không bắt và che lỗi truy vấn database.
-        throw new AppointmentError('Cursor Invalid', {
-            code: 'INVALID_CURSOR',
-            status: 400,
-        })
-    }
-    return { limit, cursor }
 }
 
 // Đọc lịch theo Customer trong identity đã được xác thực.
@@ -173,3 +178,161 @@ function buildCustomerAppointmentPage(appointments, limit) {
 }
 
 
+export function parseStylistAppointmentQuery(query = {} ) {
+    const allowedKeys =['localDate', 'limit', 'cursor']
+
+    if(Object.keys(query).some(key => !allowedKeys.includes(key))) {
+        throw new AppointmentError('Query not supported', {
+            code: 'INVALID_QUERY',
+            status: 400,
+        })
+    }
+    const { localDate } = query
+
+    if(typeof localDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(localDate)) {
+        throw new AppointmentError('localDate must be a valid YYYY-MM-DD date', {
+            code: 'INVALID_LOCAL_DATE',
+            status: 400,
+        })
+    }
+    const date = new Date(`${localDate}T00:00:00.000Z`)
+
+    if(!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== localDate) {
+        throw new AppointmentError('localDate must be a valid YYYY-MM-DD date', {
+            code: 'INVALID_LOCAL_DATE',
+            status: 400,
+        })
+    }
+
+    let limit = 50
+
+    if(query.limit !== undefined) {
+        if(
+            typeof query.limit !== 'string' ||
+            !/^[1-9]\d{0,2}$/.test(query.limit) ||
+            Number(query.limit) > 100
+        ) {
+            throw new AppointmentError('limit must be an integer between 1 and 100', {
+                code: 'INVALID_LIMIT',
+                status: 400,
+            })
+        }
+        limit = Number(query.limit)
+    }
+
+    return {
+        localDate,
+        limit,
+        cursor: decodeAppointmentCursor(query.cursor)
+    }
+}
+
+export async function listStylistAppointments( identity, { localDate, limit = 50, cursor} = {} ) {
+    if(!identity) {
+        throw new AppointmentError('Need Login', {
+            code: 'UNAUTHORIZED',
+            status: 401,
+        })
+    }
+
+    if(!Array.isArray(identity.roles) || !identity.roles.includes('stylist')) {
+        throw new AppointmentError('You are not authorized to access this list', {
+            code: 'FORBIDDEN',
+            status: 403,
+        })
+    }
+
+    const staff = await findAppointmentStaffByAccountId(identity.accountId)
+
+    if(!staff) {
+        throw new AppointmentError('Staff not found', {
+            code: 'STAFF_NOT_FOUND',
+            status: 404,
+        })
+    }
+
+    const appointments = await findStylistAppointments(
+        String(staff._id),
+        {
+            localDate,
+            limit,
+            cursor,
+        },
+    )
+    return buildStylistAppointmentPage(appointments, limit)
+}
+
+function toStylistAppointmentListItem(appointment) {
+    return {
+        id: String(appointment._id),
+        staffId: String(appointment.staffId),
+        staffNameSnapshot: appointment.staffNameSnapshot,
+        customerSnapshot: {
+            displayName: appointment.customerSnapshot.displayName,
+            phone: appointment.customerSnapshot.phone,
+        },
+        items: appointment.items.map(item => ({
+            serviceId: item.serviceId,
+            name: item.name,
+            priceVnd: item.priceVnd,
+            durationMinutes: item.durationMinutes,
+        })),
+        totalPriceVnd: appointment.totalPriceVnd,
+        totalDurationMinutes: appointment.totalDurationMinutes,
+        startAt: appointment.startAt.toISOString(),
+        endAt: appointment.endAt.toISOString(),
+        timeZone: appointment.timeZone,
+        localDate: appointment.localDate,
+        status: appointment.status,
+    }
+}
+
+function buildStylistAppointmentPage(appointments, limit) {
+    const hasNextPage = appointments.length > limit
+    const page = appointments.slice(0, limit)
+
+    let nextCursor = null
+    if(hasNextPage) {
+        const lastAppointment = page[page.length - 1]
+        nextCursor = Buffer.from(
+        JSON.stringify({
+            startAt: lastAppointment.startAt.toISOString(),
+            id: String(lastAppointment._id),
+        }),
+        'utf8',
+        ).toString('base64url')
+    }
+
+    return {
+        items: page.map(toStylistAppointmentListItem),
+        pagination: {
+            limit,
+            hasNextPage,
+            nextCursor,
+        },
+    }
+}
+
+export async function listAppointments(identity, query = {}) {
+    if(!identity) {
+        throw new AppointmentError('Need Login', {
+            code: 'UNAUTHORIZED',
+            status: 401,
+        })
+    }
+    const roles = Array.isArray(identity.roles) ? identity.roles : []
+
+    if(roles.includes('stylist')) {
+        const options = parseStylistAppointmentQuery(query)
+        return listStylistAppointments(identity, options)
+    }
+    
+    if(roles.includes('customer')) {
+        const options = parseCustomerAppointmentQuery(query)
+        return listCustomerAppointments(identity, options)
+    }
+    throw new AppointmentError('You are not authorized to access this list', {
+        code: 'FORBIDDEN',
+        status: 403,
+    })
+}

@@ -1,15 +1,13 @@
-import { AppointmentError, listCustomerAppointments, parseCustomerAppointmentQuery } from "./appointments.service.js";
+import { AppointmentError, listAppointments } from "./appointments.service.js";
 
-export async function listCustomerAppointmentsController(req, res, next) {
+export async function listAppointmentsController(req, res, next) {
 
     res.set('Cache-Control', 'no-store')
 
     try {
-        const options = parseCustomerAppointmentQuery(req.query);
-        const result = await listCustomerAppointments(
-            req.identity,
-            options
-        )
+        const identity = req.identity
+        const query = req.query
+        const result = await listAppointments(identity, query)
         return res.status(200).json({
             status: 'success',
             data: result
