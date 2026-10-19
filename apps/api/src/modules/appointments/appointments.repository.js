@@ -1,3 +1,4 @@
+import mongoose from 'mongoose'
 import { AppointmentModel, APPOINTMENT_STATUSES, } from "./appointments.model.js";
 import { StaffModel } from "../staff/staff.model.js";
 import { AppointmentEventModel} from "./appointment-events.model.js";
@@ -43,19 +44,19 @@ function assertLocalDate(localDate) {
 }
 
 
-function applyAppointmentCursor(filter, cursor, direction) {
+function applyAppointmentCursor(filter, cursor, direction, timeField = 'startAt') {
     if (cursor === undefined) return
     if (
         cursor === null || typeof cursor !== 'object' || Array.isArray(cursor) ||
-        !(cursor.startAt instanceof Date) || !Number.isFinite(cursor.startAt.getTime()) ||
+        !(cursor[timeField] instanceof Date) || !Number.isFinite(cursor[timeField].getTime()) ||
         typeof cursor.id !== 'string' || !/^[a-fA-F0-9]{24}$/.test(cursor.id)
     ) {
-        throw new TypeError('cursor must contain a valid startAt Date and id')
+        throw new TypeError('cursor must contain a valid ' + timeField + ' Date and id')
     }
     const operator = direction === 1 ? '$gt' : '$lt'
     filter.$or = [
-        { startAt: { [operator]: cursor.startAt } },
-        { startAt: cursor.startAt, _id: { [operator]: cursor.id } },
+        { [timeField]: { [operator]: cursor[timeField] } },
+        { [timeField]: cursor[timeField], _id: { [operator]: new mongoose.Types.ObjectId(cursor.id) } },
     ]
 }
 
@@ -333,4 +334,44 @@ export async function lockAndBumpCustomerBookingRevision(customerId, { session }
 // Writer no-show dùng cùng CAS nhưng có field ghi riêng.
 export function persistNoShowAppointment(appointment, options = {}) {
     return persistClosedAppointment(appointment, options, 'no_show')
+}
+// Kiem ngu canh va lay lich su trong cung query; khong nhan customerId tu client.
+export async function findAppointmentServiceHistory(
+  appointmentId,
+  { role, staffId, limit = 20, cursor } = {},
+) {
+  assertObjectId(appointmentId, 'appointmentId')
+  if (role !== 'owner' && role !== 'stylist') {
+    throw new TypeError('An owner or stylist scope is required')
+  }
+  if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
+    throw new TypeError('limit must be an integer between 1 and 50')
+  }
+  const context = { _id: new mongoose.Types.ObjectId(appointmentId) }
+  if (role === 'stylist') {
+    assertObjectId(staffId, 'staffId')
+    context.staffId = new mongoose.Types.ObjectId(staffId)
+    context.status = { $in: ['confirmed', 'in_progress', 'completed'] }
+  }
+  const historyFilter = {
+    status: 'completed',
+    $expr: { $eq: ['$customerId', '$$contextCustomerId'] },
+  }
+  applyAppointmentCursor(historyFilter, cursor, -1, 'completedAt')
+  const [result] = await AppointmentModel.aggregate([
+    { $match: context },
+    { $lookup: {
+      from: AppointmentModel.collection.name,
+      let: { contextCustomerId: '$customerId' },
+      pipeline: [
+        { $match: historyFilter },
+        { $sort: { completedAt: -1, _id: -1 } },
+        { $limit: limit + 1 },
+        { $project: { ...APPOINTMENT_LIST_FIELDS, completedAt: 1 } },
+      ],
+      as: 'items',
+    } },
+    { $project: { _id: 0, items: 1 } },
+  ])
+  return result ?? null
 }

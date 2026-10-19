@@ -10,7 +10,8 @@ import {
     persistCancelledAppointment,
     persistNoShowAppointment,
     insertAppointmentEvent,
-    findAppointmentCommandResources
+    findAppointmentCommandResources,
+    findAppointmentServiceHistory,
 } from "./appointments.repository.js"
 import { APPOINTMENT_STATUSES } from "./appointments.model.js"
 import { createHash } from 'node:crypto'
@@ -29,7 +30,7 @@ export class AppointmentError extends Error {
 }
 
 // Giải mã cursor phân trang (base64url -> startAt, id).
-function decodeAppointmentCursor(token) {
+function decodeAppointmentCursor(token, timeField = 'startAt') {
     if(token === undefined) return undefined
 
     if(
@@ -57,20 +58,20 @@ function decodeAppointmentCursor(token) {
             typeof payload !== 'object' ||
             Array.isArray(payload) ||
             Object.keys(payload).length !== 2 ||
-            typeof payload.startAt !== 'string' ||
+            typeof payload[timeField] !== 'string' ||
             typeof payload.id !== 'string' ||
             !/^[a-fA-F0-9]{24}$/.test(payload.id)
         ) {
             throw new Error('Invalid cursor payload')
         }
 
-        const startAt = new Date(payload.startAt)
+        const timestamp = new Date(payload[timeField])
 
-        if ( !Number.isFinite(startAt.getTime()) ||  startAt.toISOString() !== payload.startAt) {
+        if ( !Number.isFinite(timestamp.getTime()) || timestamp.toISOString() !== payload[timeField]) {
             throw new Error('Invalid cursor timestamp')
         }
         return {
-            startAt,
+            [timeField]: timestamp,
             id: payload.id,
         }
 
@@ -83,7 +84,7 @@ function decodeAppointmentCursor(token) {
 }
 
 // Validate và chuẩn hóa query params phân trang chung.
-function parseAppointmentListQuery(query, allowedKeys, defaultLimit, maxLimit, withDate) {
+function parseAppointmentListQuery(query, allowedKeys, defaultLimit, maxLimit, withDate, timeField = 'startAt') {
     if (Object.keys(query).some(key => !allowedKeys.includes(key))) {
         throw new AppointmentError('Query not supported', { code: 'INVALID_QUERY', status: 400 })
     }
@@ -108,7 +109,7 @@ function parseAppointmentListQuery(query, allowedKeys, defaultLimit, maxLimit, w
     }
     return {
         ...(withDate ? { localDate: query.localDate } : {}),
-        limit, cursor: decodeAppointmentCursor(query.cursor),
+        limit, cursor: decodeAppointmentCursor(query.cursor, timeField),
     }
 }
 
@@ -125,18 +126,20 @@ function requireAppointmentRole(identity, role) {
 }
 
 // Đóng gói danh sách thành response phân trang kèm nextCursor.
-function buildAppointmentPage(appointments, limit, role) {
+function buildAppointmentPage(appointments, limit, role, timeField = 'startAt') {
     const hasNextPage = appointments.length > limit
     const page = appointments.slice(0, limit)
     let nextCursor = null
     if (hasNextPage) {
         const last = page[page.length - 1]
         nextCursor = Buffer.from(JSON.stringify({
-        startAt: last.startAt.toISOString(), id: String(last._id),
+        [timeField]: last[timeField].toISOString(), id: String(last._id),
         }), 'utf8').toString('base64url')
     }
     return {
-        items: page.map(appointment => toAppointmentListItem(appointment, role)),
+        items: page.map(appointment => timeField === 'completedAt'
+          ? { ...toAppointmentListItem(appointment, 'customer'), completedAt: appointment.completedAt.toISOString() }
+          : toAppointmentListItem(appointment, role)),
         pagination: { limit, hasNextPage, nextCursor },
     }
 }
@@ -815,7 +818,7 @@ export function parseNoShowAppointmentInput(body) {
     const input = parseAppointmentCommandBody(body, ['expectedRevision', 'contactAttemptedAt'],)
 
     if (typeof body.contactAttemptedAt !== 'string') {
-        throw new AppointmentError('Cần thời điểm đã liên hệ khách.', {
+        throw new AppointmentError('The time at which the customer was contacted is required!', {
             code: 'INVALID_CONTACT_ATTEMPTED_AT',
             status: 400,
         })
@@ -842,17 +845,56 @@ function assertAppointmentCanBeMarkedNoShow(appointment, input, now) {
     const earliestNoShowAt = appointment.startAt.getTime() + 15 * 60 * 1000
 
     if (now.getTime() < earliestNoShowAt) {
-        throw new AppointmentError('Chưa đủ 15 phút từ giờ hẹn.', {
-        code: 'NO_SHOW_TOO_EARLY',
-        status: 409,
+        throw new AppointmentError('It hasn’t been 15 minutes since the scheduled time yet!', {
+            code: 'NO_SHOW_TOO_EARLY',
+            status: 409,
         })
     }
 
     // Thời điểm liên hệ phải không sau thời điểm server ghi no-show.
     if (input.contactAttemptedAt.getTime() > now.getTime()) {
-        throw new AppointmentError('Thời điểm liên hệ không được ở tương lai.', {
+        throw new AppointmentError('The contact time cannot be in the future!', {
         code: 'INVALID_CONTACT_ATTEMPTED_AT',
         status: 400,
         })
     }
+}
+
+// Chi filter phan trang; khach va trang thai do ngu canh/backend quyet dinh.
+export function parseAppointmentServiceHistoryQuery(query = {}) {
+    return parseAppointmentListQuery(query, ['limit', 'cursor'], 20, 50, false, 'completedAt')
+}
+
+// Lich su completed cua khach, chi qua ngu canh lich duoc phep xem.
+export async function getAppointmentServiceHistory(identity, appointmentId, query = {}) {
+    if (!identity) {
+        throw new AppointmentError('Need Login.', { code: 'UNAUTHORIZED', status: 401 })
+    }
+    const roles = Array.isArray(identity.roles) ? identity.roles : []
+    const role = roles.includes('owner') ? 'owner' : roles.includes('stylist') ? 'stylist' : null
+    if (!role) {
+        throw new AppointmentError('Only Owner or assigned Stylist can view service history.', {
+            code: 'FORBIDDEN', status: 403,
+        })
+    }
+    if (typeof appointmentId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(appointmentId)) {
+        throw new AppointmentError('The appointment code is invalid.', {
+            code: 'INVALID_APPOINTMENT_ID', status: 400,
+        })
+    }
+    const options = parseAppointmentServiceHistoryQuery(query)
+    const scope = { role, ...options }
+    if (role === 'stylist') {
+        const staff = await findAppointmentStaffByAccountId(identity.accountId)
+        if (!staff) {
+            throw new AppointmentError('Staff not found', { code: 'STAFF_NOT_FOUND', status: 404 })
+        }
+        scope.staffId = String(staff._id)
+    }
+    const result = await findAppointmentServiceHistory(appointmentId, scope)
+    if (!result) {
+        throw new AppointmentError('Appointment not found', { code: 'APPOINTMENT_NOT_FOUND', status: 404 })
+    }
+    // DTO co ban khong chua email/phone, account hoac audit.
+    return buildAppointmentPage(result.items, options.limit, role, 'completedAt')
 }

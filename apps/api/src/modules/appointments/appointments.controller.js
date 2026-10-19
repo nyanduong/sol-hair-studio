@@ -2,6 +2,7 @@ import {
     AppointmentError,
     listAppointments,
     getAppointmentDetail,
+    getAppointmentServiceHistory,
     cancelAppointment,
     markAppointmentNoShow,
 } from "./appointments.service.js";
@@ -70,4 +71,15 @@ async function appointmentCommandResponse(operation, req, res, next) {
     } catch (error) {
         return sendAppointmentError(error, res, next)
     }
+}
+
+// Lich su phuc vu chi doc, khong ghi appointment hay audit.
+export async function getAppointmentServiceHistoryController(req, res, next) {
+  res.set('Cache-Control', 'no-store')
+  try {
+    const data = await getAppointmentServiceHistory(req.identity, req.params.appointmentId, req.query)
+    return res.status(200).json({ status: 'success', data })
+  } catch (error) {
+    return sendAppointmentError(error, res, next)
+  }
 }
