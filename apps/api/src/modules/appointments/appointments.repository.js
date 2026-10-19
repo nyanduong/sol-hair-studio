@@ -1,7 +1,9 @@
 import { AppointmentModel, APPOINTMENT_STATUSES, } from "./appointments.model.js";
 import { StaffModel } from "../staff/staff.model.js";
+import { AppointmentEventModel} from "./appointment-events.model.js";
+import { CustomerModel } from "../customers/customers.model.js";
+import { AccountModel } from '../auth/accounts.model.js'
 
-// Dùng chung truy vấn, giữ scope theo role.
 const APPOINTMENT_LIST_FIELDS = {
         _id: 1,
         staffId: 1,
@@ -151,4 +153,169 @@ export function findAppointmentDetail(appointmentId, {role, customerId, staffId}
     return AppointmentModel.findOne(filter)
     .select(fields)
     .lean()
+}
+
+
+export async function insertAppointmentEvent(event, { session} = {}) {
+    if(!session || !session.inTransaction()) {
+        throw new TypeError('An active transaction session is required')
+    }
+    // Truyền dạng mảng để create nhận options session rõ ràng.
+    const [createdEvent] = await AppointmentEventModel.create(
+        [event],
+        { session },
+    )
+
+    return createdEvent
+}
+
+
+
+
+// Pre-read chỉ xác định Customer/Staff cần lấy guard.
+export function findAppointmentCommandResources(appointmentId) {
+    assertObjectId(appointmentId, 'appointmentId')
+
+    return AppointmentModel.findById(appointmentId)
+        .select({
+        _id: 1,
+        customerId: 1,
+        staffId: 1,
+        })
+        .lean()
+}
+
+export function findAppointmentForUpdate(appointmentId, { session } = {} ) {
+    assertObjectId(appointmentId, 'appointmentId')
+    if(!session || !session.inTransaction()) {
+        throw new TypeError('An active transaction session is required')
+    }
+    return AppointmentModel.findById(appointmentId)
+    .session(session)
+}
+
+// Ghi hủy lịch khi phiên bản và trạng thái cũ vẫn còn đúng.
+export async function persistCancelledAppointment(appointment, { expectedRevision, session } = {}) {
+    // Phải nằm trong transaction đang giữ Customer/Staff guards.
+    if (!session || !session.inTransaction()) {
+        throw new TypeError('An active transaction session is required')
+    }
+
+    // Chỉ nhận document đã được service chuẩn bị cho thao tác hủy.
+    if (
+        !(appointment instanceof AppointmentModel) ||
+        !Number.isSafeInteger(expectedRevision) ||
+        expectedRevision < 0 ||
+        expectedRevision >= Number.MAX_SAFE_INTEGER ||
+        appointment.status !== 'cancelled' ||
+        appointment.revision !== expectedRevision + 1
+    ) {
+        throw new TypeError('A valid cancellation document is required')
+    }
+
+    // Chạy cả document validators và hook nhất quán của model.
+    await appointment.validate()
+
+    // Chỉ ghi các field của lệnh hủy, không thay snapshot hoặc giờ hẹn.
+    return AppointmentModel.findOneAndUpdate(
+        {
+            _id: appointment._id,
+            customerId: appointment.customerId,
+            staffId: appointment.staffId,
+            revision: expectedRevision,
+            status: 'confirmed',
+            startedAt: { $exists: false },
+        },
+        {
+            $set: {
+                status: appointment.status,
+                cancelledAt: appointment.cancelledAt,
+                revision: appointment.revision,
+                lastCommand: appointment.lastCommand.toObject(),
+            },
+        },
+        {
+            session,
+            returnDocument: 'after',
+            runValidators: true,
+        },
+    ).lean()
+}
+
+
+export async function findAppointmentCommandActor(accountId, authRevision, { session } = {}) {
+    assertObjectId(accountId, 'accountId')
+    if(!session || !session.inTransaction()) {
+        throw new TypeError('An active transaction session is required')
+    }
+
+    if(!Number.isSafeInteger(authRevision) || authRevision < 0) {
+        throw new TypeError('authRevision must be a non-negative safe integer')
+    }
+
+    // Chỉ nhận tài khoản active và phiên vẫn khớp Auth.
+    const account = await AccountModel.findOne({
+        _id: accountId,
+        status: 'active',
+        authRevision,
+    })
+    .select({ _id: 1, roles: 1, authRevision: 1 })
+    .session(session)
+    .lean()
+
+    if (!account) return null
+
+    // Không dùng customerId cũ từ đầu request để quyết định quyền ghi.
+    const customer = await CustomerModel.findOne({
+        accountId: account._id,
+    })
+    .select({ _id: 1 })
+    .session(session)
+    .lean()
+
+    return {
+        accountId: String(account._id),
+        roles: account.roles,
+        authRevision: account.authRevision,
+        ...(customer ? { customerId: String(customer._id) } : {}),
+    }
+}
+
+// Khóa và tăng số revision đặt lịch của khách hàng trong transaction.
+export async function lockAndBumpCustomerBookingRevision(customerId, { session } = {}) {
+    assertObjectId(customerId, 'customerId')
+    if(!session || !session.inTransaction()) {
+        throw new TypeError('An active transaction session is required')
+    }
+    const customer = await CustomerModel.findById(customerId)
+        .select({ _id: 1, bookingRevision: 1 })
+        .session(session)
+        .lean()
+    if(!customer) {
+        return { status: 'not_found', customer: null }
+    }
+    if(!Number.isSafeInteger(customer.bookingRevision) || customer.bookingRevision < 0 || customer.bookingRevision >= Number.MAX_SAFE_INTEGER) {
+        return { status: 'limit_exceeded', customer }
+    }
+    const updated = await CustomerModel.findOneAndUpdate(
+        {
+            _id: customer._id,
+            bookingRevision: customer.bookingRevision,
+        },
+        {
+            $inc: { bookingRevision: 1 },
+        },
+        {
+            session,
+            returnDocument: 'after',
+            runValidators: true,
+        }
+    )
+    .select({ _id: 1, bookingRevision: 1})
+    .lean()
+
+    if(!updated) {
+        return { status: 'conflict', customer: null }
+    }
+    return { status: 'ok', customer: updated }
 }

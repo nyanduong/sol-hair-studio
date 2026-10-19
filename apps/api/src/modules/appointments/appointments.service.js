@@ -1,6 +1,20 @@
-import { findCustomerAppointments, findStylistAppointments, findAppointmentStaffByAccountId, findOwnerAppointments, findAppointmentDetail } from "./appointments.repository.js"
+import { 
+    findCustomerAppointments,
+    findStylistAppointments,
+    findAppointmentStaffByAccountId,
+    findOwnerAppointments,
+    findAppointmentDetail,
+    findAppointmentCommandActor,
+    findAppointmentForUpdate,
+    lockAndBumpCustomerBookingRevision,
+    persistCancelledAppointment,
+    insertAppointmentEvent,
+    findAppointmentCommandResources
+} from "./appointments.repository.js"
 import { APPOINTMENT_STATUSES } from "./appointments.model.js"
-
+import { createHash } from 'node:crypto'
+import {lockAndBumpStaffBookingRevision} from '../staff/staff.repository.js'
+import mongoose from 'mongoose'
 // Lỗi nghiệp vụ; controller sẽ chuyển thành HTTP response.
 export class AppointmentError extends Error {
     constructor(message, { code = 'APPOINTMENT_ERROR', status = 400 } = {}) {
@@ -334,3 +348,442 @@ export async function getAppointmentDetail(identity, appointmentId) {
     }
 }
 
+export function parseCancelAppointmentInput(body) {
+    if(body === null || typeof body !== 'object' || Array.isArray(body)) {
+        throw new AppointmentError('Invalid request body', {
+            code: 'INVALID_REQUEST_BODY',
+            status: 400,
+        })
+    }
+
+    // Không cho client tự gửi status, actor hoặc thời điểm hủy.
+    const allowedKeys = ['expectedRevision', 'reason']
+    if(Object.keys(body).some(key => !allowedKeys.includes(key))) {
+        throw new AppointmentError('Invalid request body', {
+            code: 'INVALID_REQUEST_BODY',
+            status: 400,
+        })
+    }
+    if(!Number.isSafeInteger(body.expectedRevision) ||  body.expectedRevision < 0) {
+        throw new AppointmentError('expectedRevision must be a non-negative safe integer', {
+            code: 'INVALID_REVISION',
+            status: 400,
+        })
+    }
+    const input = { expectedRevision: body.expectedRevision }
+
+    if(body.reason !== undefined) {
+        if(typeof body.reason !== 'string' || body.reason.trim().length === 0 || body.reason.length > 500) {
+            throw new AppointmentError('reason must be a non-empty string up to 500 characters', {
+                code: 'INVALID_REASON',
+                status: 400,
+            })
+        }
+        input.reason = body.reason.trim()
+    }
+    return input
+}
+
+// Kiểm tra key của một thao tác; retry phải giữ nguyên key.
+export function parseAppointmentCommandKey(value) {
+    if (
+        typeof value !== 'string' ||
+        value.length < 16 ||
+        value.length > 100 ||
+        value.trim().length === 0
+    ) {
+        throw new AppointmentError('Key phải có từ 16 đến 100 ký tự.', {
+        code: 'INVALID_COMMAND_KEY',
+        status: 400,
+        })
+    }
+    return value
+}
+
+// Hash intent đã validate, không đưa thời điểm server vào hash.
+function hashCancelAppointmentCommand(appointmentId, input) {
+    const intent = {
+        operation: 'cancel',
+        appointmentId: appointmentId.toLowerCase(),
+        expectedRevision: input.expectedRevision,
+        reason: input.reason ?? null,
+    }
+
+    return createHash('sha256')
+        .update(JSON.stringify(intent), 'utf8')
+        .digest('hex')
+}
+
+function assertCancelAppointmentAccess(identity, appointment) {
+    if (!identity) {
+        throw new AppointmentError('Need Login', {
+        code: 'UNAUTHORIZED',
+        status: 401,
+        })
+    }
+    const roles = Array.isArray(identity.roles) ? identity.roles : []
+    // Owner có quyền xử lý lịch toàn tiệm.
+    if (roles.includes('owner')) {
+        return 'owner'
+    }
+    // Stylist không có quyền hủy; Customer chỉ hủy lịch của mình.
+    if (!roles.includes('customer')) {
+        throw new AppointmentError('You are not authorized to cancel this appointment', {
+            code: 'FORBIDDEN',
+            status: 403,
+        })
+    }
+    if (
+        identity.customerId === undefined ||
+        String(appointment.customerId) !== identity.customerId
+    ) {
+        throw new AppointmentError('Appointment not found', {
+        code: 'APPOINTMENT_NOT_FOUND',
+        status: 404,
+        })
+    }
+    return 'customer'
+}
+
+// Chỉ kiểm tra cho lệnh mới, sau khi đã xử lý trường hợp retry.
+function assertAppointmentCanBeCancelled(appointment, role, input, now) {
+
+    // Không ghi đè phiên bản đã bị thao tác khác cập nhật.
+    if (appointment.revision !== input.expectedRevision) {
+        throw new AppointmentError('Appointment has changed. Reload it before trying again!', {
+        code: 'APPOINTMENT_REVISION_CONFLICT',
+        status: 409,
+        })
+    }
+
+    // Chỉ hủy lịch chưa bắt đầu phục vụ.
+    if (appointment.status !== 'confirmed' || appointment.startedAt !== undefined) {
+        throw new AppointmentError('The current status does not allow for cancellation!', {
+        code: 'APPOINTMENT_STATE_CONFLICT',
+        status: 409,
+        })
+    }
+
+    // Phải còn khả năng tăng revision thêm một đơn vị.
+    if (
+    !Number.isSafeInteger(appointment.revision) ||
+        appointment.revision < 0 ||
+        appointment.revision >= Number.MAX_SAFE_INTEGER
+    ) {
+        throw new AppointmentError('The revision has reached the safety limit!', {
+        code: 'APPOINTMENT_REVISION_LIMIT',
+        status: 409,
+        })
+    }
+
+    const remainingMs = appointment.startAt.getTime() - now.getTime()
+    const cutoffMs = 2 * 60 * 60 * 1000
+
+    // Đúng mốc 2 giờ vẫn được hủy.
+    if (role === 'customer' && remainingMs < cutoffMs) {
+        throw new AppointmentError('Cancellations are only permitted at least 2 hours before the scheduled appointment time!', {
+        code: 'CANCELLATION_CUTOFF',
+        status: 409,
+        })
+    }
+
+    // Owner xử lý dưới mốc 2 giờ phải ghi lý do.
+    if (role === 'owner' && remainingMs < cutoffMs && !input.reason) {
+        throw new AppointmentError('A reason is required for cancellations made shortly before or after the scheduled appointment time!', {
+        code: 'CANCELLATION_REASON_REQUIRED',
+        status: 400,
+        })
+    }
+}
+
+// Chỉ nhận diện receipt lệnh gần nhất, sau khi đã kiểm quyền hiện tại.
+function isAppointmentCommandReplay(appointment, { actorId, key, hash },){
+    const previous = appointment.lastCommand
+
+    if (!previous || String(previous.actorId) !== actorId || previous.key !== key) {
+        return false
+    }
+
+    // Cùng actor/key nhưng intent khác là dùng lại key không hợp lệ.
+    if (previous.hash !== hash) {
+        throw new AppointmentError('Key đã được dùng cho nội dung khác.', {
+        code: 'COMMAND_KEY_CONFLICT',
+        status: 409,
+        })
+    }
+
+    // Receipt phải còn khớp revision hiện tại.
+    if (previous.resultRevision !== appointment.revision) {
+        throw new AppointmentError('Không thể xác nhận kết quả lệnh trước.', {
+        code: 'COMMAND_RECEIPT_CONFLICT',
+        status: 409,
+        })
+    }
+
+    return true
+}
+
+// Chỉ lấy các field audit được baseline cho phép.
+function buildAppointmentEventSnapshot(appointment) {
+    const fields = [
+        'status',
+        'startAt',
+        'endAt',
+        'occupiedFrom',
+        'occupiedUntil',
+        'startedAt',
+        'completedAt',
+        'estimatedEndAt',
+        'staffId',
+    ]
+    const snapshot = {}
+
+    for (const field of fields) {
+        const value = appointment[field]
+
+        // Field optional thiếu thì không đưa vào event.
+        if (value === undefined) continue
+
+        // Copy Date để snapshot trước không đổi theo document đang xử lý.
+        snapshot[field] = value instanceof Date
+        ? new Date(value.getTime())
+        : value
+    }
+
+    return snapshot
+}
+
+async function loadGuardedAppointmentForCancellation(identity, appointmentId, resources, session) {
+    
+    // Luôn Customer trước Staff, không chạy Promise.all.
+    const customerGuard = await lockAndBumpCustomerBookingRevision(
+        String(resources.customerId),
+        { session },
+    )
+    if (customerGuard.status !== 'ok') {
+        throw new AppointmentError('Cannot retrieve the Customer guard!', {
+            code: 'CUSTOMER_GUARD_CONFLICT',
+            status: 409,
+        })
+    }
+
+    // Hàm Staff hiện có nhận session trực tiếp, không phải { session }.
+    const staffGuard = await lockAndBumpStaffBookingRevision(
+        String(resources.staffId),
+        session,
+    )
+
+    if (staffGuard.status !== 'ok') {
+        throw new AppointmentError('Cannot obtain the Guard Staff!', {
+            code: 'STAFF_GUARD_CONFLICT',
+            status: 409,
+        })
+    }
+
+    // Đọc lại actor bằng cùng session.
+    const actor = await findAppointmentCommandActor(
+        identity.accountId,
+        identity.authRevision,
+        { session },
+    )
+
+    if (!actor) {
+        throw new AppointmentError('The session is no longer valid!', {
+            code: 'UNAUTHORIZED',
+            status: 401,
+        })
+    }
+
+    // Không sử dụng pre-read để quyết định trạng thái hoặc quyền.
+    const appointment = await findAppointmentForUpdate(
+        appointmentId,
+        { session },
+    )
+
+    if (!appointment) {
+        throw new AppointmentError('Appointment not found', {
+            code: 'APPOINTMENT_NOT_FOUND',
+            status: 404,
+        })
+    }
+    const role = assertCancelAppointmentAccess(actor, appointment)
+
+    // Tài nguyên đổi thì phải abort, không lấy thêm guard giữa transaction.
+    if (
+        String(appointment.customerId) !== String(resources.customerId) ||
+        String(appointment.staffId) !== String(resources.staffId)
+    ) {
+        throw new AppointmentError('Tài nguyên của lịch đã thay đổi.', {
+        code: 'APPOINTMENT_RESOURCES_CHANGED',
+        status: 409,
+        })
+    }
+
+    return { appointment, actor, role }
+}
+
+// Xử lý một lần hủy bên trong transaction do caller mở.
+async function executeAppointmentCancellation(session, {identity, appointmentId,  resources, input, key, hash}) {
+    const { appointment, actor, role } =  await loadGuardedAppointmentForCancellation(identity, appointmentId, resources, session)
+
+     // Retry đúng lệnh gần nhất không tạo revision hoặc event mới.
+    if (isAppointmentCommandReplay(appointment, {
+        actorId: actor.accountId,
+        key,
+        hash,
+    })) {
+        return { appointment: appointment.toObject(), role }
+    }
+
+    // Lấy thời điểm server sau khi đã lấy guard và đọc lại dữ liệu.
+    const now = new Date()
+
+    assertAppointmentCanBeCancelled(appointment, role, input, now)
+    // Chụp trạng thái trước khi sửa document.
+    const before = buildAppointmentEventSnapshot(appointment)
+    appointment.status = 'cancelled'
+    appointment.cancelledAt = now
+    appointment.revision = input.expectedRevision + 1
+    appointment.lastCommand = {
+        key,
+        actorId: actor.accountId,
+        hash,
+        resultRevision: appointment.revision,
+    }
+
+    // Repository validate document rồi cập nhật bằng CAS.
+    const updated = await persistCancelledAppointment(appointment, {
+        expectedRevision: input.expectedRevision,
+        session,
+    })
+
+    if (!updated) {
+        throw new AppointmentError('The calendar has changed. Please reload!', {
+            code: 'APPOINTMENT_REVISION_CONFLICT',
+            status: 409,
+        })
+    }
+
+    // Audit và appointment dùng chung session, cùng thành công hoặc rollback.
+    await insertAppointmentEvent({
+        appointmentId: updated._id,
+        actorId: actor.accountId,
+        revision: updated.revision,
+        kind: 'cancelled',
+        occurredAt: now,
+        before,
+        after: buildAppointmentEventSnapshot(updated),
+        ...(input.reason !== undefined ? { reason: input.reason } : {}),
+    }, { session })
+
+    // Kết quả nội bộ; caller sẽ tạo DTO sau khi transaction commit.
+    return { appointment: updated, role }
+}
+
+// Chạy lệnh trong transaction; chỉ trả kết quả sau khi commit.
+async function runAppointmentTransaction(operation) {
+    try {
+        return await mongoose.connection.transaction(operation, {
+            readPreference: 'primary',
+            readConcern: { level: 'snapshot' },
+            writeConcern: { w: 'majority' },
+            maxCommitTimeMS: 5000,
+            timeoutMS: 15000,
+        })
+    } catch (error) {
+        // Không báo thất bại chắc chắn khi kết quả commit chưa xác định.
+        if (
+            error?.hasErrorLabel?.('UnknownTransactionCommitResult') ||
+            error?.name === 'MongoOperationTimeoutError'
+        ) {
+        throw new AppointmentError(
+            'Result not yet confirmed. Please check your schedule and keep the same key when retrying!',
+            {
+                code: 'APPOINTMENT_COMMAND_RESULT_UNKNOWN',
+                status: 503,
+            },
+        )
+        }
+
+        // Lỗi nghiệp vụ hoặc database khác phải được truyền ra ngoài.
+        throw error
+    }
+}
+
+// Hủy lịch theo quyền, có guard, CAS, receipt và audit.
+export async function cancelAppointment(identity, appointmentId, body, commandKey) {
+  // Từ chối sớm trước khi đọc tài nguyên.
+    if (!identity) {
+        throw new AppointmentError('Need Login.', {
+            code: 'UNAUTHORIZED',
+            status: 401,
+        })
+    }
+
+    const roles = Array.isArray(identity.roles) ? identity.roles : []
+
+    if (!roles.includes('owner') && !roles.includes('customer')) {
+        throw new AppointmentError('No permission to cancel the appointment.', {
+            code: 'FORBIDDEN',
+            status: 403,
+        })
+    }
+
+    if (
+        typeof appointmentId !== 'string' ||
+        !/^[a-fA-F0-9]{24}$/.test(appointmentId)
+    ) {
+        throw new AppointmentError('The appointment code is invalid.', {
+            code: 'INVALID_APPOINTMENT_ID',
+            status: 400,
+        })
+    }
+
+    // Chuẩn hóa intent một lần, giữ nguyên qua mọi lần retry.
+    const input = parseCancelAppointmentInput(body)
+    const key = parseAppointmentCommandKey(commandKey)
+    const hash = hashCancelAppointmentCommand(appointmentId, input)
+
+    // Chỉ retry ở đây khi tập tài nguyên đã đổi.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+        const resources = await findAppointmentCommandResources(appointmentId)
+
+        if (!resources) {
+            throw new AppointmentError('Appointment not found', {
+                code: 'APPOINTMENT_NOT_FOUND',
+                status: 404,
+            })
+        }
+
+        let result
+
+        try {
+            result = await runAppointmentTransaction(session =>
+                executeAppointmentCancellation(session, {
+                    identity,
+                    appointmentId,
+                    resources,
+                    input,
+                    key,
+                    hash,
+                }),
+            )
+        } catch (error) {
+            // Transaction cũ đã abort; lần sau pre-read và lấy guard lại.
+            if ( error instanceof AppointmentError && error.code === 'APPOINTMENT_RESOURCES_CHANGED' && attempt < 2 ) {
+                continue
+            }
+            throw error
+        }
+
+        // Chỉ tạo response sau khi transaction đã commit.
+        const { appointment, role } = result
+
+        return {
+            ...toAppointmentListItem(appointment, role),
+            revision: appointment.revision,
+            confirmedAt: appointment.confirmedAt.toISOString(),
+            cancelledAt: appointment.cancelledAt.toISOString(),
+        }
+    }
+}
