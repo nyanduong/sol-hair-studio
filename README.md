@@ -8,7 +8,7 @@ Nền tảng dùng chung cho bài tập SDN302 và MMA301. Repository này chứ
 | `apps/mobile` | React Native + Expo + JavaScript/JSX | Danh mục dịch vụ native Android/iOS và màn hình kiểm tra kết nối API |
 | `apps/api` | Node.js + Express + JavaScript | API dùng chung, MongoDB và ảnh dịch vụ trên Cloudinary |
 
-Repository có trang chủ web, danh mục dịch vụ trên mobile và API dùng chung. MongoDB lưu dịch vụ; Cloudinary phân phối ảnh dịch vụ. Đây chưa phải tuyên bố đáp ứng rubric; đăng nhập, đặt lịch, thanh toán và trang tổng quan chưa nằm trong phạm vi hiện tại. Phạm vi hai môn và các giả định đang được ghi tại [docs/course-scope.md](docs/course-scope.md).
+Repository có trang chủ web, danh mục dịch vụ trên mobile và API dùng chung. MongoDB lưu dịch vụ; Cloudinary phân phối ảnh dịch vụ. API tài khoản/OTP/phân quyền được triển khai ở SOL-017; giao diện tài khoản thuộc SOL-018/SOL-019. Đặt lịch và trang tổng quan chưa triển khai, thanh toán ngoài MVP. Đây chưa phải tuyên bố đáp ứng rubric. Phạm vi hai môn và các giả định đang được ghi tại [docs/course-scope.md](docs/course-scope.md).
 
 ## Runtime và cài đặt
 
@@ -95,6 +95,8 @@ Với điện thoại thật, cho phép Node.js qua Windows Firewall nếu đư�
 Đọc luồng và cây thư mục sau refactor tại [docs/kien-truc-va-luong-chay.md](docs/kien-truc-va-luong-chay.md).
 
 Baseline thiết kế dữ liệu MVP: [DB baseline MVP — SOL-016](docs/database/README.md).
+
+API tài khoản, OTP email, phiên và phân quyền SOL-017: [Hợp đồng và cấu hình auth](docs/auth-api.md). Cần MongoDB hỗ trợ transaction, AUTH_SECRET và SMTP; UI tài khoản thuộc SOL-018/SOL-019.
 
 ## Kiểm tra
 
