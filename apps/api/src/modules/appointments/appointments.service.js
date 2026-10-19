@@ -1,6 +1,6 @@
 
-import { findCustomerAppointments, findStylistAppointments, findAppointmentStaffByAccountId } from "./appointments.repository.js"
-
+import { findCustomerAppointments, findStylistAppointments, findAppointmentStaffByAccountId, findOwnerAppointments } from "./appointments.repository.js"
+import { APPOINTMENT_STATUSES } from "./appointments.model.js"
 // Lỗi nghiệp vụ; controller sẽ chuyển thành HTTP response.
 export class AppointmentError extends Error {
     constructor(message, { code = 'APPOINTMENT_ERROR', status = 400 } = {}) {
@@ -313,6 +313,118 @@ function buildStylistAppointmentPage(appointments, limit) {
     }
 }
 
+export function parseOwnerAppointmentQuery(query = {}) {
+    const allowedKeys =['localDate', 'staffId', 'status', 'limit', 'cursor']
+    if(Object.keys(query).some(key => !allowedKeys.includes(key))) {
+        throw new AppointmentError('Query not supported', {
+            code: 'INVALID_QUERY',
+            status: 400,
+        })
+    }
+    const options = parseStylistAppointmentQuery({
+        localDate: query.localDate,
+        limit: query.limit,
+        cursor: query.cursor,
+    })
+
+    if(query.staffId !== undefined) {
+        if(typeof query.staffId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(query.staffId)) {
+            throw new AppointmentError('staffId must be a 24-character hexadecimal string', {
+                code: 'INVALID_STAFF_ID',
+                status: 400,
+            })
+        }
+        options.staffId = query.staffId
+    }
+
+    if(query.status !== undefined) {
+        if(typeof query.status !== 'string' || !APPOINTMENT_STATUSES.includes(query.status)) {
+            throw new AppointmentError('status must be one of the following values: ' + APPOINTMENT_STATUSES.join(', '), {
+                code: 'INVALID_STATUS',
+                status: 400,
+            })
+        }
+        options.status = query.status
+    }
+    return options
+}
+
+function toOwnerAppointmentListItem(appointment) {
+    return {
+        id: String(appointment._id),
+        customerId: String(appointment.customerId),
+        staffId: String(appointment.staffId),
+        staffNameSnapshot: appointment.staffNameSnapshot,
+        customerSnapshot: {
+            displayName: appointment.customerSnapshot.displayName,
+            phone: appointment.customerSnapshot.phone,
+        },
+        items: appointment.items.map(item => ({
+            serviceId: item.serviceId,
+            name: item.name,
+            priceVnd: item.priceVnd,
+            durationMinutes: item.durationMinutes,
+        })),
+        totalPriceVnd: appointment.totalPriceVnd,
+        totalDurationMinutes: appointment.totalDurationMinutes,
+        startAt: appointment.startAt.toISOString(),
+        endAt: appointment.endAt.toISOString(),
+        timeZone: appointment.timeZone,
+        localDate: appointment.localDate,
+        status: appointment.status,
+    }
+}
+
+function buildOwnerAppointmentPage(appointments, limit) {
+    const hasNextPage = appointments.length > limit
+    const page = appointments.slice(0, limit)
+
+    let nextCursor = null
+    if(hasNextPage) {
+        const lastAppointment = page[page.length - 1]
+        nextCursor = Buffer.from(
+        JSON.stringify({
+            startAt: lastAppointment.startAt.toISOString(),
+            id: String(lastAppointment._id),
+        }),
+        'utf8',
+        ).toString('base64url')
+    }
+    return {
+        items: page.map(toOwnerAppointmentListItem),
+        pagination: {
+            limit,
+            hasNextPage,
+            nextCursor,
+        },
+    }
+}
+
+
+export async function listOwnerAppointments(identity, { localDate, staffId, status, limit = 50, cursor} = {}) {
+    if(!identity) {
+        throw new AppointmentError('Need Login', {
+            code: 'UNAUTHORIZED',
+            status: 401,
+        })
+    }
+
+    if(!Array.isArray(identity.roles) || !identity.roles.includes('owner')) {
+        throw new AppointmentError('You are not authorized to access this list', {
+            code: 'FORBIDDEN',
+            status: 403,
+        })
+    }
+    const appointments = await findOwnerAppointments({
+        localDate,
+        staffId,
+        status,
+        limit,
+        cursor,
+    })
+    return buildOwnerAppointmentPage(appointments, limit)
+}
+
 export async function listAppointments(identity, query = {}) {
     if(!identity) {
         throw new AppointmentError('Need Login', {
@@ -321,6 +433,11 @@ export async function listAppointments(identity, query = {}) {
         })
     }
     const roles = Array.isArray(identity.roles) ? identity.roles : []
+
+    if (roles.includes('owner')) {
+        const options = parseOwnerAppointmentQuery(query)
+        return listOwnerAppointments(identity, options)
+    }
 
     if(roles.includes('stylist')) {
         const options = parseStylistAppointmentQuery(query)
