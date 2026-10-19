@@ -1,6 +1,6 @@
-
 import { findCustomerAppointments, findStylistAppointments, findAppointmentStaffByAccountId, findOwnerAppointments } from "./appointments.repository.js"
 import { APPOINTMENT_STATUSES } from "./appointments.model.js"
+
 // Lỗi nghiệp vụ; controller sẽ chuyển thành HTTP response.
 export class AppointmentError extends Error {
     constructor(message, { code = 'APPOINTMENT_ERROR', status = 400 } = {}) {
@@ -11,7 +11,7 @@ export class AppointmentError extends Error {
     }
 }
 
-// Giải mã cursor dùng chung cho các danh sách lịch.
+// Giải mã cursor phân trang (base64url -> startAt, id).
 function decodeAppointmentCursor(token) {
     if(token === undefined) return undefined
 
@@ -57,7 +57,7 @@ function decodeAppointmentCursor(token) {
             id: payload.id,
         }
 
-    } catch (error) {
+    } catch {
         throw new AppointmentError('Cursor không hợp lệ.', {
             code: 'INVALID_CURSOR',
             status: 400,
@@ -65,52 +65,101 @@ function decodeAppointmentCursor(token) {
     }
 }
 
-export function parseCustomerAppointmentQuery(query = {} ) {
-    const allowedKeys =['limit', 'cursor']
-
-    if(Object.keys(query).some(key => !allowedKeys.includes(key))) {
-        throw new AppointmentError('Query not supported', {
-            code: "INVALID_QUERY",
-            status: 400,
-        })
+// Validate và chuẩn hóa query params phân trang chung.
+function parseAppointmentListQuery(query, allowedKeys, defaultLimit, maxLimit, withDate) {
+    if (Object.keys(query).some(key => !allowedKeys.includes(key))) {
+        throw new AppointmentError('Query not supported', { code: 'INVALID_QUERY', status: 400 })
     }
-
-    let limit = 20
-    if(query.limit !== undefined) {
-        if(
-            typeof query.limit !== 'string' ||
-            !/^[1-9]\d?$/.test(query.limit) ||
-            Number(query.limit) > 50
-        ) {
-            throw new AppointmentError('limit must be an integer between 1 and 50', {
-                code: 'INVALID_LIMIT',
-                status: 400,
-            })
+    if (withDate) {
+        const value = query.localDate
+        const date = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+        ? new Date(value + 'T00:00:00.000Z') : null
+        if (!date || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
+        throw new AppointmentError('localDate must be a valid YYYY-MM-DD date', {
+            code: 'INVALID_LOCAL_DATE', status: 400,
+        })
+        }
+    }
+    let limit = defaultLimit
+    if (query.limit !== undefined) {
+        if (typeof query.limit !== 'string' || !/^[1-9]\d{0,2}$/.test(query.limit) || Number(query.limit) > maxLimit) {
+        throw new AppointmentError('limit must be an integer between 1 and ' + maxLimit, {
+            code: 'INVALID_LIMIT', status: 400,
+        })
         }
         limit = Number(query.limit)
     }
-
     return {
-        limit,
-        cursor: decodeAppointmentCursor(query.cursor),
+        ...(withDate ? { localDate: query.localDate } : {}),
+        limit, cursor: decodeAppointmentCursor(query.cursor),
     }
 }
 
-// Đọc lịch theo Customer trong identity đã được xác thực.
-export async function listCustomerAppointments(identity, {limit = 20, cursor} = {}) {
-    if(!identity) {
-        throw new AppointmentError('Need Login', {
-            code: 'UNAUTHORIZED',
-            status: 401,
-        })
+// Kiểm tra quyền vai trò của người dùng.
+function requireAppointmentRole(identity, role) {
+    if (!identity) {
+        throw new AppointmentError('Need Login', { code: 'UNAUTHORIZED', status: 401 })
     }
-
-    if(!Array.isArray(identity.roles) || !identity.roles.includes('customer')) {
+    if (!Array.isArray(identity.roles) || !identity.roles.includes(role)) {
         throw new AppointmentError('You are not authorized to access this list', {
-            code: 'FORBIDDEN',
-            status: 403,
+        code: 'FORBIDDEN', status: 403,
         })
     }
+}
+
+// Đóng gói danh sách thành response phân trang kèm nextCursor.
+function buildAppointmentPage(appointments, limit, role) {
+    const hasNextPage = appointments.length > limit
+    const page = appointments.slice(0, limit)
+    let nextCursor = null
+    if (hasNextPage) {
+        const last = page[page.length - 1]
+        nextCursor = Buffer.from(JSON.stringify({
+        startAt: last.startAt.toISOString(), id: String(last._id),
+        }), 'utf8').toString('base64url')
+    }
+    return {
+        items: page.map(appointment => toAppointmentListItem(appointment, role)),
+        pagination: { limit, hasNextPage, nextCursor },
+    }
+}
+
+// Chuẩn hóa dữ liệu lịch hẹn trả về theo từng vai trò.
+function toAppointmentListItem(appointment, role) {
+    const item = {
+        id: String(appointment._id),
+        staffId: String(appointment.staffId),
+        staffNameSnapshot: appointment.staffNameSnapshot,
+        items: appointment.items.map(service => ({
+        serviceId: service.serviceId, name: service.name,
+        priceVnd: service.priceVnd, durationMinutes: service.durationMinutes,
+        })),
+        totalPriceVnd: appointment.totalPriceVnd,
+        totalDurationMinutes: appointment.totalDurationMinutes,
+        startAt: appointment.startAt.toISOString(),
+        endAt: appointment.endAt.toISOString(),
+        timeZone: appointment.timeZone,
+        localDate: appointment.localDate,
+        status: appointment.status,
+    }
+    if (role === 'stylist' || role === 'owner') {
+        item.customerSnapshot = {
+        displayName: appointment.customerSnapshot.displayName,
+        phone: appointment.customerSnapshot.phone,
+        }
+    }
+    if (role === 'owner') item.customerId = String(appointment.customerId)
+    return item
+}
+
+// Validate query params lấy danh sách lịch cho khách hàng.
+export function parseCustomerAppointmentQuery(query = {}) {
+    return parseAppointmentListQuery(query, ['limit', 'cursor'], 20, 50, false)
+}
+
+// Lấy danh sách lịch hẹn của khách hàng hiện tại.
+export async function listCustomerAppointments(identity, {limit = 20, cursor} = {}) {
+    requireAppointmentRole(identity, 'customer')
 
     if(!Number.isInteger(limit) || limit < 1 ||  limit > 50) {
         throw new AppointmentError('Limit must be an integer between 1 and 50', {
@@ -120,127 +169,22 @@ export async function listCustomerAppointments(identity, {limit = 20, cursor} = 
     }
     // Không có hồ sơ vẫn trả cùng cấu trúc phân trang.
     if(identity.customerId === undefined) {
-        return buildCustomerAppointmentPage([], limit)
+        return buildAppointmentPage([], limit, 'customer')
     }
 
-    const apppointments = await findCustomerAppointments(identity.customerId, {limit, cursor})
-    
-    return buildCustomerAppointmentPage(apppointments, limit)
+    const appointments = await findCustomerAppointments(identity.customerId, {limit, cursor})
+
+    return buildAppointmentPage(appointments, limit, 'customer')
 }
 
-// Allowlist dữ liệu trả cho Customer, không spread document.
-function toCustomerAppointmentListItem(appoinment) {
-    return {
-        id: String(appoinment._id),
-        staffId: String(appoinment.staffId),
-        staffNameSnapshot: appoinment.staffNameSnapshot,
-        items: appoinment.items.map(item => ({
-            serviceId: item.serviceId,
-            name: item.name,
-            priceVnd: item.priceVnd,
-            durationMinutes: item.durationMinutes,
-        })),
-        totalPriceVnd: appoinment.totalPriceVnd,
-        totalDurationMinutes: appoinment.totalDurationMinutes,
-        startAt: appoinment.startAt.toISOString(),
-        endAt: appoinment.endAt.toISOString(),
-        timeZone: appoinment.timeZone,
-        localDate: appoinment.localDate,
-        status: appoinment.status,
-    }
+// Validate query params lấy danh sách lịch cho stylist.
+export function parseStylistAppointmentQuery(query = {}) {
+    return parseAppointmentListQuery(query, ['localDate', 'limit', 'cursor'], 50, 100, true)
 }
 
-function buildCustomerAppointmentPage(appointments, limit) {
-    const hasNextPage = appointments.length > limit
-    const page = appointments.slice(0, limit)
-
-    let nextCursor = null
-    if(hasNextPage) {
-        const lastAppointment = page[page.length - 1]
-
-        nextCursor = Buffer.from(
-            JSON.stringify({
-                startAt: lastAppointment.startAt.toISOString(),
-                id: String(lastAppointment._id)
-            }),
-            'utf8'
-        ).toString('base64url')
-    }
-
-    return {
-        items: page.map(toCustomerAppointmentListItem),
-        pagination: {
-            limit,
-            hasNextPage,
-            nextCursor,
-        }
-    }
-}
-
-
-export function parseStylistAppointmentQuery(query = {} ) {
-    const allowedKeys =['localDate', 'limit', 'cursor']
-
-    if(Object.keys(query).some(key => !allowedKeys.includes(key))) {
-        throw new AppointmentError('Query not supported', {
-            code: 'INVALID_QUERY',
-            status: 400,
-        })
-    }
-    const { localDate } = query
-
-    if(typeof localDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(localDate)) {
-        throw new AppointmentError('localDate must be a valid YYYY-MM-DD date', {
-            code: 'INVALID_LOCAL_DATE',
-            status: 400,
-        })
-    }
-    const date = new Date(`${localDate}T00:00:00.000Z`)
-
-    if(!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== localDate) {
-        throw new AppointmentError('localDate must be a valid YYYY-MM-DD date', {
-            code: 'INVALID_LOCAL_DATE',
-            status: 400,
-        })
-    }
-
-    let limit = 50
-
-    if(query.limit !== undefined) {
-        if(
-            typeof query.limit !== 'string' ||
-            !/^[1-9]\d{0,2}$/.test(query.limit) ||
-            Number(query.limit) > 100
-        ) {
-            throw new AppointmentError('limit must be an integer between 1 and 100', {
-                code: 'INVALID_LIMIT',
-                status: 400,
-            })
-        }
-        limit = Number(query.limit)
-    }
-
-    return {
-        localDate,
-        limit,
-        cursor: decodeAppointmentCursor(query.cursor)
-    }
-}
-
+// Lấy danh sách lịch hẹn theo ngày của stylist.
 export async function listStylistAppointments( identity, { localDate, limit = 50, cursor} = {} ) {
-    if(!identity) {
-        throw new AppointmentError('Need Login', {
-            code: 'UNAUTHORIZED',
-            status: 401,
-        })
-    }
-
-    if(!Array.isArray(identity.roles) || !identity.roles.includes('stylist')) {
-        throw new AppointmentError('You are not authorized to access this list', {
-            code: 'FORBIDDEN',
-            status: 403,
-        })
-    }
+    requireAppointmentRole(identity, 'stylist')
 
     const staff = await findAppointmentStaffByAccountId(identity.accountId)
 
@@ -259,73 +203,13 @@ export async function listStylistAppointments( identity, { localDate, limit = 50
             cursor,
         },
     )
-    return buildStylistAppointmentPage(appointments, limit)
+    return buildAppointmentPage(appointments, limit, 'stylist')
 }
 
-function toStylistAppointmentListItem(appointment) {
-    return {
-        id: String(appointment._id),
-        staffId: String(appointment.staffId),
-        staffNameSnapshot: appointment.staffNameSnapshot,
-        customerSnapshot: {
-            displayName: appointment.customerSnapshot.displayName,
-            phone: appointment.customerSnapshot.phone,
-        },
-        items: appointment.items.map(item => ({
-            serviceId: item.serviceId,
-            name: item.name,
-            priceVnd: item.priceVnd,
-            durationMinutes: item.durationMinutes,
-        })),
-        totalPriceVnd: appointment.totalPriceVnd,
-        totalDurationMinutes: appointment.totalDurationMinutes,
-        startAt: appointment.startAt.toISOString(),
-        endAt: appointment.endAt.toISOString(),
-        timeZone: appointment.timeZone,
-        localDate: appointment.localDate,
-        status: appointment.status,
-    }
-}
-
-function buildStylistAppointmentPage(appointments, limit) {
-    const hasNextPage = appointments.length > limit
-    const page = appointments.slice(0, limit)
-
-    let nextCursor = null
-    if(hasNextPage) {
-        const lastAppointment = page[page.length - 1]
-        nextCursor = Buffer.from(
-        JSON.stringify({
-            startAt: lastAppointment.startAt.toISOString(),
-            id: String(lastAppointment._id),
-        }),
-        'utf8',
-        ).toString('base64url')
-    }
-
-    return {
-        items: page.map(toStylistAppointmentListItem),
-        pagination: {
-            limit,
-            hasNextPage,
-            nextCursor,
-        },
-    }
-}
-
+// Validate query params lấy danh sách lịch cho chủ tiệm.
 export function parseOwnerAppointmentQuery(query = {}) {
     const allowedKeys =['localDate', 'staffId', 'status', 'limit', 'cursor']
-    if(Object.keys(query).some(key => !allowedKeys.includes(key))) {
-        throw new AppointmentError('Query not supported', {
-            code: 'INVALID_QUERY',
-            status: 400,
-        })
-    }
-    const options = parseStylistAppointmentQuery({
-        localDate: query.localDate,
-        limit: query.limit,
-        cursor: query.cursor,
-    })
+    const options = parseAppointmentListQuery(query, allowedKeys, 50, 100, true)
 
     if(query.staffId !== undefined) {
         if(typeof query.staffId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(query.staffId)) {
@@ -349,72 +233,9 @@ export function parseOwnerAppointmentQuery(query = {}) {
     return options
 }
 
-function toOwnerAppointmentListItem(appointment) {
-    return {
-        id: String(appointment._id),
-        customerId: String(appointment.customerId),
-        staffId: String(appointment.staffId),
-        staffNameSnapshot: appointment.staffNameSnapshot,
-        customerSnapshot: {
-            displayName: appointment.customerSnapshot.displayName,
-            phone: appointment.customerSnapshot.phone,
-        },
-        items: appointment.items.map(item => ({
-            serviceId: item.serviceId,
-            name: item.name,
-            priceVnd: item.priceVnd,
-            durationMinutes: item.durationMinutes,
-        })),
-        totalPriceVnd: appointment.totalPriceVnd,
-        totalDurationMinutes: appointment.totalDurationMinutes,
-        startAt: appointment.startAt.toISOString(),
-        endAt: appointment.endAt.toISOString(),
-        timeZone: appointment.timeZone,
-        localDate: appointment.localDate,
-        status: appointment.status,
-    }
-}
-
-function buildOwnerAppointmentPage(appointments, limit) {
-    const hasNextPage = appointments.length > limit
-    const page = appointments.slice(0, limit)
-
-    let nextCursor = null
-    if(hasNextPage) {
-        const lastAppointment = page[page.length - 1]
-        nextCursor = Buffer.from(
-        JSON.stringify({
-            startAt: lastAppointment.startAt.toISOString(),
-            id: String(lastAppointment._id),
-        }),
-        'utf8',
-        ).toString('base64url')
-    }
-    return {
-        items: page.map(toOwnerAppointmentListItem),
-        pagination: {
-            limit,
-            hasNextPage,
-            nextCursor,
-        },
-    }
-}
-
-
+// Lấy danh sách lịch hẹn toàn hệ thống theo bộ lọc cho owner.
 export async function listOwnerAppointments(identity, { localDate, staffId, status, limit = 50, cursor} = {}) {
-    if(!identity) {
-        throw new AppointmentError('Need Login', {
-            code: 'UNAUTHORIZED',
-            status: 401,
-        })
-    }
-
-    if(!Array.isArray(identity.roles) || !identity.roles.includes('owner')) {
-        throw new AppointmentError('You are not authorized to access this list', {
-            code: 'FORBIDDEN',
-            status: 403,
-        })
-    }
+    requireAppointmentRole(identity, 'owner')
     const appointments = await findOwnerAppointments({
         localDate,
         staffId,
@@ -422,9 +243,10 @@ export async function listOwnerAppointments(identity, { localDate, staffId, stat
         limit,
         cursor,
     })
-    return buildOwnerAppointmentPage(appointments, limit)
+    return buildAppointmentPage(appointments, limit, 'owner')
 }
 
+// Điều hướng lấy danh sách lịch hẹn theo vai trò người dùng.
 export async function listAppointments(identity, query = {}) {
     if(!identity) {
         throw new AppointmentError('Need Login', {
@@ -443,7 +265,7 @@ export async function listAppointments(identity, query = {}) {
         const options = parseStylistAppointmentQuery(query)
         return listStylistAppointments(identity, options)
     }
-    
+
     if(roles.includes('customer')) {
         const options = parseCustomerAppointmentQuery(query)
         return listCustomerAppointments(identity, options)
@@ -453,3 +275,4 @@ export async function listAppointments(identity, query = {}) {
         status: 403,
     })
 }
+
