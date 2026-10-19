@@ -2,7 +2,8 @@ import {
     AppointmentError,
     listAppointments,
     getAppointmentDetail,
-    cancelAppointment
+    cancelAppointment,
+    markAppointmentNoShow,
 } from "./appointments.service.js";
 
 function sendAppointmentError(error, res, next) {
@@ -50,17 +51,22 @@ export async function getAppointmentDetailController(req, res, next) {
     }
 }
 
-export async function cancelAppointmentController(req, res, next) {
+export function cancelAppointmentController(req, res, next) {
+    return appointmentCommandResponse(cancelAppointment, req, res, next)
+}
+
+export function markAppointmentNoShowController(req, res, next) {
+    return appointmentCommandResponse(markAppointmentNoShow, req, res, next)
+}
+
+async function appointmentCommandResponse(operation, req, res, next) {
     res.set('Cache-Control', 'no-store')
     try {
         const identity = req.identity
-        const appointmentId = req.params.appointmentId
-        const body = req.body
-        const result = await cancelAppointment(identity, appointmentId, body,  req.get('Idempotency-Key'))
-        return res.status(200).json({
-            status: 'success',
-            data: result,
-        })
+        const appointmentId = req.params.appointmentId;
+        const body = req.body;
+        const result = await operation(identity, appointmentId, body, req.get('Idempotency-Key'))
+        return res.status(200).json({ status: 'success', data: result })
     } catch (error) {
         return sendAppointmentError(error, res, next)
     }

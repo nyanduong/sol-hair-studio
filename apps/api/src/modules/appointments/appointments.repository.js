@@ -194,29 +194,40 @@ export function findAppointmentForUpdate(appointmentId, { session } = {} ) {
     .session(session)
 }
 
-// Ghi hủy lịch khi phiên bản và trạng thái cũ vẫn còn đúng.
-export async function persistCancelledAppointment(appointment, { expectedRevision, session } = {}) {
-    // Phải nằm trong transaction đang giữ Customer/Staff guards.
+// Helper nội bộ chỉ phục vụ hai chuyển trạng thái từ confirmed.
+async function persistClosedAppointment(appointment,{ expectedRevision, session },targetStatus,) {
     if (!session || !session.inTransaction()) {
         throw new TypeError('An active transaction session is required')
     }
 
-    // Chỉ nhận document đã được service chuẩn bị cho thao tác hủy.
     if (
         !(appointment instanceof AppointmentModel) ||
         !Number.isSafeInteger(expectedRevision) ||
         expectedRevision < 0 ||
         expectedRevision >= Number.MAX_SAFE_INTEGER ||
-        appointment.status !== 'cancelled' ||
+        appointment.status !== targetStatus ||
         appointment.revision !== expectedRevision + 1
     ) {
-        throw new TypeError('A valid cancellation document is required')
+        throw new TypeError('A valid appointment transition document is required')
     }
 
-    // Chạy cả document validators và hook nhất quán của model.
+    // Chạy document validators và hook trước khi ghi bằng query.
     await appointment.validate()
 
-    // Chỉ ghi các field của lệnh hủy, không thay snapshot hoặc giờ hẹn.
+    // Chỉ ghi field của thao tác, không spread toàn document.
+    const changes = {
+        status: appointment.status,
+        revision: appointment.revision,
+        lastCommand: appointment.lastCommand.toObject(),
+    }
+
+    if (targetStatus === 'cancelled') {
+        changes.cancelledAt = appointment.cancelledAt
+    } else {
+        changes.noShowAt = appointment.noShowAt
+        changes.contactAttemptedAt = appointment.contactAttemptedAt
+    }
+
     return AppointmentModel.findOneAndUpdate(
         {
             _id: appointment._id,
@@ -227,12 +238,7 @@ export async function persistCancelledAppointment(appointment, { expectedRevisio
             startedAt: { $exists: false },
         },
         {
-            $set: {
-                status: appointment.status,
-                cancelledAt: appointment.cancelledAt,
-                revision: appointment.revision,
-                lastCommand: appointment.lastCommand.toObject(),
-            },
+            $set: changes,
         },
         {
             session,
@@ -242,6 +248,10 @@ export async function persistCancelledAppointment(appointment, { expectedRevisio
     ).lean()
 }
 
+// Ghi hủy lịch khi phiên bản và trạng thái cũ vẫn còn đúng.
+export function persistCancelledAppointment(appointment, options = {}) {
+    return persistClosedAppointment(appointment, options, 'cancelled')
+}
 
 export async function findAppointmentCommandActor(accountId, authRevision, { session } = {}) {
     assertObjectId(accountId, 'accountId')
@@ -318,4 +328,9 @@ export async function lockAndBumpCustomerBookingRevision(customerId, { session }
         return { status: 'conflict', customer: null }
     }
     return { status: 'ok', customer: updated }
+}
+
+// Writer no-show dùng cùng CAS nhưng có field ghi riêng.
+export function persistNoShowAppointment(appointment, options = {}) {
+    return persistClosedAppointment(appointment, options, 'no_show')
 }
