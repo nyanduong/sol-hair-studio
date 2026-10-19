@@ -23,6 +23,52 @@ const APPOINTMENT_CONTACT_FIELDS = {
     'customerSnapshot.phone': 1,
 }
 
+// Kiểm tra ngày dùng chung cho Stylist và Owner.
+function assertLocalDate(localDate) {
+    if (typeof localDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(localDate)) {
+        throw new TypeError('localDate must be a valid YYYY-MM-DD date')
+    }
+    const date = new Date(localDate + 'T00:00:00.000Z')
+    if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== localDate) {
+        throw new TypeError('localDate must be a valid YYYY-MM-DD date')
+    }
+    }
+
+    function assertObjectId(value, field) {
+    if (typeof value !== 'string' || !/^[a-fA-F0-9]{24}$/.test(value)) {
+        throw new TypeError(field + ' must be a 24-character hexadecimal string')
+    }
+}
+
+
+function applyAppointmentCursor(filter, cursor, direction) {
+    if (cursor === undefined) return
+    if (
+        cursor === null || typeof cursor !== 'object' || Array.isArray(cursor) ||
+        !(cursor.startAt instanceof Date) || !Number.isFinite(cursor.startAt.getTime()) ||
+        typeof cursor.id !== 'string' || !/^[a-fA-F0-9]{24}$/.test(cursor.id)
+    ) {
+        throw new TypeError('cursor must contain a valid startAt Date and id')
+    }
+    const operator = direction === 1 ? '$gt' : '$lt'
+    filter.$or = [
+        { startAt: { [operator]: cursor.startAt } },
+        { startAt: cursor.startAt, _id: { [operator]: cursor.id } },
+    ]
+}
+
+function findAppointmentPage(filter, limit, direction, fields, maxLimit) {
+    if (!Number.isInteger(limit) || limit < 1 || limit > maxLimit) {
+        throw new TypeError('limit must be an integer between 1 and ' + maxLimit)
+    }
+    return AppointmentModel.find(filter)
+        .sort({ startAt: direction, _id: direction })
+        .select(fields)
+        .limit(limit + 1)
+        .lean()
+}
+
+
 // Đọc lịch theo customerId do service lấy từ identity.
 export function findCustomerAppointments(customerId, {limit =20, cursor} = {}) {
     assertObjectId(customerId, 'customerId')
@@ -78,48 +124,31 @@ export function findOwnerAppointments({ localDate, staffId, status, limit = 50, 
 
     return findAppointmentPage(filter, limit, 1, { ...APPOINTMENT_LIST_FIELDS, ...APPOINTMENT_CONTACT_FIELDS, customerId: 1 }, 100)
 }
-// Dùng chung truy vấn, giữ scope theo role.
-function applyAppointmentCursor(filter, cursor, direction) {
-    if (cursor === undefined) return
-    if (
-        cursor === null || typeof cursor !== 'object' || Array.isArray(cursor) ||
-        !(cursor.startAt instanceof Date) || !Number.isFinite(cursor.startAt.getTime()) ||
-        typeof cursor.id !== 'string' || !/^[a-fA-F0-9]{24}$/.test(cursor.id)
-    ) {
-        throw new TypeError('cursor must contain a valid startAt Date and id')
-    }
-    const operator = direction === 1 ? '$gt' : '$lt'
-    filter.$or = [
-        { startAt: { [operator]: cursor.startAt } },
-        { startAt: cursor.startAt, _id: { [operator]: cursor.id } },
-    ]
-}
 
-// Dùng chung truy vấn, giữ scope theo role.
-function findAppointmentPage(filter, limit, direction, fields, maxLimit) {
-    if (!Number.isInteger(limit) || limit < 1 || limit > maxLimit) {
-        throw new TypeError('limit must be an integer between 1 and ' + maxLimit)
+export function findAppointmentDetail(appointmentId, {role, customerId, staffId} = {}) {
+    assertObjectId(appointmentId, 'appointmentId')
+    const filter = { _id: appointmentId }
+    const fields = {
+        ...APPOINTMENT_LIST_FIELDS,
+        revision: 1,
+        confirmedAt: 1,
     }
-    return AppointmentModel.find(filter)
-        .sort({ startAt: direction, _id: direction })
-        .select(fields)
-        .limit(limit + 1)
-        .lean()
-}
-
-// Kiểm tra ngày dùng chung cho Stylist và Owner.
-function assertLocalDate(localDate) {
-    if (typeof localDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(localDate)) {
-        throw new TypeError('localDate must be a valid YYYY-MM-DD date')
+    if(role === 'customer') {
+        assertObjectId(customerId, 'customerId')
+        filter.customerId = customerId
+    } else if(role === 'stylist') {
+        assertObjectId(staffId, 'staffId')
+        filter.staffId = staffId
+        filter.status = {$in: ['confirmed', 'in_progress', 'completed']}
+        Object.assign(fields, APPOINTMENT_CONTACT_FIELDS)
+    } else if(role === 'owner') {
+        Object.assign(fields, APPOINTMENT_CONTACT_FIELDS, {
+            customerId: 1,
+        })
+    } else {
+        throw new TypeError('A supported appointment role is required')
     }
-    const date = new Date(localDate + 'T00:00:00.000Z')
-    if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== localDate) {
-        throw new TypeError('localDate must be a valid YYYY-MM-DD date')
-    }
-    }
-
-    function assertObjectId(value, field) {
-    if (typeof value !== 'string' || !/^[a-fA-F0-9]{24}$/.test(value)) {
-        throw new TypeError(field + ' must be a 24-character hexadecimal string')
-    }
+    return AppointmentModel.findOne(filter)
+    .select(fields)
+    .lean()
 }

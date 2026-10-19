@@ -1,4 +1,4 @@
-import { findCustomerAppointments, findStylistAppointments, findAppointmentStaffByAccountId, findOwnerAppointments } from "./appointments.repository.js"
+import { findCustomerAppointments, findStylistAppointments, findAppointmentStaffByAccountId, findOwnerAppointments, findAppointmentDetail } from "./appointments.repository.js"
 import { APPOINTMENT_STATUSES } from "./appointments.model.js"
 
 // Lỗi nghiệp vụ; controller sẽ chuyển thành HTTP response.
@@ -274,5 +274,63 @@ export async function listAppointments(identity, query = {}) {
         code: 'FORBIDDEN',
         status: 403,
     })
+}
+
+export async function getAppointmentDetail(identity, appointmentId) {
+    if(!identity) {
+        throw new AppointmentError('Need Login', {
+            code: 'UNAUTHORIZED',
+            status: 401,
+        })
+    }
+
+    const roles = Array.isArray(identity.roles) ? identity.roles : []
+    const role = ['owner', 'stylist', 'customer'].find(value => roles.includes(value))
+
+    if(!role) {
+        throw new AppointmentError('You are not authorized to access this list', {
+            code: 'FORBIDDEN',
+            status: 403,
+        })
+    }
+    if( typeof appointmentId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(appointmentId)) {
+        throw new AppointmentError('appointmentId must be a 24-character hexadecimal string', {
+            code: 'INVALID_APPOINTMENT_ID',
+            status: 400,
+        })
+    }
+    const scope = { role }
+
+    if(role === 'customer') {
+        if(identity.customerId === undefined) {
+            throw new AppointmentError('Customer not found', {
+                code: 'APPOINTMENT_NOT_FOUND',
+                status: 404,
+            })
+        }
+        scope.customerId = identity.customerId
+    } else if(role === 'stylist') {
+        const staff = await findAppointmentStaffByAccountId(identity.accountId)
+        if(!staff) {
+            throw new AppointmentError('Staff not found', {
+                code: 'STAFF_NOT_FOUND',
+                status: 404,
+            })
+        }
+        scope.staffId = String(staff._id)
+    }
+    const appointment = await findAppointmentDetail(appointmentId, scope)
+
+    if(!appointment) {
+        throw new AppointmentError('Appointment not found', {
+            code: 'APPOINTMENT_NOT_FOUND',
+            status: 404,
+        })
+    }
+    return {
+        ...toAppointmentListItem(appointment, role),
+        revision: appointment.revision,
+        confirmedAt: appointment.confirmedAt.toISOString(),
+    }
 }
 
