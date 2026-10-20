@@ -59,4 +59,49 @@ describe('requestJson', () => {
     ).resolves.toEqual({ ok: true })
     expect(vi.getTimerCount()).toBe(0)
   })
+
+  it('gửi POST request với JSON body và custom headers', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('{"data":{"token":"abc"}}', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const res = await requestJson('/api/auth/login', {
+      baseUrl: 'http://10.0.2.2:4000',
+      method: 'POST',
+      headers: { Authorization: 'Bearer token-123' },
+      body: { email: 'test@example.com', password: 'password123' },
+    })
+
+    expect(res).toEqual({ data: { token: 'abc' } })
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://10.0.2.2:4000/api/auth/login',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ email: 'test@example.com', password: 'password123' }),
+      }),
+    )
+  })
+
+  it('trích xuất mã lỗi và thông báo chi tiết từ JSON response của API', async () => {
+    const errorResponse = new Response(
+      JSON.stringify({ code: 'INVALID_CREDENTIALS', message: 'Email hoặc mật khẩu không chính xác.' }),
+      { status: 401, headers: { 'Content-Type': 'application/json' } },
+    )
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(errorResponse))
+
+    let caught = null
+    try {
+      await requestJson('/api/auth/login', {
+        baseUrl: 'http://10.0.2.2:4000',
+        method: 'POST',
+        body: { email: 'bad@example.com', password: 'wrong' },
+      })
+    } catch (err) {
+      caught = err
+    }
+
+    expect(caught).toBeInstanceOf(Error)
+    expect(caught?.message).toBe('Email hoặc mật khẩu không chính xác.')
+    expect(caught?.code).toBe('INVALID_CREDENTIALS')
+    expect(caught?.status).toBe(401)
+  })
 })
