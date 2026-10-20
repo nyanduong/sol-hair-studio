@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react'
+import UserNav from '../../auth/components/UserNav.jsx'
+import { useAuth } from '../../auth/hooks/useAuth.js'
 
 const links = [
   { href: '#services', label: 'Dịch vụ' },
@@ -8,6 +10,7 @@ const links = [
 ]
 
 export default function SiteHeader() {
+  const { isAuthenticated, openLoginModal } = useAuth()
   const menuRef = useRef(null)
   const summaryRef = useRef(null)
   const closeMenu = () => { if (menuRef.current) menuRef.current.open = false }
@@ -38,6 +41,16 @@ export default function SiteHeader() {
     document.querySelector(event.currentTarget.hash)?.focus({ preventScroll: true })
   }
 
+  function handleBookingClick(event) {
+    if (!isAuthenticated) {
+      event.preventDefault()
+      closeMenu()
+      openLoginModal('Vui lòng đăng nhập tài khoản để tiếp tục đặt lịch hẹn tại Sol Hair Studio.')
+    } else {
+      closeMenu()
+    }
+  }
+
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-canvas/95 backdrop-blur-md">
       <a href="#main-content" className="absolute left-4 top-3 -translate-y-24 rounded-full bg-ink px-5 py-3 text-sm text-white focus:translate-y-0">Bỏ qua điều hướng</a>
@@ -49,9 +62,16 @@ export default function SiteHeader() {
             <span className="mt-1.5 block text-[0.46rem] font-medium tracking-[0.18em] text-muted sm:text-[0.5rem] sm:tracking-[0.25em]">BEAUTY SHINES WITHIN</span>
           </span>
         </a>
-        <nav aria-label="Điều hướng chính" className="hidden items-center gap-7 lg:flex">
+        <nav aria-label="Điều hướng chính" className="hidden items-center gap-5 lg:flex">
           {links.map(({ href, label }) => <a key={href} href={href} className="inline-flex min-h-11 items-center text-xs text-muted transition-colors hover:text-terracotta">{label}</a>)}
-          <a href="#booking" className="inline-flex min-h-11 items-center rounded-full bg-terracotta px-5 text-xs font-semibold text-white transition-colors hover:bg-terracotta-dark">Đặt lịch</a>
+          <a
+            href="#booking"
+            onClick={handleBookingClick}
+            className="inline-flex min-h-11 items-center rounded-full bg-terracotta px-5 text-xs font-semibold text-white transition-colors hover:bg-terracotta-dark"
+          >
+            Đặt lịch
+          </a>
+          <UserNav />
         </nav>
         <details ref={menuRef} className="relative shrink-0 lg:hidden">
           <summary ref={summaryRef} className="grid h-11 w-11 cursor-pointer list-none place-items-center rounded-full border border-border text-ink [&::-webkit-details-marker]:hidden">
@@ -59,7 +79,17 @@ export default function SiteHeader() {
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-5 w-5"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
           </summary>
           <nav aria-label="Điều hướng chính trên điện thoại" className="absolute right-0 top-14 grid w-60 max-w-[calc(100vw-2rem)] gap-1 rounded-2xl border border-border bg-canvas p-2 shadow-lg">
-            {[...links, { href: '#booking', label: 'Đặt lịch' }].map(({ href, label }) => <a key={href} href={href} onClick={navigate} className="flex min-h-11 items-center rounded-xl px-4 text-sm hover:bg-soft-surface">{label}</a>)}
+            {links.map(({ href, label }) => <a key={href} href={href} onClick={navigate} className="flex min-h-11 items-center rounded-xl px-4 text-sm hover:bg-soft-surface">{label}</a>)}
+            <a
+              href="#booking"
+              onClick={handleBookingClick}
+              className="flex min-h-11 items-center rounded-xl bg-terracotta/10 px-4 text-sm font-semibold text-terracotta hover:bg-terracotta/20"
+            >
+              Đặt lịch
+            </a>
+            <div className="mt-1 border-t border-border/60 pt-2 px-1">
+              <UserNav />
+            </div>
           </nav>
         </details>
       </div>
