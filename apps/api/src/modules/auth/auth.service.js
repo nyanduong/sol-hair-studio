@@ -107,6 +107,10 @@ async function bumpRevision(account, session, extra = {}) {
     { $inc: { authRevision: 1 }, $set: extra }, { session },
   )
   if (changed.modifiedCount !== 1) fail('ACCOUNT_CONFLICT', 'Tài khoản đã thay đổi; vui lòng thử lại.', 409)
+  account.authRevision = (account.authRevision || 0) + 1
+  for (const [key, value] of Object.entries(extra)) {
+    account[key] = value
+  }
 }
 
 async function issueChallenge(account, purpose, session) {
@@ -213,7 +217,13 @@ export async function verifyOtp(input) {
     if (!consumed) fail('CHALLENGE_ALREADY_CONSUMED', 'Mã không còn hiệu lực.')
     if (purpose === 'activate_customer') await bumpRevision(account, session, { status: 'active', emailVerifiedAt: now })
     if (purpose === 'activate_staff') await bumpRevision(account, session, { status: 'pending_password', emailVerifiedAt: now })
-    return { success: true, message: grant ? 'OTP hợp lệ. Hãy đặt mật khẩu trước khi proof hết hạn.' : 'Tài khoản đã được kích hoạt thành công.', ...(grant ? { grant, grantExpiresAt: challenge.expiresAt } : {}) }
+    const sessionData = purpose === 'activate_customer' ? await issueAccountToken(account) : {}
+    return {
+      success: true,
+      message: grant ? 'OTP hợp lệ. Hãy đặt mật khẩu trước khi proof hết hạn.' : 'Tài khoản đã được kích hoạt thành công.',
+      ...(grant ? { grant, grantExpiresAt: challenge.expiresAt } : {}),
+      ...sessionData,
+    }
   })
   if (result.error) fail(result.error, 'Mã xác thực sai hoặc đã đủ 5 lần sai.')
   return result
@@ -245,17 +255,7 @@ export async function completePassword(input) {
   return { message: 'Đặt mật khẩu thành công. Vui lòng đăng nhập lại.' }
 }
 
-export async function login(input) {
-  const emailNormalized = limited(input)
-  // Login checks the stored hash; new-password rules apply only when setting a password.
-  if (typeof input.password !== 'string' || !input.password.length || input.password.length > 128) {
-    fail('INVALID_CREDENTIALS', 'Email hoặc mật khẩu không đúng.', 401)
-  }
-  const account = await AccountModel.findOne({ emailNormalized }).select('+passwordHash')
-  if (!account || !await verifyPassword(input.password, account.passwordHash)) fail('INVALID_CREDENTIALS', 'Email hoặc mật khẩu không đúng.', 401)
-  if (account.status !== 'active') fail('ACCOUNT_NOT_ACTIVE', 'Tài khoản chưa active hoặc đã bị vô hiệu.', 403)
-  const current = await AccountModel.exists({ _id: account._id, status: 'active', authRevision: account.authRevision })
-  if (!current) fail('INVALID_CREDENTIALS', 'Tài khoản đã thay đổi. Vui lòng đăng nhập lại.', 401)
+async function issueAccountToken(account) {
   const issuedAt = Math.floor(Date.now() / 1000)
   const expiration = issuedAt + TOKEN_LIFETIME_SECONDS
   const token = await new SignJWT({ authRevision: account.authRevision })
@@ -269,6 +269,20 @@ export async function login(input) {
     .sign(jwtKey())
   const expiresAt = new Date(expiration * 1000)
   return { token, tokenType: 'Bearer', expiresAt, account: accountDto(account) }
+}
+
+export async function login(input) {
+  const emailNormalized = limited(input)
+  // Login checks the stored hash; new-password rules apply only when setting a password.
+  if (typeof input.password !== 'string' || !input.password.length || input.password.length > 128) {
+    fail('INVALID_CREDENTIALS', 'Email hoặc mật khẩu không đúng.', 401)
+  }
+  const account = await AccountModel.findOne({ emailNormalized }).select('+passwordHash')
+  if (!account || !await verifyPassword(input.password, account.passwordHash)) fail('INVALID_CREDENTIALS', 'Email hoặc mật khẩu không đúng.', 401)
+  if (account.status !== 'active') fail('ACCOUNT_NOT_ACTIVE', 'Tài khoản chưa active hoặc đã bị vô hiệu.', 403)
+  const current = await AccountModel.exists({ _id: account._id, status: 'active', authRevision: account.authRevision })
+  if (!current) fail('INVALID_CREDENTIALS', 'Tài khoản đã thay đổi. Vui lòng đăng nhập lại.', 401)
+  return issueAccountToken(account)
 }
 
 export async function authenticate(token) {

@@ -98,7 +98,11 @@ describe('SOL-017 API + real isolated MongoDB replica set', { timeout: 30000 }, 
     expect(+challenge.createdAt).toBeLessThanOrEqual(+challenge.issuedAt)
     expect(+challenge.issuedAt).toBeLessThanOrEqual(+challenge.updatedAt)
     expect(challenge.codeDigest).not.toContain(code())
-    await post('activate', { email, code: code() }).expect(200)
+    const activated = await post('activate', { email, code: code() }).expect(200)
+    expect(activated.body.data.token).toBeDefined()
+    expect(activated.body.data.account.status).toBe('active')
+    const meDirect = await request(app).get('/api/auth/me').set('Authorization', bearer(activated.body.data.token)).expect(200)
+    expect(meDirect.body.data.email).toBe(email)
     const login = await post('login', { email, password }).expect(200)
     const token = login.body.data.token
     const me = await request(app).get('/api/auth/me').set('Authorization', bearer(token)).expect(200)
