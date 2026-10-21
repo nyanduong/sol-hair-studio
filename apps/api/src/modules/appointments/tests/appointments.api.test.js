@@ -20,6 +20,7 @@ import * as appointmentRepository from '../appointments.repository.js'
 import * as availabilityRepository from '../../availability/availability.repository.js'
 import { AppointmentModel } from '../appointments.model.js'
 import { AppointmentEventModel } from '../appointment-events.model.js'
+import { BookingRequestModel } from '../booking-requests.model.js'
 
 const NOW = new Date('2026-10-20T03:00:00.000Z')
 const MINUTE = 60_000
@@ -102,7 +103,7 @@ beforeAll(async () => {
   replica = await MongoMemoryReplSet.create({ replSet: { count: 1 }, binary: { version: '8.0.17' } })
   await connectToDatabase(replica.getUri('sol035_management_test'))
   for (const model of [AccountModel, CustomerModel, StaffModel, StaffShiftModel, ServiceModel]) await model.init()
-  for (const model of [AppointmentModel, AppointmentEventModel]) {
+  for (const model of [AppointmentModel, AppointmentEventModel, BookingRequestModel]) {
     await model.createCollection()
     await model.createIndexes()
   }
@@ -114,7 +115,7 @@ afterAll(async () => {
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(NOW)
-  for (const model of [AppointmentEventModel, AppointmentModel, StaffShiftModel, ServiceModel, CustomerModel, StaffModel, AccountModel]) await model.deleteMany({})
+  for (const model of [BookingRequestModel, AppointmentEventModel, AppointmentModel, StaffShiftModel, ServiceModel, CustomerModel, StaffModel, AccountModel]) await model.deleteMany({})
   await mongoose.connection.db.collection('staff_time_off').deleteMany({})
   owner = await actor('owner')
   client = await actor('customer')
@@ -1499,6 +1500,348 @@ describe('Owner correction of accidental start', () => {
 
   it('checks Owner permission again inside the transaction', async () => {
     const mine = await serving()
+    vi.spyOn(appointmentRepository, 'findAppointmentCommandActor').mockResolvedValueOnce({ accountId: String(owner.account._id), roles: ['stylist'], authRevision: owner.account.authRevision })
+    await correct(mine._id).expect(403)
+    await unchanged(mine)
+  })
+})
+
+// Step 5 shares the isolated replica set; Booking requests below use the real SOL-031 API.
+describe('Owner correction of accidental completion', () => {
+  const at = minutes => new Date(NOW.getTime() + minutes * MINUTE)
+  const completed = (patch = {}) => appointment({ status: 'completed', startAt: at(-10), startedAt: at(-12),
+    completedAt: at(-5), occupiedFrom: at(-12), occupiedUntil: at(5), ...patch })
+  const body = (patch = {}) => ({ expectedRevision: 0, reason: 'Completion was accidental; the customer is still being served.', serviceNotCompleted: true, ...patch })
+  const correct = (id, acting = owner, input = body(), key = 'sol036-correct-complete-command-0001') => command(id, 'correct-complete', acting, input, key)
+  async function unchanged(mine, { eventCount = 0, customerGuard = 0, staffGuard = 0 } = {}) {
+    expect(await AppointmentModel.findById(mine._id).lean()).toEqual(mine.toObject())
+    expect(await AppointmentEventModel.countDocuments()).toBe(eventCount)
+    expect((await CustomerModel.findById(client.customer._id)).bookingRevision).toBe(customerGuard)
+    expect((await StaffModel.findById(stylist.staff._id)).bookingRevision).toBe(staffGuard)
+  }
+  const book = (staffId = stylist.staff._id, customerId = otherClient.customer._id) => request(app)
+    .post('/api/appointments').set('Authorization', 'Bearer ' + owner.token).set('Idempotency-Key', 'sol036-book-after-false-completion')
+    .send({ bookingMode: 'owner_scheduled', serviceIds: ['service-cut-style'], staffId: String(staffId), customerId: String(customerId), startAt: at(15).toISOString() })
+  async function slots() {
+    const result = await get('/api/availability', owner).query({ serviceIds: 'service-cut-style', staffId: String(stylist.staff._id), localDate: '2026-10-20' }).expect(200)
+    return result.body.data.stylists[0].slots.map(item => item.startAt)
+  }
+  beforeEach(async () => {
+    await shift(stylist.staff._id); await shift(otherStylist.staff._id)
+    await ServiceModel.create({ id: 'service-cut-style', slug: 'service-cut-style', name: 'Current service', description: 'Synthetic', category: 'Hair',
+      durationMinutes: { min: 30, max: 30 }, bookingDurationMinutes: 30, priceVnd: 100000,
+      imageUrl: 'https://res.cloudinary.com/demo/image/upload/sample.jpg' })
+  })
+
+  it('preserves the original Start and Completed events and original actual start through the full lifecycle', async () => {
+    const mine = await appointment({ startAt: NOW })
+    await command(mine._id, 'start', stylist, { expectedRevision: 0 }, 'sol036-start-before-false-complete').expect(200)
+    vi.setSystemTime(at(5))
+    await command(mine._id, 'complete', stylist, { expectedRevision: 1 }, 'sol036-false-complete-before-correction').expect(200)
+    const oldEvents = await AppointmentEventModel.find().sort({ revision: 1 }).lean()
+    vi.setSystemTime(at(6))
+    const result = await correct(mine._id, owner, body({ expectedRevision: 2, reason: '  Completion was pressed accidentally.  ' })).expect(200)
+    expect(result.headers['cache-control']).toBe('no-store')
+    expect(result.body.data).toMatchObject({ status: 'in_progress', revision: 3, startedAt: NOW.toISOString(), occupiedFrom: NOW.toISOString(), occupiedUntil: at(40).toISOString() })
+    expect(result.body.data).not.toHaveProperty('completedAt')
+    expect(result.body.data).not.toHaveProperty('estimatedEndAt')
+    const stored = await AppointmentModel.findById(mine._id).lean()
+    expect(stored.startedAt).toEqual(NOW)
+    expect(stored.completedAt).toBeUndefined()
+    expect(stored.estimatedEndAt).toBeUndefined()
+    expect(stored.serviceNotCompleted).toBeUndefined()
+    for (const field of ['startAt', 'endAt', 'items', 'customerSnapshot', 'staffNameSnapshot', 'staffId', 'customerId', 'totalPriceVnd', 'totalDurationMinutes', 'confirmedAt', 'bookingMode']) {
+      expect(stored[field]).toEqual(mine.toObject()[field])
+    }
+    const events = await AppointmentEventModel.find().sort({ revision: 1 }).lean()
+    expect(events.slice(0, 2)).toEqual(oldEvents)
+    expect(events.map(event => event.kind)).toEqual(['started', 'completed', 'corrected'])
+    expect(events[2]).toMatchObject({ kind: 'corrected', revision: 3, actorId: owner.account._id, occurredAt: at(6), reason: 'Completion was pressed accidentally.',
+      before: { status: 'completed', startedAt: NOW, completedAt: at(5) }, after: { status: 'in_progress', startedAt: NOW } })
+    expect(events[2].after.completedAt).toBeUndefined()
+  })
+
+  it('restores the full actual/planned interval without ETA while planned end is still future', async () => {
+    const mine = await completed()
+    await correct(mine._id).expect(200)
+    const stored = await AppointmentModel.findById(mine._id).lean()
+    expect(stored).toMatchObject({ status: 'in_progress', revision: 1, startedAt: mine.startedAt, occupiedFrom: at(-12), occupiedUntil: at(30) })
+    expect(stored.completedAt).toBeUndefined()
+    expect((await CustomerModel.findById(client.customer._id)).bookingRevision).toBe(1)
+    expect((await StaffModel.findById(stylist.staff._id)).bookingRevision).toBe(1)
+  })
+
+  it('accepts a valid optional ETA before planned end and keeps snapshots', async () => {
+    const mine = await completed()
+    const result = await correct(mine._id, owner, body({ estimatedEndAt: at(45).toISOString() })).expect(200)
+    expect(result.body.data).toMatchObject({ estimatedEndAt: at(45).toISOString(), occupiedUntil: at(55).toISOString() })
+    expect((await AppointmentModel.findById(mine._id)).items.toObject()).toEqual(mine.items.toObject())
+    expect((await AppointmentEventModel.findOne().lean()).after.estimatedEndAt).toEqual(at(45))
+  })
+
+  it.each(['passed', 'exactEnd'])('requires ETA when planned end has %s', async variant => {
+    const mine = await completed({ startAt: at(variant === 'passed' ? -60 : -30) })
+    const result = await correct(mine._id).expect(400)
+    expect(result.body.code).toBe('CORRECTION_ETA_REQUIRED')
+    await unchanged(mine)
+  })
+
+  it('accepts no ETA just before planned end but never creates an expired service end', async () => {
+    const mine = await completed()
+    vi.setSystemTime(new Date(mine.endAt.getTime() - 1))
+    await correct(mine._id).expect(200)
+    expect((await AppointmentModel.findById(mine._id)).occupiedUntil).toEqual(at(30))
+  })
+
+  it('reopens an overdue appointment with request ETA and preserves its original startedAt', async () => {
+    const mine = await completed({ startAt: at(-60) })
+    const result = await correct(mine._id, owner, body({ estimatedEndAt: at(45).toISOString() })).expect(200)
+    expect(result.body.data).toMatchObject({ status: 'in_progress', startedAt: mine.startedAt.toISOString(), estimatedEndAt: at(45).toISOString(), occupiedFrom: at(-60).toISOString(), occupiedUntil: at(55).toISOString() })
+    const stored = await AppointmentModel.findById(mine._id).lean()
+    expect(stored.startAt).toEqual(mine.startAt)
+    expect(stored.endAt).toEqual(mine.endAt)
+    expect(stored.completedAt).toBeUndefined()
+  })
+
+  it('does not infer a previous ETA from the audit after Complete removed it', async () => {
+    const mine = await appointment({ status: 'in_progress', startAt: at(-60) })
+    await command(mine._id, 'eta', stylist, { expectedRevision: 0, estimatedEndAt: at(45).toISOString() }, 'sol036-eta-before-false-complete').expect(200)
+    await command(mine._id, 'complete', stylist, { expectedRevision: 1 }, 'sol036-complete-after-eta-before-correct').expect(200)
+    expect((await correct(mine._id, owner, body({ expectedRevision: 2 })).expect(400)).body.code).toBe('CORRECTION_ETA_REQUIRED')
+    expect((await AppointmentModel.findById(mine._id)).status).toBe('completed')
+    expect(await AppointmentEventModel.countDocuments()).toBe(2)
+    await correct(mine._id, owner, body({ expectedRevision: 2, estimatedEndAt: at(60).toISOString() })).expect(200)
+    expect((await AppointmentEventModel.find().sort({ revision: 1 }).lean()).map(event => event.kind)).toEqual(['eta_updated', 'completed', 'corrected'])
+  })
+
+  it.each(['past', 'now', 'plannedEnd', 'beforePlannedEnd'])('rejects ETA at %s', async variant => {
+    const mine = await completed()
+    const eta = { past: at(-1), now: NOW, plannedEnd: mine.endAt, beforePlannedEnd: at(10) }[variant]
+    expect((await correct(mine._id, owner, body({ estimatedEndAt: eta.toISOString() })).expect(400)).body.code).toBe('INVALID_ETA')
+    await unchanged(mine)
+  })
+
+  it.each([null, 'bad', 42, {}, '2026-10-20T11:00:00+07:00', '+275760-09-13T00:00:00.000Z'])('rejects malformed ETA %j', async estimatedEndAt => {
+    const mine = await completed({ startAt: at(-60) })
+    await correct(mine._id, owner, body({ estimatedEndAt })).expect(400)
+    await unchanged(mine)
+  })
+
+  it('accepts a future ETA one millisecond after now for an overdue planned end', async () => {
+    const mine = await completed({ startAt: at(-60) })
+    await correct(mine._id, owner, body({ estimatedEndAt: new Date(NOW.getTime() + 1).toISOString() })).expect(200)
+    expect((await AppointmentModel.findById(mine._id)).occupiedUntil.getTime()).toBe(NOW.getTime() + 600_001)
+  })
+
+  it.each(['stylist', 'customer'])('denies %s with no correction details', async role => {
+    const mine = await completed()
+    const result = await correct(mine._id, role === 'stylist' ? stylist : client).expect(403)
+    expect(result.body).not.toHaveProperty('details')
+    await unchanged(mine)
+  })
+
+  it('requires authentication and a valid existing ID', async () => {
+    await request(app).post(commandPath(oid(), 'correct-complete')).send(body()).expect(401)
+    await correct('bad').expect(400)
+    await correct(oid()).expect(404)
+  })
+
+  it.each(['confirmed', 'in_progress', 'cancelled', 'no_show'])('does not restore %s', async status => {
+    const mine = await appointment({ status })
+    expect((await correct(mine._id).expect(409)).body.code).toBe('APPOINTMENT_STATE_CONFLICT')
+    expect(await AppointmentEventModel.countDocuments()).toBe(0)
+  })
+
+  it.each([undefined, '', '   ', 42, 'x'.repeat(501)])('requires valid reason %j', async reason => {
+    const mine = await completed()
+    await correct(mine._id, owner, body({ reason })).expect(400)
+    await unchanged(mine)
+  })
+
+  it.each([undefined, false, 'true', 1])('requires explicit unfinished-service confirmation %j', async serviceNotCompleted => {
+    const mine = await completed()
+    expect((await correct(mine._id, owner, body({ serviceNotCompleted })).expect(400)).body.code).toBe('SERVICE_NOT_COMPLETED_CONFIRMATION_REQUIRED')
+    await unchanged(mine)
+  })
+
+  it.each([{ expectedRevision: -1 }, { expectedRevision: 0.5 }, { completedAt: NOW.toISOString() }, { startedAt: NOW.toISOString() }, { status: 'in_progress' }, { serviceNotStarted: true }, { items: [] }])('rejects invalid or extra fields %j', async patch => {
+    const mine = await completed()
+    await correct(mine._id, owner, body(patch)).expect(400)
+    await unchanged(mine)
+  })
+
+  it('rejects stale revision and invalid key', async () => {
+    const mine = await completed()
+    expect((await correct(mine._id, owner, body({ expectedRevision: 1 })).expect(409)).body.code).toBe('APPOINTMENT_REVISION_CONFLICT')
+    await correct(mine._id, owner, body(), 'short').expect(400)
+    await unchanged(mine)
+  })
+
+  it.each(['staff', 'customer', 'both'])('refuses restoration after SOL-031 booked a new %s conflict into the released slot', async variant => {
+    const mine = await completed()
+    const sameStaff = variant !== 'customer'
+    const sameCustomer = variant !== 'staff'
+    const booking = await book(sameStaff ? stylist.staff._id : otherStylist.staff._id, sameCustomer ? client.customer._id : otherClient.customer._id).expect(201)
+    const next = await AppointmentModel.findById(booking.body.data.id).lean()
+    const result = await correct(mine._id).expect(409)
+    expect(result.body.code).toBe('CORRECTION_CONFLICT')
+    expect(result.body.details.conflictingAppointments).toEqual([{ id: String(next._id), staffId: String(next.staffId), status: 'confirmed', startAt: next.startAt.toISOString(), endAt: next.endAt.toISOString(),
+      reasons: variant === 'both' ? ['staff_overlap', 'customer_overlap'] : sameStaff ? ['staff_overlap'] : ['customer_overlap'] }])
+    expect(await AppointmentModel.findById(next._id).lean()).toEqual(next)
+    await unchanged(mine, { eventCount: 1, staffGuard: sameStaff ? 1 : 0, customerGuard: sameCustomer ? 1 : 0 })
+  })
+
+  it('restores once the conflicting new reservation has been cancelled through the existing API', async () => {
+    const mine = await completed()
+    const booking = await book().expect(201)
+    await correct(mine._id).expect(409)
+    await command(booking.body.data.id, 'cancel', owner, { expectedRevision: 0, reason: 'Owner resolved the correction conflict with customer.' }, 'sol036-resolve-correction-conflict').expect(200)
+    await correct(mine._id).expect(200)
+    expect((await AppointmentModel.findById(booking.body.data.id)).status).toBe('cancelled')
+    expect((await AppointmentModel.findById(mine._id)).status).toBe('in_progress')
+  })
+
+  it('refuses overlap introduced only by the new ETA cleanup extension', async () => {
+    const mine = await completed()
+    const next = await appointment({ customerId: otherClient.customer._id, startAt: at(45) })
+    const result = await correct(mine._id, owner, body({ estimatedEndAt: at(40).toISOString() })).expect(409)
+    expect(result.body.details.conflictingAppointments[0]).toMatchObject({ id: String(next._id), reasons: ['staff_overlap'] })
+    await unchanged(mine)
+  })
+
+  it('does not reserve Customer cleanup on another Staff', async () => {
+    const mine = await completed()
+    await appointment({ staffId: otherStylist.staff._id, startAt: at(45) })
+    await correct(mine._id, owner, body({ estimatedEndAt: at(45).toISOString() })).expect(200)
+  })
+
+  it('accepts exact half-open Staff cleanup adjacency', async () => {
+    const mine = await completed()
+    await appointment({ customerId: otherClient.customer._id, startAt: at(45) })
+    await correct(mine._id, owner, body({ estimatedEndAt: at(35).toISOString() })).expect(200)
+  })
+
+  it('detects an overdue in-progress conflict despite its expired stored occupiedUntil', async () => {
+    const mine = await completed()
+    const busy = await appointment({ status: 'in_progress', customerId: otherClient.customer._id, startAt: at(-60) })
+    const result = await correct(mine._id).expect(409)
+    expect(result.body.details.conflictingAppointments[0].id).toBe(String(busy._id))
+    await unchanged(mine)
+  })
+
+  it('includes another completed appointment cleanup in restore conflicts', async () => {
+    const mine = await completed()
+    const busy = await completed({ customerId: otherClient.customer._id, startAt: at(-60), startedAt: at(-60), completedAt: at(-15), occupiedFrom: at(-60), occupiedUntil: at(-5) })
+    const result = await correct(mine._id).expect(409)
+    expect(result.body.details.conflictingAppointments[0].id).toBe(String(busy._id))
+    await unchanged(mine)
+  })
+
+  it.each(['cancelled', 'no_show'])('ignores %s reservations', async status => {
+    const mine = await completed()
+    await appointment({ status, customerId: otherClient.customer._id, startAt: at(15) })
+    await correct(mine._id).expect(200)
+  })
+
+  it.each(['missing', 'cancelled', 'earlyActual', 'cleanup', 'split'])('rejects %s shift coverage', async variant => {
+    await StaffShiftModel.deleteMany({})
+    if (variant === 'cancelled') {
+      const doc = await shift(stylist.staff._id)
+      await StaffShiftModel.updateOne({ _id: doc._id }, { status: 'cancelled' })
+    }
+    if (variant === 'earlyActual') await shift(stylist.staff._id, '2026-10-20', '10:00', '18:00')
+    if (variant === 'cleanup') await shift(stylist.staff._id, '2026-10-20', '09:00', '10:45')
+    if (variant === 'split') { await shift(stylist.staff._id, '2026-10-20', '09:00', '10:00'); await shift(stylist.staff._id, '2026-10-20', '10:00', '18:00') }
+    const mine = await completed(variant === 'earlyActual' ? { startAt: NOW } : {})
+    const result = await correct(mine._id, owner, body(variant === 'cleanup' ? { estimatedEndAt: at(40).toISOString() } : {})).expect(409)
+    expect(result.body.details.shiftConflict).toBe(true)
+    await unchanged(mine)
+  })
+
+  it('rejects time-off in the restored ETA interval', async () => {
+    const mine = await completed()
+    await mongoose.connection.db.collection('staff_time_off').insertOne({ staffId: stylist.staff._id, startAt: at(30), endAt: at(45) })
+    const result = await correct(mine._id, owner, body({ estimatedEndAt: at(45).toISOString() })).expect(409)
+    expect(result.body.details.timeOffConflicts).toEqual([{ startAt: at(30).toISOString(), endAt: at(45).toISOString() }])
+    await unchanged(mine)
+  })
+
+  it('availability reserves the restored planned interval after an early accidental completion', async () => {
+    const mine = await completed()
+    expect((await slots())[0]).toBe(at(15).toISOString())
+    await correct(mine._id).expect(200)
+    expect((await slots())[0]).toBe(at(30).toISOString())
+  })
+
+  it('availability reserves the restored ETA plus ten-minute cleanup', async () => {
+    const mine = await completed({ startAt: at(-60) })
+    await correct(mine._id, owner, body({ estimatedEndAt: at(45).toISOString() })).expect(200)
+    expect((await slots())[0]).toBe(at(60).toISOString())
+  })
+
+  it('replays the original correction after its ETA expires without another event or revision', async () => {
+    const mine = await completed({ startAt: at(-60) })
+    const input = body({ estimatedEndAt: at(45).toISOString() })
+    const first = await correct(mine._id, owner, input).expect(200)
+    vi.setSystemTime(at(46))
+    const replay = await correct(mine._id, owner, input).expect(200)
+    expect(replay.body).toEqual(first.body)
+    expect(await AppointmentEventModel.countDocuments()).toBe(1)
+    expect((await AppointmentModel.findById(mine._id)).revision).toBe(1)
+    expect(await slots()).toEqual([])
+  })
+
+  it('replays without ETA even when the unchanged planned end later passes', async () => {
+    const mine = await completed()
+    const first = await correct(mine._id).expect(200)
+    vi.setSystemTime(at(25))
+    expect((await correct(mine._id).expect(200)).body).toEqual(first.body)
+    expect(await AppointmentEventModel.countDocuments()).toBe(1)
+  })
+
+  it.each(['reason', 'ETA'])('rejects changed %s intent on the same key', async variant => {
+    const mine = await completed()
+    const input = body({ estimatedEndAt: at(45).toISOString() })
+    await correct(mine._id, owner, input).expect(200)
+    const changed = variant === 'reason' ? { ...input, reason: 'A different reason' } : { ...input, estimatedEndAt: at(50).toISOString() }
+    expect((await correct(mine._id, owner, changed).expect(409)).body.code).toBe('COMMAND_KEY_CONFLICT')
+    expect(await AppointmentEventModel.countDocuments()).toBe(1)
+  })
+
+  it('serializes duplicate concurrent corrections to one revision/event', async () => {
+    const mine = await completed()
+    const result = await Promise.all([correct(mine._id), correct(mine._id)])
+    expect(result.map(item => item.status)).toEqual([200, 200])
+    expect(await AppointmentEventModel.countDocuments()).toBe(1)
+  })
+
+  it('allows only one of concurrent different correction keys at the same revision', async () => {
+    const mine = await completed()
+    const result = await Promise.all([correct(mine._id), correct(mine._id, owner, body(), 'sol036-correct-complete-command-0002')])
+    expect(result.map(item => item.status).sort()).toEqual([200, 409])
+    expect(await AppointmentEventModel.countDocuments()).toBe(1)
+  })
+
+  it('serializes SOL-031 booking against restoration of the released interval', async () => {
+    const mine = await completed()
+    const [correction, booking] = await Promise.all([correct(mine._id), book()])
+    expect([[200, 409], [409, 201]]).toContainEqual([correction.status, booking.status])
+    expect(await AppointmentEventModel.countDocuments()).toBe(1)
+    expect(await AppointmentModel.countDocuments()).toBe(correction.status === 200 ? 1 : 2)
+    expect((await AppointmentModel.findById(mine._id)).status).toBe(correction.status === 200 ? 'in_progress' : 'completed')
+  })
+
+  it.each(['audit', 'CAS', 'calendar'])('rolls back all correction writes after %s failure', async stage => {
+    const mine = await completed()
+    if (stage === 'audit') vi.spyOn(appointmentRepository, 'insertAppointmentEvent').mockRejectedValueOnce(new Error('synthetic correct-complete audit failure'))
+    if (stage === 'CAS') vi.spyOn(appointmentRepository, 'persistCorrectedCompleteAppointment').mockResolvedValueOnce(null)
+    if (stage === 'calendar') vi.spyOn(availabilityRepository, 'findAvailabilityCalendar').mockRejectedValueOnce(new Error('synthetic correct-complete calendar failure'))
+    await correct(mine._id).expect(stage === 'CAS' ? 409 : 500)
+    await unchanged(mine)
+  })
+
+  it('checks Owner permission again inside the transaction', async () => {
+    const mine = await completed()
     vi.spyOn(appointmentRepository, 'findAppointmentCommandActor').mockResolvedValueOnce({ accountId: String(owner.account._id), roles: ['stylist'], authRevision: owner.account.authRevision })
     await correct(mine._id).expect(403)
     await unchanged(mine)

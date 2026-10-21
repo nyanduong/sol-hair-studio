@@ -11,6 +11,7 @@ import {
     completeAppointmentController,
     updateAppointmentEtaController,
     correctAppointmentStartController,
+    correctAppointmentCompletionController,
 } from "./appointments.controller.js";
 
 import { createBookingController, lookupBookingCustomersController } from './booking.controller.js'
@@ -29,3 +30,4 @@ appointmentsRouter.post('/appointments/:appointmentId/start', requireAuth, requi
 appointmentsRouter.post('/appointments/:appointmentId/complete', requireAuth, requireRoles('stylist', 'owner'), completeAppointmentController)
 appointmentsRouter.post('/appointments/:appointmentId/eta', requireAuth, requireRoles('stylist', 'owner'), updateAppointmentEtaController)
 appointmentsRouter.post('/appointments/:appointmentId/correct-start', requireAuth, requireRoles('owner'), correctAppointmentStartController)
+appointmentsRouter.post('/appointments/:appointmentId/correct-complete', requireAuth, requireRoles('owner'), correctAppointmentCompletionController)

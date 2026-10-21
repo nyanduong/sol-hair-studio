@@ -18,8 +18,9 @@ Availability remains a separate shared API: [availability-api.md](availability-a
 | POST | /api/appointments/:appointmentId/complete | Assigned Stylist or Owner | Implemented SOL-036 Step 2 |
 | POST | /api/appointments/:appointmentId/eta | Assigned Stylist or Owner | Implemented SOL-036 Step 3 |
 | POST | /api/appointments/:appointmentId/correct-start | Owner only | Implemented SOL-036 Step 4 |
+| POST | /api/appointments/:appointmentId/correct-complete | Owner only | Implemented SOL-036 Step 5 |
 
-Correction of accidental completion (Step 5) is not implemented yet. Presence of their fields/event kinds in the model is not an implemented HTTP contract.
+The table lists implemented HTTP operations; UI/native acceptance and deployed CI results remain separate verification steps.
 
 ## Contents
 
@@ -29,6 +30,7 @@ Correction of accidental completion (Step 5) is not implemented yet. Presence of
 - [Completing service](#complete)
 - [Updating ETA and affected appointments](#eta)
 - [Correcting an accidental start](#correct-start)
+- [Correcting an accidental completion](#correct-complete)
 
 <a id="management"></a>
 ## SOL-035 - Read and manage appointments
@@ -75,7 +77,7 @@ Only confirmed/not-started, server-now >= startAt+15 minutes. Owner attests that
 
 ### Shared management-command retry behavior
 
-For cancel/no-show/reschedule/start/complete/eta/correct-start, keep the original body (including expectedRevision) and key when retrying the same latest operation. The same actor/key/hash replays without another appointment revision/event; guard increments may still occur. Same key with changed intent returns COMMAND_KEY_CONFLICT (409). Replay remains subject to current authorization and is not promised after a later command supersedes the receipt.
+For cancel/no-show/reschedule/start/complete/eta/correct-start/correct-complete, keep the original body (including expectedRevision) and key when retrying the same latest operation. The same actor/key/hash replays without another appointment revision/event; guard increments may still occur. Same key with changed intent returns COMMAND_KEY_CONFLICT (409). Replay remains subject to current authorization and is not promised after a later command supersedes the receipt.
 Unknown transaction result returns APPOINTMENT_COMMAND_RESULT_UNKNOWN (503). Preserve intent/key and inspect/retry; do not assume definite failure. Failed transactions leave no partial appointment/event/guard updates. Receipts for these commands are lastCommand, separate from Booking's 24-hour booking_requests receipt.
 
 <a id="reschedule"></a>
@@ -420,4 +422,71 @@ Other errors:
 ### Idempotency and acceptance boundary
 
 Same latest Owner/key/canonical body, including original expectedRevision and trimmed reason, replays the confirmed result without another revision/event. Replay does not reapply restore checks after unrelated calendar changes, but still checks current Owner authorization. A changed reason or revision with the same key returns COMMAND_KEY_CONFLICT. A later command can supersede the latest receipt.
-Failures, including CAS/audit failures, roll back all writes. Tests use the isolated synthetic MongoDB replica set for success, authorization, state, reason/attestation, revision, shifts/time off, Staff/Customer/cleanup/overdue overlap, rollback, audit retention and concurrent/replayed requests. Live database/UI/manual salon acceptance is not claimed. Step 5 remains unimplemented.
+Failures, including CAS/audit failures, roll back all writes. Tests use the isolated synthetic MongoDB replica set for success, authorization, state, reason/attestation, revision, shifts/time off, Staff/Customer/cleanup/overdue overlap, rollback, audit retention and concurrent/replayed requests. Live database/UI/manual salon acceptance is not claimed. Accidental-completion correction is described in the next section.
+
+<a id="correct-complete"></a>
+## SOL-036 Step 5 - Owner corrects an accidental completion
+
+### Sources and scope
+
+[Business rules](database/business-rules.md) BR-02/04/05/06 and [schema](database/schema.md) appointments/appointment_events allow only Owner to restore completed to in_progress when actual service is still continuing, with reason, audit and a fresh conflict check.
+The shared SOL-030 interval/calendar readers remain unchanged. This endpoint does not reschedule, reopen cancelled/no_show, introduce check-in/payment or overwrite service snapshots.
+
+### HTTP contract
+
+POST /api/appointments/:appointmentId/correct-complete
+Authorization: Bearer <active Owner session>
+Idempotency-Key: <16-100 character command key>
+Content-Type: application/json
+
+~~~json
+{
+  "expectedRevision": 2,
+  "reason": "Completion was pressed accidentally; the customer is still being served.",
+  "serviceNotCompleted": true,
+  "estimatedEndAt": "2026-10-21T04:30:00.000Z"
+}
+~~~
+
+Values are examples: use the current revision and, when supplied, a valid future ETA.
+Only expectedRevision/reason/serviceNotCompleted/estimatedEndAt are accepted. Reason is required, trimmed, nonblank and <=500 characters. serviceNotCompleted must be the boolean true, explicitly attesting that completion was accidental and actual service is still continuing; it is a request-only confirmation, not a model/check-in field. Current Owner permission is checked again in the transaction, including replay.
+Client startedAt/completedAt/status, assignment, items, prices, duration and serviceNotStarted are rejected. Stylist and Customer receive 403 even if they could originally start or complete the appointment.
+
+### ETA and restoration rules
+
+- New commands require completed and matching expectedRevision. Never reuse this operation as an arbitrary state restore.
+- Reuse original startedAt retained on the completed document. Do not replace it with server-now or infer a start from current catalog duration.
+- If endAt <= server-now, estimatedEndAt is mandatory in this request. Equality is treated as expired because the existing availability reader treats an in_progress appointment whose planned/estimated end is at now as an unknown end.
+- Supplied ETA is canonical UTC ISO with milliseconds, strictly > server-now and > endAt, with a representable cleanup end. Null/malformed/past/equal ETA is invalid even when ETA would otherwise be optional.
+- If endAt is still future and ETA is absent, retain planned end for the restored busy interval. If ETA is supplied, use it. A previous ETA removed by Complete is not silently recovered from audit; the Owner must provide the current estimate when needed.
+- Restore occupiedFrom=min(startAt,startedAt) and occupiedUntil=max(endAt,estimatedEndAt if provided)+10 minutes. The service end must be future at the guarded server-time validation of a new correction; do not create an already expired holding period or invent ETA.
+- No booking lead-time, 15-minute grid or 168-hour booking horizon is imposed on actual restoration/ETA. Existing planned times and all snapshots remain unchanged.
+
+### Fresh conflict check
+
+Under Customer then Staff guards and the same MongoDB session, use the proposed in_progress interval with the shared SOL-030 appointmentInterval calculation. Check one active shift covering the whole Staff interval including cleanup, time off, and all related confirmed/in_progress/completed appointments. Exclude the current ID; cancelled/no_show do not block restoration.
+Staff comparison includes cleanup; Customer comparison does not. Preserve half-open boundaries, actual completion cleanup and overdue in-progress unknown-end blocking.
+Any conflict returns 409 CORRECTION_CONFLICT with the same Owner-only details contract as correct-start: shiftConflict, timeOffConflicts and conflictingAppointments (id/staffId/status/startAt/endAt/reasons). A new booking made in the released interval must be detected; correction and booking compete using the same guards.
+Do not move, cancel, reassign or edit another appointment. A rejected correction leaves current completed state, completedAt, receipt, guards and audit unchanged. Owner resolves the conflict separately before retrying.
+
+### Atomic update and response
+
+200: {status:"success",data:<Owner appointment DTO plus revision, confirmedAt, startedAt, occupiedFrom, occupiedUntil and estimatedEndAt only when supplied>}, Cache-Control:no-store.
+Status is in_progress. Remove completedAt from the current document; preserve original startedAt/startAt/endAt/customer/Staff assignment, all snapshots, totals, duration, bookingMode and confirmedAt.
+The lifecycle CAS checks completed, expectedRevision, original startedAt and previous completedAt. Revision, lastCommand, restored fields and corrected event commit together. The event includes Owner actorId/server occurredAt/reason and bounded before/after. The old completed event (and any preceding started/eta_updated events) is neither edited nor deleted.
+Availability immediately uses restored planned/ETA busy time plus cleanup; freed slots that now overlap are no longer advertised. No notification/payment operation occurs here.
+
+### Errors and idempotency
+
+- 400: CORRECTION_REASON_REQUIRED, INVALID_REASON, SERVICE_NOT_COMPLETED_CONFIRMATION_REQUIRED, CORRECTION_ETA_REQUIRED, INVALID_ETA and shared input/key/ID validation errors.
+- 401/403/404: invalid session, insufficient Owner role or missing appointment.
+- 409: CORRECTION_CONFLICT and shared state/revision/guard/resource/key/receipt conflicts.
+- 503: database unavailable or APPOINTMENT_COMMAND_RESULT_UNKNOWN; keep original key/body when retrying an unknown result.
+
+Canonical intent includes operation/appointment ID/expectedRevision/trimmed reason/confirmation and normalized optional ETA. Same latest Owner/key/body replays without another revision/event, even after the restored planned end or ETA has passed. Replay still checks current Owner permission but does not reapply a correction or invent a new ETA; the ordinary ETA API is used for a new operational update. A changed reason or ETA with the same key conflicts. A later command can supersede the latest receipt.
+Any CAS/audit/calendar error aborts the full transaction. No partial restoration is reported.
+
+### Verification boundary
+
+Tests run only on the existing temporary MongoDB replica set with synthetic data. They cover the full Start/Complete/Correct lifecycle, original actual-time and event retention, ETA-required/equality/invalid cases, authorization, state/revision, shift/time-off/Staff/Customer/cleanup conflicts, real SOL-031 booking after false completion, cancellation resolving a conflict, booking-vs-correction races, rollback and duplicate requests, and availability after restoration.
+API tests do not claim live database, Postman, browser/native UI or deployed GitHub Actions acceptance.
