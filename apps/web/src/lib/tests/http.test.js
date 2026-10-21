@@ -59,4 +59,30 @@ describe('requestJson', () => {
     ).resolves.toEqual({ ok: true })
     expect(vi.getTimerCount()).toBe(0)
   })
+
+  it('gửi POST request với JSON body và parse lỗi từ API', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ status: 'error', code: 'INVALID_CREDENTIALS', message: 'Email hoặc mật khẩu không đúng.' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(
+      requestJson('/api/auth/login', {
+        baseUrl: 'http://localhost:4000',
+        method: 'POST',
+        body: { email: 'user@test.com', password: 'password123' },
+      }),
+    ).rejects.toThrow('Email hoặc mật khẩu không đúng.')
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:4000/api/auth/login',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ email: 'user@test.com', password: 'password123' }),
+      }),
+    )
+  })
 })

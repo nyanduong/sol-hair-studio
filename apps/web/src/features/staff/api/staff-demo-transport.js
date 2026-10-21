@@ -12,7 +12,8 @@ export function createDemoFetch(today) {
   return async (address, options = {}) => {
     const url = new URL(address)
     if (url.origin !== demoOrigin) throw new Error('Địa chỉ bản minh họa không hợp lệ.')
-    if (url.pathname.startsWith('/api/staff') && options.headers?.Authorization !== `Bearer ${demoToken}`) return json({ code: 'UNAUTHORIZED' }, 401)
+    const authorization = options.headers instanceof Headers ? options.headers.get('Authorization') : options.headers?.Authorization
+    if (url.pathname.startsWith('/api/staff') && authorization !== `Bearer ${demoToken}`) return json({ code: 'UNAUTHORIZED' }, 401)
     const parts = url.pathname.split('/').filter(Boolean).map(decodeURIComponent)
     const method = options.method || 'GET'
     const body = options.body ? JSON.parse(options.body) : undefined

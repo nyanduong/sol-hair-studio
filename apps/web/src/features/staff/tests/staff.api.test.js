@@ -13,9 +13,8 @@ describe('API nhân sự', () => {
     await expect(listStaff(baseUrl, '')).rejects.toThrow('Cần đăng nhập')
     expect(mock).not.toHaveBeenCalled()
     await expect(listShifts(baseUrl, token, 'staff-id', { fromDate: '2026-10-19', toDate: '2026-10-25' })).resolves.toEqual([])
-    expect(mock).toHaveBeenCalledWith('http://localhost:4000/api/staff/staff-id/shifts?fromDate=2026-10-19&toDate=2026-10-25', {
-      signal: expect.any(AbortSignal), headers: { Authorization: 'Bearer test-token' },
-    })
+    expect(mock).toHaveBeenCalledWith('http://localhost:4000/api/staff/staff-id/shifts?fromDate=2026-10-19&toDate=2026-10-25', expect.objectContaining({ signal: expect.any(AbortSignal) }))
+    expect(mock.mock.calls[0][1].headers.get('Authorization')).toBe('Bearer test-token')
   })
 
   it('gửi đúng phương thức, đường dẫn và JSON của các thao tác', async () => {
@@ -35,7 +34,8 @@ describe('API nhân sự', () => {
       ['http://localhost:4000/api/staff/staff/shifts/shift', 'PATCH', shift],
       ['http://localhost:4000/api/staff/staff/shifts/shift', 'DELETE', undefined],
     ])
-    expect(mock.mock.calls[0][1].headers).toEqual({ Authorization: 'Bearer test-token', 'Content-Type': 'application/json' })
+    expect(mock.mock.calls[0][1].headers.get('Authorization')).toBe('Bearer test-token')
+    expect(mock.mock.calls[0][1].headers.get('Content-Type')).toBe('application/json')
   })
 
   it('giữ mã lỗi và danh sách lịch xung đột từ API để giao diện xử lý', async () => {

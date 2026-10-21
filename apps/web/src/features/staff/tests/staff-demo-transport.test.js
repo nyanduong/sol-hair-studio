@@ -16,7 +16,7 @@ describe('luồng API nhân sự với phiên và HTTP giả lập', () => {
       ['/api/staff', 'GET'], ['/api/services', 'GET'], ['/api/staff/owner/shifts', 'GET'],
       ['/api/staff/owner/shifts/sample-shift', 'DELETE'], ['/api/staff/owner/shifts', 'POST'],
     ])
-    expect(fetchImpl.mock.calls[0][1].headers.Authorization).toBe('Bearer demo-session')
+    expect(fetchImpl.mock.calls[0][1].headers.get('Authorization')).toBe('Bearer demo-session')
   })
 
   it('từ chối phiên không hợp lệ và hủy request đang tải', async () => {
