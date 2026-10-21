@@ -120,7 +120,7 @@ apps/mobile/
 │   │   ├── resolve-api-base-url.js   Ưu tiên URL cấu hình; tự nhận host trong dev
 │   │   └── tests/                   Test chọn host, đổi mạng và cấu hình riêng
 │   ├── navigation/RootNavigator.jsx  Mở Home; giữ Services và Health trong stack
-│   ├── navigation/BottomNav.jsx      5 mục; Home/Services điều hướng, 3 mục mở modal
+│   ├── navigation/BottomNav.jsx      5 mục; stylist vào Ca làm của tôi từ Lịch hẹn
 │   ├── components/FeatureUnavailableProvider.jsx  Một modal dùng chung toàn mobile
 │   ├── components/FeatureUnavailableModal.jsx     Báo tính năng đang phát triển, đóng bằng nút/Back
 │   ├── theme/tokens.js               Màu Sol và font hệ thống native
@@ -143,6 +143,13 @@ apps/mobile/
 │   │   ├── hooks/useHealth.js         Tải lần đầu, giữ state, thử lại và cleanup
 │   │   ├── api/health.api.js          Gọi endpoint health qua HTTP helper
 │   │   └── tests/health.api.test.js   Kiểm tra endpoint do feature chọn
+│   ├── features/staff/
+│   │   ├── screens/StylistShiftsScreen.jsx  Ghép màn Ca làm của tôi cho stylist
+│   │   ├── hooks/useStylistShifts.js  Đọc hồ sơ/ca theo phiên, retry và cleanup
+│   │   ├── api/staff.api.js           Chọn GET /api/staff và /api/staff/:staffId/shifts
+│   │   ├── staff-presentation.js      Tính tuần, định dạng ngày/giờ và trạng thái ca
+│   │   ├── styles/                    StyleSheet native của màn ca
+│   │   └── tests/staff.api.test.js    Kiểm tra hợp đồng endpoint và request mới nhất
 │   └── lib/
 │       ├── http.js                   Gọi JSON, timeout, abort và cleanup
 │       ├── latest-request.js          Hủy request cũ và bỏ qua kết quả cũ
@@ -170,6 +177,10 @@ Web vào `main.jsx`, nơi tạo React root và render `App` trong `StrictMode`. 
 Mobile mở `HomeScreen` trước với logo, hero và danh mục thật; thanh điều hướng chuyển Home ↔ Services. Hai màn dùng `ServicesList`, tự chuyển hai cột xuống một cột theo chiều rộng và font scale. Home dùng ảnh/logo đóng gói cùng ứng dụng, font serif của hệ điều hành và banner có CTA Đặt lịch ngay. Hai CTA, ba mục Đặt lịch/Lịch hẹn/Tài khoản và chuông thông báo gọi `useFeatureUnavailable` để mở một modal dùng chung ở `src/components`; modal nêu rõ tính năng đang phát triển, không tạo route hoặc dữ liệu nghiệp vụ giả. Home ẩn toolbar số lượng/tải lại; kéo xuống tải lại và error retry vẫn giữ. `FlatList` dùng public `id` làm key; `ServiceCard` hiển thị ảnh qua `imageUrl`, tên, nhóm, mô tả, giá VND và khoảng thời lượng. Giao diện native dùng `StyleSheet`, không dùng component DOM hoặc CSS web. Lỗi ảnh chỉ thay phần ảnh bằng thông báo; dữ liệu dịch vụ vẫn xem được.
 
 `useServices` quản lý `loading`, `success` (gồm danh sách rỗng), `error` và tải lại. `services.api.js` chỉ chọn endpoint và lấy `data` từ envelope chung. HTTP helper tiếp tục dùng base URL môi trường/SOL-012, timeout 8 giây và abort. Cleanup hủy request khi unmount; `latest-request.js` bỏ qua kết quả cũ. Nút tải lại bị vô hiệu hóa lúc tải. Task này không đổi DTO, route API, model MongoDB hoặc tài nguyên Cloudinary.
+
+### Luồng ca làm stylist (SOL-027)
+
+Stylist đã đăng nhập bấm **Lịch hẹn** trên `BottomNav` để vào `StylistShifts`. Screen lấy tuần hiện tại và gọi `useStylistShifts`; hook lần lượt gọi `GET /api/staff` với token phiên, lấy duy nhất hồ sơ được API lọc theo `accountId`, rồi gọi `GET /api/staff/:staffId/shifts?fromDate=...&toDate=...`. Mobile không cho người dùng chọn hoặc truyền staffId. API tiếp tục kiểm ownership độc lập. Màn hiển thị tải, lỗi/thử lại, tuần trống hoặc ca với ngày, giờ và trạng thái; đổi tuần hoặc rời màn hủy request cũ bằng `latest-request.js`. Khách hàng vẫn nhận modal tính năng chưa phát triển khi bấm **Lịch hẹn**.
 
 ## E. Luồng chạy health
 
