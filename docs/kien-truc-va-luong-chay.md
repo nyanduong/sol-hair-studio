@@ -208,7 +208,13 @@ Nếu response có HTTP status ngoài khoảng thành công, `requestJson` ném 
 
 ### Luồng API
 
-`server.js` gọi `connectToDatabase(config.mongoUri)`; nếu URI trống, database giữ trạng thái `not-configured` và API vẫn khởi động. `app.js` lần lượt gắn CORS, JSON parser, `apiRouter`, `notFound` và `errorHandler`. `healthRouter` ánh xạ `/health` tới `getHealth`, controller trả JSON hiện có cùng timestamp ISO.
+`server.js` gọi `connectToDatabase(config.mongoUri)`; nếu URI trống, database giữ trạng thái `not-configured` và API vẫn khởi động. Nếu có URI, `prepareBookingStorage` tạo collection/index lịch, audit và receipt trước listen, lỗi index làm startup thất bại. `app.js` lần lượt gắn CORS, JSON parser, `apiRouter`, `notFound` và `errorHandler`. `healthRouter` ánh xạ `/health` tới `getHealth`, controller trả JSON hiện có cùng timestamp ISO.
+
+SOL-031: `POST /api/appointments` → auth/roles → `booking.controller.js` → `booking.service.js`.
+Service validate intent, kiểm receipt 24h, tăng guard customer rồi staff, đọc lại availability bằng cùng session,
+ghi lịch confirmed/snapshot + receipt + created event trong một transaction. `GET /api/customers?phone=...`
+chỉ owner, trả danh sách hồ sơ để chọn đúng mã, không gộp số trùng. Model appointments và API M5 đọc/hủy
+vẫn cùng một collection. Chi tiết và giới hạn: [booking-api.md](booking-api.md).
 
 Parser JSON không hợp lệ được `errorHandler` nhận diện và trả 400 `INVALID_JSON`. Endpoint không tồn tại đi qua `notFound` trả 404 `NOT_FOUND`. Lỗi khác được log thông tin an toàn rồi trả 500 `INTERNAL_ERROR`; nếu header đã gửi, middleware chuyển lỗi cho Express qua `next(error)`.
 
