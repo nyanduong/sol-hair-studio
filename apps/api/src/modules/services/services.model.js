@@ -17,8 +17,14 @@ const serviceSchema = new mongoose.Schema(
       type: Number,
       validate: {
         validator(value) {
-          return value === undefined || (Number.isInteger(value) && value >= 1 && value <= 480 &&
-            value >= this.durationMinutes.min && value <= this.durationMinutes.max)
+          return (
+            value === undefined ||
+            (Number.isInteger(value) &&
+              value >= 1 &&
+              value <= 480 &&
+              value >= this.durationMinutes.min &&
+              value <= this.durationMinutes.max)
+          )
         },
         message: 'bookingDurationMinutes must be an integer within 1-480 and the display range',
       },
@@ -35,7 +41,6 @@ const serviceSchema = new mongoose.Schema(
   { timestamps: true },
 )
 
-export const ServiceModel =
-  mongoose.models.Service ?? mongoose.model('Service', serviceSchema)
+export const ServiceModel = mongoose.models.Service ?? mongoose.model('Service', serviceSchema)
 
 export { serviceSchema }
