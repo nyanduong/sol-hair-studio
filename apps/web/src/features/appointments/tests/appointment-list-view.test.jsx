@@ -1,3 +1,4 @@
+import { MemoryRouter } from 'react-router-dom'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import CustomerAppointmentList from '../components/CustomerAppointmentList.jsx'
@@ -11,7 +12,7 @@ const item = {
   totalDurationMinutes: 60, totalPriceVnd: 100000,
 }
 const state = (items = [], extra = {}) => ({ kind: 'success', items, hasNextPage: false, ...extra })
-const render = value => renderToStaticMarkup(<CustomerAppointmentList state={value} onLogin={() => {}} />)
+const render = value => renderToStaticMarkup(<MemoryRouter><CustomerAppointmentList state={value} onLogin={() => {}} /></MemoryRouter>)
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
 
 describe('tabs and incomplete pagination', () => {

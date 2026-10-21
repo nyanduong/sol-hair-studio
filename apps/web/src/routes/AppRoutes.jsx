@@ -1,3 +1,4 @@
+import CustomerAppointmentDetailPage from '../features/appointments/pages/CustomerAppointmentDetailPage.jsx'
 import CustomerAppointmentsPage from '../features/appointments/pages/CustomerAppointmentsPage.jsx'
 import { Route, Routes } from 'react-router-dom'
 import LoginPage from '../features/auth/pages/LoginPage.jsx'
@@ -16,6 +17,7 @@ export default function AppRoutes() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/booking" element={<BookingPage />} />
         <Route path="/lich-cua-toi" element={<CustomerAppointmentsPage />} />
+        <Route path="/lich-cua-toi/:appointmentId" element={<CustomerAppointmentDetailPage />} />
         <Route path="/quan-ly/nhan-su" element={<StaffRoute />} />
       </Route>
     </Routes>

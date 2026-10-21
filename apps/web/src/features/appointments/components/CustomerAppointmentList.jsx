@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { isAppointmentCutoffReached, useAppointmentListView } from '../hooks/useAppointmentListView.js'
 
@@ -237,12 +238,12 @@ function AppointmentCard({ appointment, isUpcomingSoon, now }) {
         </div>
 
         <div className="flex items-center gap-2">
-          <a
-            href={`/booking?ref=${appointment.id}`}
+          <Link
+            to={`/lich-cua-toi/${appointment.id}`}
             className="inline-flex min-h-8 items-center rounded-lg border border-[#e2d5c3] bg-[#f6efe6] px-4 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-[#ede3d6]"
           >
             Chi tiết
-          </a>
+          </Link>
 
           {isUpcomingSoon ? (
             <a

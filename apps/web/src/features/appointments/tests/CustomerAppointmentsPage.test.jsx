@@ -21,7 +21,7 @@ const item = {
   startAt: '2026-10-24T07:00:00.000Z', endAt: '2026-10-24T08:00:00.000Z', status: 'confirmed',
 }
 function list(state) {
-  return renderToStaticMarkup(<CustomerAppointmentList state={{ items: [], retry: vi.fn(), loadMore: vi.fn(), ...state }} onLogin={() => {}} />)
+  return renderToStaticMarkup(<MemoryRouter><CustomerAppointmentList state={{ items: [], retry: vi.fn(), loadMore: vi.fn(), ...state }} onLogin={() => {}} /></MemoryRouter>)
 }
 describe('customer appointments Web', () => {
   it('registers the route and requires login', () => {
