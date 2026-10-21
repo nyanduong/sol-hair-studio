@@ -26,7 +26,7 @@ const APPOINTMENT_CONTACT_FIELDS = {
     'customerSnapshot.phone': 1,
 }
 
-// Kiểm tra ngày dùng chung cho Stylist và Owner.
+// Kiểm tra ngày có đúng định dạng và tồn tại thực tế.
 function assertLocalDate(localDate) {
     if (typeof localDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(localDate)) {
         throw new TypeError('localDate must be a valid YYYY-MM-DD date')
@@ -43,7 +43,7 @@ function assertLocalDate(localDate) {
     }
 }
 
-
+// Kiểm tra ID MongoDB gồm 24 ký tự hex.
 function applyAppointmentCursor(filter, cursor, direction, timeField = 'startAt') {
     if (cursor === undefined) return
     if (
@@ -60,6 +60,7 @@ function applyAppointmentCursor(filter, cursor, direction, timeField = 'startAt'
     ]
 }
 
+// Thêm điều kiện lấy trang tiếp theo theo thời gian và ID.
 function findAppointmentPage(filter, limit, direction, fields, maxLimit) {
     if (!Number.isInteger(limit) || limit < 1 || limit > maxLimit) {
         throw new TypeError('limit must be an integer between 1 and ' + maxLimit)
@@ -72,7 +73,7 @@ function findAppointmentPage(filter, limit, direction, fields, maxLimit) {
 }
 
 
-// Đọc lịch theo customerId do service lấy từ identity.
+// Truy vấn một trang lịch, lấy dư một dòng để biết còn trang sau.
 export function findCustomerAppointments(customerId, {limit =20, cursor} = {}) {
     assertObjectId(customerId, 'customerId')
     const filter = { customerId }
@@ -82,10 +83,12 @@ export function findCustomerAppointments(customerId, {limit =20, cursor} = {}) {
     return findAppointmentPage(filter, limit, -1, { ...APPOINTMENT_LIST_FIELDS }, 50)
 }
 
-export function findAppointmentStaffByAccountId(accountId) {
+// Đọc danh sách lịch theo hồ sơ khách.
+export function findAppointmentStaffByAccountId(accountId, { session } = {}) {
     assertObjectId(accountId, 'accountId')
 
     return StaffModel.findOne({ accountId })
+    .session(session ?? null)
     .select({
         _id: 1,
         isActive: 1,
@@ -93,6 +96,7 @@ export function findAppointmentStaffByAccountId(accountId) {
     .lean()
 }
 
+// Tìm hồ sơ Staff theo tài khoản đăng nhập.
 export function findStylistAppointments( staffId, { localDate, limit = 50, cursor} = {}) {
     assertObjectId(staffId, 'staffId')
 
@@ -108,6 +112,7 @@ export function findStylistAppointments( staffId, { localDate, limit = 50, curso
     return findAppointmentPage(filter, limit, 1, { ...APPOINTMENT_LIST_FIELDS, ...APPOINTMENT_CONTACT_FIELDS }, 100)
 }
 
+// Đọc lịch toàn tiệm theo ngày, Stylist và trạng thái.
 export function findOwnerAppointments({ localDate, staffId, status, limit = 50, cursor} = {}) {
     assertLocalDate(localDate)
 
@@ -128,6 +133,7 @@ export function findOwnerAppointments({ localDate, staffId, status, limit = 50, 
     return findAppointmentPage(filter, limit, 1, { ...APPOINTMENT_LIST_FIELDS, ...APPOINTMENT_CONTACT_FIELDS, customerId: 1 }, 100)
 }
 
+// Đọc chi tiết lịch trong phạm vi được phép của từng vai trò.
 export function findAppointmentDetail(appointmentId, {role, customerId, staffId} = {}) {
     assertObjectId(appointmentId, 'appointmentId')
     const filter = { _id: appointmentId }
@@ -156,12 +162,12 @@ export function findAppointmentDetail(appointmentId, {role, customerId, staffId}
     .lean()
 }
 
-
+// Thêm event lịch sử trong cùng transaction với lịch hẹn.
 export async function insertAppointmentEvent(event, { session} = {}) {
     if(!session || !session.inTransaction()) {
         throw new TypeError('An active transaction session is required')
     }
-    // Truyền dạng mảng để create nhận options session rõ ràng.
+
     const [createdEvent] = await AppointmentEventModel.create(
         [event],
         { session },
@@ -170,10 +176,7 @@ export async function insertAppointmentEvent(event, { session} = {}) {
     return createdEvent
 }
 
-
-
-
-// Pre-read chỉ xác định Customer/Staff cần lấy guard.
+// Ghi hủy hoặc no-show khi revision và trạng thái cũ còn khớp.
 export function findAppointmentCommandResources(appointmentId) {
     assertObjectId(appointmentId, 'appointmentId')
 
@@ -186,6 +189,7 @@ export function findAppointmentCommandResources(appointmentId) {
         .lean()
 }
 
+// Đọc document lịch cần thay đổi trong transaction.
 export function findAppointmentForUpdate(appointmentId, { session } = {} ) {
     assertObjectId(appointmentId, 'appointmentId')
     if(!session || !session.inTransaction()) {
@@ -195,7 +199,7 @@ export function findAppointmentForUpdate(appointmentId, { session } = {} ) {
     .session(session)
 }
 
-// Helper nội bộ chỉ phục vụ hai chuyển trạng thái từ confirmed.
+// Ghi hủy hoặc no-show khi revision và trạng thái cũ còn khớp.
 async function persistClosedAppointment(appointment,{ expectedRevision, session },targetStatus,) {
     if (!session || !session.inTransaction()) {
         throw new TypeError('An active transaction session is required')
@@ -249,11 +253,12 @@ async function persistClosedAppointment(appointment,{ expectedRevision, session 
     ).lean()
 }
 
-// Ghi hủy lịch khi phiên bản và trạng thái cũ vẫn còn đúng.
+// Lưu trạng thái hủy bằng writer dùng chung.
 export function persistCancelledAppointment(appointment, options = {}) {
     return persistClosedAppointment(appointment, options, 'cancelled')
 }
 
+// Đọc lại tài khoản, quyền và hồ sơ khách trong transaction.
 export async function findAppointmentCommandActor(accountId, authRevision, { session } = {}) {
     assertObjectId(accountId, 'accountId')
     if(!session || !session.inTransaction()) {
@@ -292,7 +297,7 @@ export async function findAppointmentCommandActor(accountId, authRevision, { ses
     }
 }
 
-// Khóa và tăng số revision đặt lịch của khách hàng trong transaction.
+// Tăng bộ đếm chống ghi trùng lịch của khách.
 export async function lockAndBumpCustomerBookingRevision(customerId, { session } = {}) {
     assertObjectId(customerId, 'customerId')
     if(!session || !session.inTransaction()) {
@@ -331,11 +336,12 @@ export async function lockAndBumpCustomerBookingRevision(customerId, { session }
     return { status: 'ok', customer: updated }
 }
 
-// Writer no-show dùng cùng CAS nhưng có field ghi riêng.
+// Lưu trạng thái no-show bằng writer dùng chung.
 export function persistNoShowAppointment(appointment, options = {}) {
     return persistClosedAppointment(appointment, options, 'no_show')
 }
-// Kiem ngu canh va lay lich su trong cung query; khong nhan customerId tu client.
+
+// Đọc lịch sử hoàn tất của khách qua lịch hẹn đúng quyền.`.
 export async function findAppointmentServiceHistory(appointmentId,{ role, staffId, limit = 20, cursor } = {}) {
     assertObjectId(appointmentId, 'appointmentId')
     if (role !== 'owner' && role !== 'stylist') {
@@ -373,7 +379,7 @@ export async function findAppointmentServiceHistory(appointmentId,{ role, staffI
     return result ?? null
 }
 
-// CAS doi lich: giu customer/snapshot va so Staff cu truoc khi ghi Staff moi.
+// Lưu giờ hoặc Stylist mới nếu phiên bản lịch cũ còn khớp..
 export async function persistRescheduledAppointment(appointment, { expectedRevision, previousStaffId, session } = {},) {
     if (!session?.inTransaction()) throw new TypeError('An active transaction session is required')
     assertObjectId(previousStaffId, 'previousStaffId')
@@ -395,4 +401,77 @@ export async function persistRescheduledAppointment(appointment, { expectedRevis
         lastRescheduledAt: appointment.lastRescheduledAt,
         revision: appointment.revision, lastCommand: appointment.lastCommand.toObject(),
     } }, { session, returnDocument: 'after', runValidators: true }).lean()
+}
+
+// Ghi thay đổi phục vụ hoặc sửa nhầm, giữ nguyên giờ hẹn và snapshot.
+async function persistLifecycleAppointment(appointment, { expectedRevision, session, previousStartedAt, previousCompletedAt }, operation) {
+    if (!session?.inTransaction()) throw new TypeError('An active transaction session is required')
+    if (!['start', 'complete', 'eta', 'correct_start', 'correct_complete'].includes(operation)) throw new TypeError('Unsupported lifecycle operation')
+    const completing = operation === 'complete'
+    const updatingEta = operation === 'eta'
+    const correctingStart = operation === 'correct_start'
+    const correctingComplete = operation === 'correct_complete'
+    const sourceInProgress = completing || updatingEta || correctingStart
+    const targetStatus = correctingStart ? 'confirmed' : completing ? 'completed' : 'in_progress'
+    if ((correctingStart || correctingComplete) && (!(previousStartedAt instanceof Date) || !Number.isFinite(previousStartedAt.getTime()))) throw new TypeError('Previous actual start is required')
+    if (correctingComplete && (!(previousCompletedAt instanceof Date) || !Number.isFinite(previousCompletedAt.getTime()))) throw new TypeError('Previous actual completion is required')
+    if (!(appointment instanceof AppointmentModel) || appointment.status !== targetStatus ||
+        !Number.isSafeInteger(expectedRevision) || expectedRevision < 0 || expectedRevision >= Number.MAX_SAFE_INTEGER ||
+        appointment.revision !== expectedRevision + 1) throw new TypeError('A valid lifecycle transition is required')
+    await appointment.validate()
+    const changes = {
+        status: appointment.status,
+        ...(!correctingStart ? { startedAt: appointment.startedAt } : {}),
+        occupiedFrom: appointment.occupiedFrom, occupiedUntil: appointment.occupiedUntil,
+        revision: appointment.revision, lastCommand: appointment.lastCommand.toObject(),
+        ...(completing ? { completedAt: appointment.completedAt } : {}),
+        ...(updatingEta || (correctingComplete && appointment.estimatedEndAt !== undefined) ? { estimatedEndAt: appointment.estimatedEndAt } : {}),
+    }
+    return AppointmentModel.findOneAndUpdate({
+        _id: appointment._id, customerId: appointment.customerId, staffId: appointment.staffId,
+        revision: expectedRevision, status: correctingComplete ? 'completed' : sourceInProgress ? 'in_progress' : 'confirmed',
+        startedAt: sourceInProgress || correctingComplete ? (correctingStart || correctingComplete ? previousStartedAt : appointment.startedAt) : { $exists: false },
+        ...(correctingComplete ? { completedAt: previousCompletedAt } : sourceInProgress ? { completedAt: { $exists: false } } : {}),
+    }, {
+        $set: changes,
+        ...(correctingStart ? { $unset: { startedAt: 1, completedAt: 1, estimatedEndAt: 1 } }
+            : correctingComplete ? { $unset: { completedAt: 1, ...(appointment.estimatedEndAt === undefined ? { estimatedEndAt: 1 } : {}) } }
+            : completing ? { $unset: { estimatedEndAt: 1 } } : {}),
+    }, { session, returnDocument: 'after', runValidators: true }).lean()
+}
+
+// Lưu trạng thái đang phục vụ và giờ bắt đầu thực tế.
+export function persistStartedAppointment(appointment, options) {
+    return persistLifecycleAppointment(appointment, options, 'start')
+}
+
+// Lưu giờ hoàn tất và khoảng dọn, xóa ETA khỏi lịch hiện tại.
+export function persistCompletedAppointment(appointment, options) {
+    return persistLifecycleAppointment(appointment, options, 'complete')
+}
+
+// Lưu ETA và khoảng giữ mới của lịch đang phục vụ.
+export function persistAppointmentEta(appointment, options) {
+    return persistLifecycleAppointment(appointment, options, 'eta')
+}
+
+// Đọc các lịch cùng Staff hoặc Customer có thể bị xung đột.
+export function findAppointmentConflictCandidates(appointment, until, { session, includeCompleted = false } = {}) {
+    if (!session?.inTransaction()) throw new TypeError('An active transaction session is required')
+    return AppointmentModel.find({
+        _id: { $ne: appointment._id }, status: { $in: ['confirmed', 'in_progress', ...(includeCompleted ? ['completed'] : [])] },
+        occupiedFrom: { $lt: until },
+        $or: [{ staffId: appointment.staffId }, { customerId: appointment.customerId }],
+    }).select('_id staffId customerId status startAt endAt startedAt completedAt estimatedEndAt occupiedFrom occupiedUntil')
+        .sort({ startAt: 1, _id: 1 }).session(session).lean()
+}
+
+// Lưu sửa nhầm bắt đầu và xóa các mốc actual/ETA không còn đúng.
+export function persistCorrectedStartAppointment(appointment, options) {
+    return persistLifecycleAppointment(appointment, options, 'correct_start')
+}
+
+// Lưu sửa nhầm hoàn tất, giữ giờ bắt đầu cũ và xóa completedAt.
+export function persistCorrectedCompleteAppointment(appointment, options) {
+    return persistLifecycleAppointment(appointment, options, 'correct_complete')
 }

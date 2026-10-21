@@ -6,6 +6,11 @@ import {
     cancelAppointment,
     markAppointmentNoShow,
     rescheduleAppointment,
+    startAppointment,
+    completeAppointment,
+    updateAppointmentEta,
+    correctAppointmentStart,
+    correctAppointmentCompletion,
 } from "./appointments.service.js";
 
 function sendAppointmentError(error, res, next) {
@@ -16,6 +21,7 @@ function sendAppointmentError(error, res, next) {
         status: 'error',
         code: error.code,
         message: error.message,
+        ...(error.details !== undefined ? { details: error.details } : {}),
     })
 }
 
@@ -87,4 +93,24 @@ export async function getAppointmentServiceHistoryController(req, res, next) {
 
 export function rescheduleAppointmentController(req, res, next) {
     return appointmentCommandResponse(rescheduleAppointment, req, res, next)
+}
+
+export function startAppointmentController(req, res, next) {
+    return appointmentCommandResponse(startAppointment, req, res, next)
+}
+
+export function completeAppointmentController(req, res, next) {
+    return appointmentCommandResponse(completeAppointment, req, res, next)
+}
+
+export function updateAppointmentEtaController(req, res, next) {
+    return appointmentCommandResponse(updateAppointmentEta, req, res, next)
+}
+
+export function correctAppointmentStartController(req, res, next) {
+    return appointmentCommandResponse(correctAppointmentStart, req, res, next)
+}
+
+export function correctAppointmentCompletionController(req, res, next) {
+    return appointmentCommandResponse(correctAppointmentCompletion, req, res, next)
 }

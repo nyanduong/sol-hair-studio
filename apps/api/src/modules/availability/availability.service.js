@@ -82,7 +82,7 @@ export function parseAvailabilityQuery(query, identity, now) {
   }
 }
 
-function appointmentInterval(appointment, customer, now) {
+export function appointmentInterval(appointment, customer, now) {
   let from = new Date(appointment.occupiedFrom).getTime()
   let end = new Date(appointment.endAt).getTime()
   if (appointment.status === 'completed') {
