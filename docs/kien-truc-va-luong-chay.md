@@ -13,6 +13,16 @@ Mã nằm tại `apps/api/src/modules/availability/{availability.routes,availabi
 Không đổi đường dẫn cũ. Public services chuyển projection allowlist, giữ DTO cũ khi thêm bookingDurationMinutes.
 Đặc tả/giới hạn và phần cần kiểm lại khi ghi ở [hợp đồng availability](availability-api.md).
 
+### Giao diện đặt lịch SOL-032 / SOL-033
+
+Web có `/booking`, Mobile có screen `Booking`; mỗi app giữ adapter/hook/UI riêng tại feature `booking`.
+`shared/booking.js` là module JS thuần được cả hai client dùng thật cho payload/contact, giờ tiệm và
+quản lý intent/key khi retry. Module này không chứa UI, HTTP, navigation, trạng thái auth hoặc module native;
+Web/Expo truyền nguồn UUID riêng. Không thêm workspace thứ tư. `npm run lint` kiểm cả shared và ba app;
+test quy tắc dùng chung nằm trong bộ test booking Web, adapter Mobile có test riêng.
+Source Web cũ `apps/web/src/features/booking/booking.js` chuyển sang `shared/booking.js`, import được cập nhật.
+Xem [hợp đồng UI và phụ thuộc](booking-ui-contract.md); POST tạo lịch vẫn cần SOL-031.
+
 Repository là một monorepo npm workspaces gồm ba ứng dụng:
 
 - `apps/api` là API Node.js/Express. API cung cấp `GET /api/health`, `GET /api/services` và kết nối MongoDB qua Mongoose nếu cấu hình `MONGODB_URI`.

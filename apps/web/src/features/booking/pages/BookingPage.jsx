@@ -6,7 +6,13 @@ import SiteHeader from '../../home/components/SiteHeader.jsx'
 import SiteFooter from '../../home/components/SiteFooter.jsx'
 import { useServices } from '../../services/hooks/useServices.js'
 import { updateBookingProfile } from '../api/booking.api.js'
-import { bookingPayload, contactInput, money, salonDate, slotTime } from '../booking.js'
+import {
+  bookingPayload,
+  contactInput,
+  money,
+  salonDate,
+  slotTime,
+} from '../../../../../../shared/booking.js'
 import BookingStatus from '../components/BookingStatus.jsx'
 import { useBookingQuery } from '../hooks/useBookingQuery.js'
 import { useBookingSubmission } from '../hooks/useBookingSubmission.js'

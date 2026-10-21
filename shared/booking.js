@@ -51,7 +51,7 @@ export function bookingPayload({
   }
 }
 
-export function createBookingSubmission(send, newKey = () => crypto.randomUUID()) {
+export function createBookingSubmission(send, newKey) {
   let intent
   let active
   return {

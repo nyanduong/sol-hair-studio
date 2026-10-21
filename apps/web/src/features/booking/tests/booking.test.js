@@ -5,7 +5,7 @@ import {
   createBookingSubmission,
   salonDate,
   slotTime,
-} from '../booking.js'
+} from '../../../../../../shared/booking.js'
 
 const draft = {
   serviceIds: ['cut'],

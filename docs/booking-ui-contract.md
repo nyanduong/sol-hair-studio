@@ -54,3 +54,16 @@ UI không thay được các bảo đảm này.
 UI có thể bàn giao và kiểm thử độc lập bằng fixture ngoài repository theo kế hoạch song song trên Sheet.
 Việc merge UI không chứng minh đã tạo lịch thật. SOL-021/SOL-031 cung cấp dữ liệu/API còn thiếu;
 SOL-034 nghiệm thu Web + Android với DB thật, tranh lịch và receipt. Giữ giới hạn này trong PR và Sheet.
+
+## Dùng chung và native SOL-033
+
+- `shared/booking.js` chứa quy tắc payload/contact, định dạng ngày/giờ tiệm và manager retry thuần JS.
+  Web/Mobile import trực tiếp cùng module; không shared UI/barrel/package workspace mới.
+- Mỗi app có HTTP feature adapter, hook request/latest/abort và hook submission riêng, dùng `src/lib` của app.
+- Web cung cấp `crypto.randomUUID`; Mobile cung cấp `randomUUID` của `expo-crypto` phiên bản do Expo SDK 57 chọn.
+  [Expo Crypto](https://docs.expo.dev/versions/v57.0.0/sdk/crypto/) hỗ trợ native UUID; không lấy device ID, timestamp hoặc Math.random làm key.
+- Native chỉ có luồng customer: Home/banner/bottom nav → Booking; Login giữ returnTo=Booking;
+  thiếu tên/phone bổ sung qua M1 trong màn hình. Không có tìm khách/đặt hộ/quản lý chủ trên mobile.
+- Layout StyleSheet, safe area từ provider hiện có, ScrollView/keyboard avoiding, nút tối thiểu 44dp,
+  danh sách dịch vụ về một cột khi chữ lớn hoặc màn hẹp. Pending submit/unknown receipt giữ màn hình
+  bằng usePreventRemove; retry cùng key. Không hứa khôi phục receipt sau app kill.
