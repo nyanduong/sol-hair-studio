@@ -8,6 +8,7 @@ import {
     rescheduleAppointment,
     startAppointment,
     completeAppointment,
+    updateAppointmentEta,
 } from "./appointments.service.js";
 
 function sendAppointmentError(error, res, next) {
@@ -97,4 +98,8 @@ export function startAppointmentController(req, res, next) {
 
 export function completeAppointmentController(req, res, next) {
     return appointmentCommandResponse(completeAppointment, req, res, next)
+}
+
+export function updateAppointmentEtaController(req, res, next) {
+    return appointmentCommandResponse(updateAppointmentEta, req, res, next)
 }

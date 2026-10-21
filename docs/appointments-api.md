@@ -16,8 +16,9 @@ Availability remains a separate shared API: [availability-api.md](availability-a
 | POST | /api/appointments/:appointmentId/reschedule | Customer own or Owner | Implemented SOL-035 |
 | POST | /api/appointments/:appointmentId/start | Assigned Stylist or Owner | Implemented SOL-036 Step 1 |
 | POST | /api/appointments/:appointmentId/complete | Assigned Stylist or Owner | Implemented SOL-036 Step 2 |
+| POST | /api/appointments/:appointmentId/eta | Assigned Stylist or Owner | Implemented SOL-036 Step 3 |
 
-ETA updates and correction endpoints are not implemented yet. Presence of their fields/event kinds in the model is not an implemented HTTP contract.
+Owner correction endpoints are not implemented yet. Presence of their fields/event kinds in the model is not an implemented HTTP contract.
 
 ## Contents
 
@@ -25,6 +26,7 @@ ETA updates and correction endpoints are not implemented yet. Presence of their 
 - [Rescheduling](#reschedule)
 - [Starting service](#start)
 - [Completing service](#complete)
+- [Updating ETA and affected appointments](#eta)
 
 <a id="management"></a>
 ## SOL-035 - Read and manage appointments
@@ -71,7 +73,7 @@ Only confirmed/not-started, server-now >= startAt+15 minutes. Owner attests that
 
 ### Shared management-command retry behavior
 
-For cancel/no-show/reschedule/start/complete, keep the original body (including expectedRevision) and key when retrying the same latest operation. The same actor/key/hash replays without another appointment revision/event; guard increments may still occur. Same key with changed intent returns COMMAND_KEY_CONFLICT (409). Replay remains subject to current authorization and is not promised after a later command supersedes the receipt.
+For cancel/no-show/reschedule/start/complete/eta, keep the original body (including expectedRevision) and key when retrying the same latest operation. The same actor/key/hash replays without another appointment revision/event; guard increments may still occur. Same key with changed intent returns COMMAND_KEY_CONFLICT (409). Replay remains subject to current authorization and is not promised after a later command supersedes the receipt.
 Unknown transaction result returns APPOINTMENT_COMMAND_RESULT_UNKNOWN (503). Preserve intent/key and inspect/retry; do not assume definite failure. Failed transactions leave no partial appointment/event/guard updates. Receipts for these commands are lastCommand, separate from Booking's 24-hour booking_requests receipt.
 
 <a id="reschedule"></a>
@@ -253,3 +255,85 @@ Keep the same key and complete body, including the original expectedRevision, wh
 
 Automated tests use the existing isolated MongoDB 8.0.17 replica set with synthetic data. They cover normal/early/late completion, actual overrun, cleanup/grid/customer lead-time, available service duration before the next booking, authorization, wrong states, revisions, transactional rollback, concurrent/duplicate requests and preservation of snapshots and unrelated appointments.
 Live database, Postman, browser and native device acceptance are not claimed by this document.
+
+<a id="eta"></a>
+## SOL-036 Step 3 - Update ETA and report affected appointments
+
+### Scope and sources
+
+[Business rules](database/business-rules.md) BR-02/04/09 and [schema](database/schema.md) appointments/appointment_events.
+BR-09 and the user requirement specify a future ETA: this endpoint requires estimatedEndAt > server-now, not equality. ETA must also be strictly later than planned endAt.
+This is the implemented technical contract for client integration review, not an added business rule requiring all affected appointments to move.
+
+### HTTP contract
+
+POST /api/appointments/:appointmentId/eta
+Authorization: Bearer <active assigned Stylist or Owner session>
+Idempotency-Key: <16-100 character command key>
+Content-Type: application/json
+
+~~~json
+{
+  "expectedRevision": 1,
+  "estimatedEndAt": "2026-10-21T04:30:00.000Z"
+}
+~~~
+
+Use the appointment's current revision and a valid future instant; these values are examples.
+Only expectedRevision and estimatedEndAt are accepted. ETA must be canonical UTC ISO with milliseconds and leave room for the cleanup interval within the supported Date range. Client role/status/planned times/services/prices/durations are rejected.
+Only Owner or the currently assigned Stylist may update an in_progress appointment. Customer receives 403; an unrelated Stylist/missing appointment receives 404. Authorization is reread in the guarded transaction.
+
+200: {status:"success",data:<role-scoped appointment DTO plus revision, confirmedAt, startedAt, estimatedEndAt, occupiedUntil, affectedAppointments, ownerReviewRequired>}.
+Cache-Control: no-store. Status remains in_progress; revision increases once and event kind is eta_updated.
+occupiedFrom=min(startAt,startedAt); occupiedUntil=max(endAt,estimatedEndAt)+10 minutes.
+Planned times, service/contact snapshots, assignment, totals and durations remain unchanged. ETA does not complete service or introduce payment state.
+
+### Validation and overrun behavior
+
+- New ETA is > server-now and > endAt, including when the previous ETA has expired.
+- No scheduled grid, 30-minute booking lead-time or 168-hour booking horizon is applied to actual ETA. A corrected estimate can be earlier than the previous estimate while still meeting the two strict inequalities.
+- Ca/time-off/another reservation do not veto recording truthful ETA. Availability already reads ETA and cleanup using its existing interval calculation; no SOL-030 algorithm is changed.
+- ETA never moves/cancels/reassigns affected appointments. Owner contacts customers and uses existing management operations.
+- Current-document estimatedEndAt may later be removed by Complete; the eta_updated audit event remains append-only.
+
+### Affected appointments and field security
+
+The warning reader runs in the same transaction, excludes the current appointment, and examines confirmed/in_progress appointments of the same Staff or Customer profile. It uses shared appointmentInterval, including overdue unknown-end behavior. Only overlap affecting current/future time is reported; completed/cancelled/no_show appointments are excluded.
+Staff comparison includes cleanup; Customer comparison excludes cleanup. Intervals are half-open: exact adjacency is not overlap. Results are deduplicated by appointment and sorted startAt ASC then _id ASC.
+
+~~~json
+{
+  "affectedAppointments": [
+    {
+      "id": "555555555555555555555555",
+      "staffId": "666666666666666666666666",
+      "status": "confirmed",
+      "startAt": "2026-10-21T04:15:00.000Z",
+      "endAt": "2026-10-21T04:45:00.000Z",
+      "reasons": ["staff_overlap"]
+    }
+  ],
+  "ownerReviewRequired": true
+}
+~~~
+
+- Owner receives all matching warnings, including customer_overlap on a different Staff.
+- Stylist receives only matching appointments assigned to the same Staff. IDs/times/customer details from another Staff's appointments are never exposed; ownerReviewRequired can still be true when the visible list is empty.
+- Allowed warning fields are id/staffId/status/startAt/endAt/reasons only. No name, phone, email, account/Customer ID, revision, receipt or audit is returned for affected appointments.
+- An item can contain staff_overlap, customer_overlap or both. No truncation or total count exposes hidden appointments.
+- ownerReviewRequired means a conflict needs manual attention, not that a notification was sent. There is no notification/background-dispatch implementation here.
+
+### Transaction, receipt and retry
+
+Reuses Customer then Staff guards, actor/assignment rereads, same-session reads and lifecycle CAS (in_progress + expectedRevision + actual startedAt). ETA, occupied interval, revision, lastCommand and eta_updated event are atomic. Warning-query failure also aborts the transaction; no partial success is reported.
+Same actor/key/body replays the latest ETA without another revision/event, even after that ETA has passed. Current authorization remains required. ETA is included in the canonical hash; changed ETA with the same key returns 409 COMMAND_KEY_CONFLICT.
+Warnings are recomputed from the current transaction snapshot on replay, so affectedAppointments/ownerReviewRequired may change while the saved ETA and revision stay unchanged. They are not persisted as an unbounded receipt/audit array.
+
+### Errors and acceptance boundary
+
+400: INVALID_ETA (missing/malformed/not-future/not-after-planned-end or unrepresentable cleanup), shared invalid body/revision/key/appointment-ID errors.
+401/403/404: invalid session, role or object scope.
+409: shared state/revision/guard/resource/receipt/key conflicts. Overlap itself is a 200 warning, not a conflict rejection.
+503: database unavailable or APPOINTMENT_COMMAND_RESULT_UNKNOWN; retain the same key and body when retrying an unknown outcome.
+
+Tests use synthetic fixtures on an isolated MongoDB replica set. No live database, Postman/UI/native acceptance or actual notification is claimed. Owner correction remains outside this step.

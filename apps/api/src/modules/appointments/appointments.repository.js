@@ -399,8 +399,11 @@ export async function persistRescheduledAppointment(appointment, { expectedRevis
 }
 
 // Shared lifecycle CAS writer; planned times and snapshots are never updated.
-async function persistLifecycleAppointment(appointment, { expectedRevision, session }, completing) {
+async function persistLifecycleAppointment(appointment, { expectedRevision, session }, operation) {
     if (!session?.inTransaction()) throw new TypeError('An active transaction session is required')
+    if (!['start', 'complete', 'eta'].includes(operation)) throw new TypeError('Unsupported lifecycle operation')
+    const completing = operation === 'complete'
+    const updatingEta = operation === 'eta'
     const targetStatus = completing ? 'completed' : 'in_progress'
     if (!(appointment instanceof AppointmentModel) || appointment.status !== targetStatus ||
         !Number.isSafeInteger(expectedRevision) || expectedRevision < 0 || expectedRevision >= Number.MAX_SAFE_INTEGER ||
@@ -411,12 +414,13 @@ async function persistLifecycleAppointment(appointment, { expectedRevision, sess
         occupiedFrom: appointment.occupiedFrom, occupiedUntil: appointment.occupiedUntil,
         revision: appointment.revision, lastCommand: appointment.lastCommand.toObject(),
         ...(completing ? { completedAt: appointment.completedAt } : {}),
+        ...(updatingEta ? { estimatedEndAt: appointment.estimatedEndAt } : {}),
     }
     return AppointmentModel.findOneAndUpdate({
         _id: appointment._id, customerId: appointment.customerId, staffId: appointment.staffId,
-        revision: expectedRevision, status: completing ? 'in_progress' : 'confirmed',
-        startedAt: completing ? appointment.startedAt : { $exists: false },
-        ...(completing ? { completedAt: { $exists: false } } : {}),
+        revision: expectedRevision, status: completing || updatingEta ? 'in_progress' : 'confirmed',
+        startedAt: completing || updatingEta ? appointment.startedAt : { $exists: false },
+        ...(completing || updatingEta ? { completedAt: { $exists: false } } : {}),
     }, {
         $set: changes,
         ...(completing ? { $unset: { estimatedEndAt: 1 } } : {}),
@@ -424,9 +428,24 @@ async function persistLifecycleAppointment(appointment, { expectedRevision, sess
 }
 
 export function persistStartedAppointment(appointment, options) {
-    return persistLifecycleAppointment(appointment, options, false)
+    return persistLifecycleAppointment(appointment, options, 'start')
 }
 
 export function persistCompletedAppointment(appointment, options) {
-    return persistLifecycleAppointment(appointment, options, true)
+    return persistLifecycleAppointment(appointment, options, 'complete')
+}
+
+export function persistAppointmentEta(appointment, options) {
+    return persistLifecycleAppointment(appointment, options, 'eta')
+}
+
+// Read-only warnings under the same guards/session; never update affected appointments.
+export function findAppointmentEtaCandidates(appointment, until, { session } = {}) {
+    if (!session?.inTransaction()) throw new TypeError('An active transaction session is required')
+    return AppointmentModel.find({
+        _id: { $ne: appointment._id }, status: { $in: ['confirmed', 'in_progress'] },
+        occupiedFrom: { $lt: until },
+        $or: [{ staffId: appointment.staffId }, { customerId: appointment.customerId }],
+    }).select('_id staffId customerId status startAt endAt startedAt completedAt estimatedEndAt occupiedFrom occupiedUntil')
+        .sort({ startAt: 1, _id: 1 }).session(session).lean()
 }

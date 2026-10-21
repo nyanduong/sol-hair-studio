@@ -15,6 +15,8 @@ import {
     persistRescheduledAppointment,
     persistStartedAppointment,
     persistCompletedAppointment,
+    persistAppointmentEta,
+    findAppointmentEtaCandidates,
     insertAppointmentEvent,
     findAppointmentCommandResources,
     findAppointmentServiceHistory,
@@ -414,10 +416,11 @@ export function parseAppointmentCommandKey(value) {
 
 // Hash intent đã validate, không đưa thời điểm server vào hash.
 function hashAppointmentCommand(operation, appointmentId, input) {
-    if (!['cancel', 'no_show', 'reschedule', 'start', 'complete'].includes(operation)) throw new TypeError('Unsupported appointment operation')
+    if (!['cancel', 'no_show', 'reschedule', 'start', 'complete', 'eta'].includes(operation)) throw new TypeError('Unsupported appointment operation')
     const intent = { operation, appointmentId: appointmentId.toLowerCase(), expectedRevision: input.expectedRevision }
     if (operation === 'cancel') intent.reason = input.reason ?? null
     else if (operation === 'no_show') intent.contactAttemptedAt = input.contactAttemptedAt.toISOString()
+    else if (operation === 'eta') intent.estimatedEndAt = input.estimatedEndAt.toISOString()
     else if (operation === 'reschedule') {
         intent.startAt = input.startAt?.toISOString() ?? null
         intent.staffId = input.staffId ?? null
@@ -554,10 +557,9 @@ function buildAppointmentEventSnapshot(appointment) {
     for (const field of fields) {
         const value = appointment[field]
 
-        // Field optional thiếu thì không đưa vào event.
+
         if (value === undefined) continue
 
-        // Copy Date để snapshot trước không đổi theo document đang xử lý.
         snapshot[field] = value instanceof Date
         ? new Date(value.getTime())
         : value
@@ -568,7 +570,7 @@ function buildAppointmentEventSnapshot(appointment) {
 
 // Customer first, then sorted and deduplicated old/target Staff guards.
 async function loadGuardedAppointmentForCommand(identity, appointmentId, resources, session, operation, targetStaffId) {
-    if (!['cancel', 'no_show', 'reschedule', 'start', 'complete'].includes(operation)) throw new TypeError('Unsupported appointment operation')
+    if (!['cancel', 'no_show', 'reschedule', 'start', 'complete', 'eta'].includes(operation)) throw new TypeError('Unsupported appointment operation')
     const customerGuard = await lockAndBumpCustomerBookingRevision(String(resources.customerId), { session })
     if (customerGuard.status !== 'ok') throw new AppointmentError('Cannot retrieve the Customer guard!', { code: 'CUSTOMER_GUARD_CONFLICT', status: 409 })
     const staffIds = [...new Set([String(resources.staffId), ...(targetStaffId ? [targetStaffId] : [])])].sort()
@@ -582,7 +584,7 @@ async function loadGuardedAppointmentForCommand(identity, appointmentId, resourc
     if (!appointment) throw new AppointmentError('Appointment not found', { code: 'APPOINTMENT_NOT_FOUND', status: 404 })
     let role
     if (operation === 'no_show') { requireAppointmentRole(actor, 'owner'); role = 'owner' }
-    else if (operation === 'start' || operation === 'complete') {
+    else if (['start', 'complete', 'eta'].includes(operation)) {
         role = actor.roles.includes('owner') ? 'owner' : 'stylist'
         if (role === 'stylist') {
         requireAppointmentRole(actor, 'stylist')
@@ -600,16 +602,27 @@ async function loadGuardedAppointmentForCommand(identity, appointmentId, resourc
 
 // Xử lý một lần hủy bên trong transaction do caller mở.
 // Guard, replay, CAS va audit dung chung cho huy/no-show.
-// One guarded transaction pipeline for appointment commands.
 async function executeAppointmentCommand(session, { identity, appointmentId, resources, input, key, hash, operation }) {
     const { appointment, actor, role } = await loadGuardedAppointmentForCommand(
         identity, appointmentId, resources, session, operation, operation === 'reschedule' ? input.staffId : undefined,
     )
-    if (isAppointmentCommandReplay(appointment, { actorId: actor.accountId, key, hash })) return { appointment: appointment.toObject(), role }
+    if (isAppointmentCommandReplay(appointment, { actorId: actor.accountId, key, hash })) {
+        return { appointment: appointment.toObject(), role,
+            ...(operation === 'eta' ? { impact: await buildAppointmentEtaImpact(appointment, role, session, new Date()) } : {}),
+        }
+    }
     const now = new Date()
     const before = buildAppointmentEventSnapshot(appointment)
     const previousStaffId = String(appointment.staffId)
-    if (operation === 'complete') {
+    if (operation === 'eta') {
+        assertAppointmentStateCommand(appointment, input.expectedRevision, 'in_progress')
+        if (input.estimatedEndAt <= now || input.estimatedEndAt <= appointment.endAt) {
+            throw new AppointmentError('ETA must be in the future and after the planned end.', { code: 'INVALID_ETA', status: 400 })
+        }
+        appointment.estimatedEndAt = input.estimatedEndAt
+        appointment.occupiedFrom = new Date(Math.min(appointment.startAt.getTime(), appointment.startedAt.getTime()))
+        appointment.occupiedUntil = new Date(Math.max(appointment.endAt.getTime(), input.estimatedEndAt.getTime()) + 600_000)
+    } else if (operation === 'complete') {
         assertAppointmentStateCommand(appointment, input.expectedRevision, 'in_progress')
         if (!(appointment.startedAt instanceof Date) || appointment.startedAt > now) {
         throw new AppointmentError('Completion cannot precede actual start.', { code: 'INVALID_COMPLETION_TIME', status: 409 })
@@ -650,16 +663,18 @@ async function executeAppointmentCommand(session, { identity, appointmentId, res
     }
     appointment.revision = input.expectedRevision + 1
     appointment.lastCommand = { key, actorId: actor.accountId, hash, resultRevision: appointment.revision }
-    const persist = operation === 'complete' ? persistCompletedAppointment : operation === 'start' ? persistStartedAppointment : operation === 'reschedule' ? persistRescheduledAppointment : operation === 'cancel' ? persistCancelledAppointment : persistNoShowAppointment
+    const persist = operation === 'eta' ? persistAppointmentEta : operation === 'complete' ? persistCompletedAppointment : operation === 'start' ? persistStartedAppointment : operation === 'reschedule' ? persistRescheduledAppointment : operation === 'cancel' ? persistCancelledAppointment : persistNoShowAppointment
     const updated = await persist(appointment, { expectedRevision: input.expectedRevision, previousStaffId, session })
     if (!updated) throw new AppointmentError('Appointment has changed. Reload it before trying again.', { code: 'APPOINTMENT_REVISION_CONFLICT', status: 409 })
     await insertAppointmentEvent({
         appointmentId: updated._id, actorId: actor.accountId, revision: updated.revision,
-        kind: operation === 'start' ? 'started' : operation === 'reschedule' ? 'rescheduled' : updated.status, occurredAt: now,
+        kind: operation === 'eta' ? 'eta_updated' : operation === 'start' ? 'started' : operation === 'reschedule' ? 'rescheduled' : updated.status, occurredAt: now,
         before, after: buildAppointmentEventSnapshot(updated),
         ...(input.reason !== undefined ? { reason: input.reason } : {}),
     }, { session })
-    return { appointment: updated, role }
+    return { appointment: updated, role,
+        ...(operation === 'eta' ? { impact: await buildAppointmentEtaImpact(updated, role, session, now) } : {}),
+    }
 }
 
 // Chạy lệnh trong transaction; chỉ trả kết quả sau khi commit.
@@ -673,7 +688,6 @@ async function runAppointmentTransaction(operation) {
             timeoutMS: 15000,
         })
     } catch (error) {
-        // Không báo thất bại chắc chắn khi kết quả commit chưa xác định.
         if (
             error?.hasErrorLabel?.('UnknownTransactionCommitResult') ||
             error?.name === 'MongoOperationTimeoutError'
@@ -703,7 +717,7 @@ export function markAppointmentNoShow(identity, appointmentId, body, commandKey)
 
 // Validate mot lan, retry tap tai nguyen huu han, DTO sau commit.
 async function runAppointmentCommand(operation, identity, appointmentId, body, commandKey) {
-    if (!['cancel', 'no_show', 'reschedule', 'start', 'complete'].includes(operation)) {
+    if (!['cancel', 'no_show', 'reschedule', 'start', 'complete', 'eta'].includes(operation)) {
         throw new TypeError('Unsupported appointment operation')
     }
     if (!identity) {
@@ -713,7 +727,7 @@ async function runAppointmentCommand(operation, identity, appointmentId, body, c
         requireAppointmentRole(identity, 'owner')
     } else {
         const roles = Array.isArray(identity.roles) ? identity.roles : []
-        if (!roles.includes('owner') && !roles.includes(['start', 'complete'].includes(operation) ? 'stylist' : 'customer')) {
+        if (!roles.includes('owner') && !roles.includes(['start', 'complete', 'eta'].includes(operation) ? 'stylist' : 'customer')) {
         throw new AppointmentError('No permission to perform this appointment operation.', {
             code: 'FORBIDDEN', status: 403,
         })
@@ -724,7 +738,8 @@ async function runAppointmentCommand(operation, identity, appointmentId, body, c
         code: 'INVALID_APPOINTMENT_ID', status: 400,
         })
     }
-    const input = ['start', 'complete'].includes(operation) ? parseAppointmentCommandBody(body, ['expectedRevision'])
+    const input = operation === 'eta' ? parseAppointmentEtaInput(body)
+        : ['start', 'complete'].includes(operation) ? parseAppointmentCommandBody(body, ['expectedRevision'])
         : operation === 'reschedule' ? parseRescheduleAppointmentInput(body)
         : operation === 'cancel' ? parseCancelAppointmentInput(body) : parseNoShowAppointmentInput(body)
     const key = parseAppointmentCommandKey(commandKey)
@@ -756,7 +771,12 @@ async function runAppointmentCommand(operation, identity, appointmentId, body, c
             revision: appointment.revision,
             confirmedAt: appointment.confirmedAt.toISOString(),
         }
-        if (operation === 'complete') {
+        if (operation === 'eta') {
+            response.startedAt = appointment.startedAt.toISOString()
+            response.estimatedEndAt = appointment.estimatedEndAt.toISOString()
+            response.occupiedUntil = appointment.occupiedUntil.toISOString()
+            Object.assign(response, result.impact)
+        } else if (operation === 'complete') {
             response.startedAt = appointment.startedAt.toISOString()
             response.completedAt = appointment.completedAt.toISOString()
         } else if (operation === 'start') {
@@ -940,4 +960,42 @@ async function assertAppointmentCanStart(appointment, session, now) {
 // Actual completion releases unused planned time only after ten minutes of cleanup.
 export function completeAppointment(identity, appointmentId, body, commandKey) {
     return runAppointmentCommand('complete', identity, appointmentId, body, commandKey)
+}
+
+export function updateAppointmentEta(identity, appointmentId, body, commandKey) {
+    return runAppointmentCommand('eta', identity, appointmentId, body, commandKey)
+}
+
+function parseAppointmentEtaInput(body) {
+    const input = parseAppointmentCommandBody(body, ['expectedRevision', 'estimatedEndAt'])
+    const value = body.estimatedEndAt
+    const eta = typeof value === 'string' ? new Date(value) : null
+    if (!eta || !Number.isFinite(eta.getTime()) || !Number.isFinite(new Date(eta.getTime() + 600_000).getTime()) || eta.toISOString() !== value) {
+        throw new AppointmentError('estimatedEndAt must be a canonical UTC ISO timestamp.', { code: 'INVALID_ETA', status: 400 })
+    }
+    return { ...input, estimatedEndAt: eta }
+}
+
+// Warnings are a current transaction snapshot, not a second reservation engine.
+async function buildAppointmentEtaImpact(appointment, role, session, now) {
+    const staffInterval = appointmentInterval(appointment, false, now)
+    const customerInterval = appointmentInterval(appointment, true, now)
+    const until = Number.isFinite(staffInterval[1]) ? new Date(staffInterval[1]) : new Date(8_640_000_000_000_000)
+    const candidates = await findAppointmentEtaCandidates(appointment, until, { session })
+    const overlaps = (a, b) => Math.max(a[0], b[0], now.getTime()) < Math.min(a[1], b[1])
+    const affected = []
+    let ownerReviewRequired = false
+    for (const item of candidates) {
+        const sameStaff = String(item.staffId) === String(appointment.staffId)
+        const reasons = []
+        if (sameStaff && overlaps(staffInterval, appointmentInterval(item, false, now))) reasons.push('staff_overlap')
+        if (String(item.customerId) === String(appointment.customerId) && overlaps(customerInterval, appointmentInterval(item, true, now))) reasons.push('customer_overlap')
+        if (!reasons.length) continue
+        ownerReviewRequired = true
+        // A Stylist cannot inspect appointments assigned to another Staff.
+        if (role !== 'owner' && !sameStaff) continue
+        affected.push({ id: String(item._id), staffId: String(item.staffId), status: item.status,
+            startAt: item.startAt.toISOString(), endAt: item.endAt.toISOString(), reasons })
+    }
+    return { affectedAppointments: affected, ownerReviewRequired }
 }

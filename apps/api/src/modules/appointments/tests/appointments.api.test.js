@@ -1057,3 +1057,227 @@ describe('transactional appointment completion', () => {
     await assertServingUnchanged(mine)
   })
 })
+
+// SOL-036 Step 3: ETA never rejects truthful overrun because another reservation is affected.
+describe('transactional ETA and scoped impact warnings', () => {
+  const etaAt = minutes => new Date(NOW.getTime() + minutes * MINUTE).toISOString()
+  const serving = (patch = {}) => appointment({ status: 'in_progress', startAt: new Date(NOW.getTime() - 15 * MINUTE), ...patch })
+  const update = (id, acting = stylist, body = { expectedRevision: 0, estimatedEndAt: etaAt(45) }, key = 'sol036-eta-command-0001') => command(id, 'eta', acting, body, key)
+  async function unchanged(mine) {
+    const stored = await AppointmentModel.findById(mine._id).lean()
+    expect(stored).toMatchObject({ status: 'in_progress', revision: 0 })
+    expect(stored.estimatedEndAt).toEqual(mine.estimatedEndAt)
+    expect(stored.lastCommand).toBeUndefined()
+    expect(stored.occupiedUntil).toEqual(mine.occupiedUntil)
+    expect(await AppointmentEventModel.countDocuments()).toBe(0)
+    expect((await CustomerModel.findById(client.customer._id)).bookingRevision).toBe(0)
+    expect((await StaffModel.findById(stylist.staff._id)).bookingRevision).toBe(0)
+  }
+  beforeEach(async () => {
+    await shift(stylist.staff._id)
+    await shift(otherStylist.staff._id)
+    await ServiceModel.create({ id: 'service-cut-style', slug: 'service-cut-style', name: 'Current service', description: 'Synthetic',
+      category: 'Hair', durationMinutes: { min: 30, max: 30 }, bookingDurationMinutes: 30, priceVnd: 100000,
+      imageUrl: 'https://res.cloudinary.com/demo/image/upload/sample.jpg' })
+  })
+
+  it.each(['stylist', 'owner'])('lets %s update ETA without changing planned snapshots', async role => {
+    const mine = await serving()
+    const result = await update(mine._id, role === 'owner' ? owner : stylist).expect(200)
+    expect(result.headers['cache-control']).toBe('no-store')
+    expect(result.body.data).toMatchObject({ status: 'in_progress', revision: 1, estimatedEndAt: etaAt(45), occupiedUntil: etaAt(55), affectedAppointments: [], ownerReviewRequired: false })
+    const stored = await AppointmentModel.findById(mine._id).lean()
+    for (const key of ['startAt', 'endAt', 'startedAt', 'items', 'customerSnapshot', 'staffNameSnapshot', 'staffId', 'customerId', 'totalPriceVnd', 'totalDurationMinutes', 'confirmedAt']) {
+      expect(stored[key]).toEqual(mine.toObject()[key])
+    }
+    const event = await AppointmentEventModel.findOne().lean()
+    expect(event).toMatchObject({ kind: 'eta_updated', revision: 1, occurredAt: NOW, before: { status: 'in_progress' }, after: { status: 'in_progress', estimatedEndAt: new Date(etaAt(45)) } })
+    expect((await CustomerModel.findById(client.customer._id)).bookingRevision).toBe(1)
+    expect((await StaffModel.findById(stylist.staff._id)).bookingRevision).toBe(1)
+  })
+
+  it('accepts off-grid ETA and does not apply the booking horizon', async () => {
+    const mine = await serving()
+    const eta = new Date(NOW.getTime() + 8 * 86400_000 + 1234).toISOString()
+    await update(mine._id, stylist, { expectedRevision: 0, estimatedEndAt: eta }).expect(200)
+    expect((await AppointmentModel.findById(mine._id)).estimatedEndAt.toISOString()).toBe(eta)
+  })
+
+  it.each(['past', 'now', 'plannedEnd', 'beforePlannedEnd'])('rejects ETA at %s without partial writes', async variant => {
+    const mine = await serving()
+    const value = { past: etaAt(-1), now: etaAt(0), plannedEnd: mine.endAt.toISOString(), beforePlannedEnd: etaAt(10) }[variant]
+    expect((await update(mine._id, stylist, { expectedRevision: 0, estimatedEndAt: value }).expect(400)).body.code).toBe('INVALID_ETA')
+    await unchanged(mine)
+  })
+
+  it.each([null, 'bad', 42, {}, '2026-10-20T11:00:00+07:00', '+275760-09-13T00:00:00.000Z'])('rejects malformed ETA %j', async estimatedEndAt => {
+    const mine = await serving()
+    await update(mine._id, stylist, { expectedRevision: 0, estimatedEndAt }).expect(400)
+    await unchanged(mine)
+  })
+
+  it.each([{ expectedRevision: 0 }, { expectedRevision: -1, estimatedEndAt: etaAt(45) }, { expectedRevision: 0, estimatedEndAt: etaAt(45), endAt: etaAt(45) }, { expectedRevision: 0, estimatedEndAt: etaAt(45), items: [] }])('rejects unsupported or missing input %j', async body => {
+    const mine = await serving()
+    await update(mine._id, stylist, body).expect(400)
+    await unchanged(mine)
+  })
+
+  it.each(['customer', 'otherStylist'])('rejects %s access', async role => {
+    const mine = await serving()
+    await update(mine._id, role === 'customer' ? client : otherStylist).expect(role === 'customer' ? 403 : 404)
+    await unchanged(mine)
+  })
+
+  it('requires login, a valid ID and a valid key', async () => {
+    await request(app).post(commandPath(oid(), 'eta')).send({ expectedRevision: 0, estimatedEndAt: etaAt(45) }).expect(401)
+    await update('bad').expect(400)
+    await update(oid()).expect(404)
+    const mine = await serving()
+    await update(mine._id, stylist, { expectedRevision: 0, estimatedEndAt: etaAt(45) }, 'short').expect(400)
+    await unchanged(mine)
+  })
+
+  it.each(['confirmed', 'completed', 'cancelled', 'no_show'])('rejects %s state', async status => {
+    const mine = await appointment({ status })
+    expect((await update(mine._id).expect(409)).body.code).toBe('APPOINTMENT_STATE_CONFLICT')
+    expect(await AppointmentEventModel.countDocuments()).toBe(0)
+  })
+
+  it('rejects stale revision', async () => {
+    const mine = await serving()
+    expect((await update(mine._id, stylist, { expectedRevision: 1, estimatedEndAt: etaAt(45) }).expect(409)).body.code).toBe('APPOINTMENT_REVISION_CONFLICT')
+    await unchanged(mine)
+  })
+
+  it('records staff overlap and returns the affected assigned appointment without PII', async () => {
+    const mine = await serving()
+    const next = await appointment({ customerId: otherClient.customer._id, startAt: new Date(etaAt(30)) })
+    const result = await update(mine._id).expect(200)
+    expect(result.body.data.ownerReviewRequired).toBe(true)
+    expect(result.body.data.affectedAppointments).toEqual([{ id: String(next._id), staffId: String(stylist.staff._id), status: 'confirmed', startAt: next.startAt.toISOString(), endAt: next.endAt.toISOString(), reasons: ['staff_overlap'] }])
+    const stored = await AppointmentModel.findById(next._id).lean()
+    expect(stored).toMatchObject({ status: 'confirmed', revision: 0, startAt: next.startAt, staffId: next.staffId })
+    expect(stored.lastCommand).toBeUndefined()
+    expect(await AppointmentEventModel.countDocuments({ appointmentId: next._id })).toBe(0)
+  })
+
+  it('Owner can see Customer overlap on a different Staff; Stylist cannot inspect it', async () => {
+    const mine = await serving()
+    const next = await appointment({ staffId: otherStylist.staff._id, startAt: new Date(etaAt(30)) })
+    const stylistResponse = await update(mine._id).expect(200)
+    expect(stylistResponse.body.data).toMatchObject({ affectedAppointments: [], ownerReviewRequired: true })
+    expect(JSON.stringify(stylistResponse.body)).not.toContain(String(next._id))
+    const ownerResponse = await update(mine._id, owner, { expectedRevision: 1, estimatedEndAt: etaAt(50) }, 'sol036-eta-owner-command-0002').expect(200)
+    expect(ownerResponse.body.data.affectedAppointments).toEqual([{ id: String(next._id), staffId: String(otherStylist.staff._id), status: 'confirmed', startAt: next.startAt.toISOString(), endAt: next.endAt.toISOString(), reasons: ['customer_overlap'] }])
+  })
+
+  it('deduplicates one appointment affected by both Staff and Customer intervals', async () => {
+    const mine = await serving()
+    const next = await appointment({ startAt: new Date(etaAt(30)) })
+    const result = await update(mine._id, owner).expect(200)
+    expect(result.body.data.affectedAppointments).toHaveLength(1)
+    expect(result.body.data.affectedAppointments[0]).toMatchObject({ id: String(next._id), reasons: ['staff_overlap', 'customer_overlap'] })
+  })
+
+  it('includes Staff cleanup overlap but never Customer cleanup', async () => {
+    const mine = await serving()
+    const staffOnly = await appointment({ customerId: otherClient.customer._id, startAt: new Date(etaAt(45)) })
+    await appointment({ staffId: otherStylist.staff._id, startAt: new Date(etaAt(40)) })
+    const result = await update(mine._id, owner, { expectedRevision: 0, estimatedEndAt: etaAt(40) }).expect(200)
+    expect(result.body.data.affectedAppointments.map(item => item.id)).toEqual([String(staffOnly._id)])
+    expect(result.body.data.affectedAppointments[0].reasons).toEqual(['staff_overlap'])
+  })
+
+  it('does not warn on exact half-open cleanup adjacency', async () => {
+    const mine = await serving()
+    await appointment({ customerId: otherClient.customer._id, startAt: new Date(etaAt(60)) })
+    const result = await update(mine._id, owner, { expectedRevision: 0, estimatedEndAt: etaAt(50) }).expect(200)
+    expect(result.body.data).toMatchObject({ affectedAppointments: [], ownerReviewRequired: false })
+  })
+
+  it.each(['cancelled', 'no_show', 'completed'])('does not warn for %s appointments', async status => {
+    const mine = await serving()
+    await appointment({ status, customerId: otherClient.customer._id, startAt: new Date(etaAt(30)) })
+    const result = await update(mine._id).expect(200)
+    expect(result.body.data).toMatchObject({ affectedAppointments: [], ownerReviewRequired: false })
+  })
+
+  it('warns for an overdue in-progress appointment despite its expired stored occupiedUntil', async () => {
+    const mine = await serving()
+    const busy = await serving({ customerId: otherClient.customer._id, startAt: new Date(etaAt(-60)) })
+    const result = await update(mine._id).expect(200)
+    expect(result.body.data.affectedAppointments.map(item => item.id)).toEqual([String(busy._id)])
+  })
+
+  it('can revise an old ETA earlier while remaining future and after the planned end', async () => {
+    const oldEta = new Date(etaAt(90))
+    const mine = await serving({ estimatedEndAt: oldEta, occupiedUntil: new Date(etaAt(100)) })
+    await appointment({ customerId: otherClient.customer._id, startAt: new Date(etaAt(60)) })
+    const result = await update(mine._id).expect(200)
+    expect(result.body.data).toMatchObject({ estimatedEndAt: etaAt(45), occupiedUntil: etaAt(55), affectedAppointments: [], ownerReviewRequired: false })
+    expect((await AppointmentEventModel.findOne().lean()).before.estimatedEndAt).toEqual(oldEta)
+  })
+
+  it('availability uses the updated ETA and cleanup without changing SOL-030', async () => {
+    const mine = await serving()
+    await update(mine._id).expect(200)
+    const result = await get('/api/availability', owner).query({ serviceIds: 'service-cut-style', staffId: String(stylist.staff._id), localDate: '2026-10-20' }).expect(200)
+    expect(result.body.data.stylists[0].slots[0].startAt).toBe(etaAt(60))
+  })
+
+  it('replays even when the original ETA has passed, without another event/revision', async () => {
+    const mine = await serving()
+    await update(mine._id).expect(200)
+    vi.setSystemTime(new Date(etaAt(46)))
+    const replay = await update(mine._id).expect(200)
+    expect(replay.body.data).toMatchObject({ revision: 1, estimatedEndAt: etaAt(45) })
+    expect(await AppointmentEventModel.countDocuments()).toBe(1)
+  })
+
+  it('recomputes read-only warnings on replay without applying ETA again', async () => {
+    const mine = await serving()
+    await update(mine._id).expect(200)
+    const next = await appointment({ customerId: otherClient.customer._id, startAt: new Date(etaAt(30)) })
+    const replay = await update(mine._id).expect(200)
+    expect(replay.body.data.affectedAppointments[0].id).toBe(String(next._id))
+    expect(replay.body.data.revision).toBe(1)
+    expect(await AppointmentEventModel.countDocuments()).toBe(1)
+  })
+
+  it('rejects changed ETA with the same key', async () => {
+    const mine = await serving()
+    await update(mine._id).expect(200)
+    expect((await update(mine._id, stylist, { expectedRevision: 0, estimatedEndAt: etaAt(50) }).expect(409)).body.code).toBe('COMMAND_KEY_CONFLICT')
+    expect(await AppointmentEventModel.countDocuments()).toBe(1)
+  })
+
+  it('serializes duplicate requests to one ETA event', async () => {
+    const mine = await serving()
+    const responses = await Promise.all([update(mine._id), update(mine._id)])
+    expect(responses.map(item => item.status)).toEqual([200, 200])
+    expect(await AppointmentEventModel.countDocuments()).toBe(1)
+  })
+
+  it('allows only one of concurrent different ETA intents at the same revision', async () => {
+    const mine = await serving()
+    const responses = await Promise.all([update(mine._id), update(mine._id, owner, { expectedRevision: 0, estimatedEndAt: etaAt(50) }, 'sol036-eta-command-0002')])
+    expect(responses.map(item => item.status).sort()).toEqual([200, 409])
+    expect(await AppointmentEventModel.countDocuments()).toBe(1)
+  })
+
+  it.each(['audit', 'warnings', 'CAS'])('rolls back ETA and guards after %s failure', async stage => {
+    const mine = await serving()
+    if (stage === 'audit') vi.spyOn(appointmentRepository, 'insertAppointmentEvent').mockRejectedValueOnce(new Error('synthetic ETA audit failure'))
+    if (stage === 'warnings') vi.spyOn(appointmentRepository, 'findAppointmentEtaCandidates').mockRejectedValueOnce(new Error('synthetic warning read failure'))
+    if (stage === 'CAS') vi.spyOn(appointmentRepository, 'persistAppointmentEta').mockResolvedValueOnce(null)
+    await update(mine._id).expect(stage === 'CAS' ? 409 : 500)
+    await unchanged(mine)
+  })
+
+  it('rereads active authorization before the ETA command', async () => {
+    const mine = await serving()
+    vi.spyOn(appointmentRepository, 'findAppointmentCommandActor').mockResolvedValueOnce(null)
+    await update(mine._id).expect(401)
+    await unchanged(mine)
+  })
+})
