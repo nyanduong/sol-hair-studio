@@ -9,8 +9,12 @@ import {
     rescheduleAppointmentController,
 } from "./appointments.controller.js";
 
+import { createBookingController, lookupBookingCustomersController } from './booking.controller.js'
+
 export const appointmentsRouter = Router()
 
+appointmentsRouter.post('/appointments', requireAuth, requireRoles('customer', 'owner'), createBookingController,)
+appointmentsRouter.get( '/customers', requireAuth, requireRoles('owner'), lookupBookingCustomersController,)
 appointmentsRouter.get('/appointments', requireAuth,  requireRoles('customer', 'stylist', 'owner'), listAppointmentsController);
 appointmentsRouter.get('/appointments/:appointmentId', requireAuth,  requireRoles('customer', 'stylist', 'owner'), getAppointmentDetailController);
 appointmentsRouter.post('/appointments/:appointmentId/cancel', requireAuth,  requireRoles('customer', 'owner'), cancelAppointmentController);
