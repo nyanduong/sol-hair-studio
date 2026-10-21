@@ -104,6 +104,8 @@ API lọc stylist và giờ trống SOL-030: [hợp đồng availability](docs/a
 
 Giao diện đặt lịch: Web `/booking` (SOL-032), Mobile `Booking` (SOL-033). [Hợp đồng và phụ thuộc API](docs/booking-ui-contract.md) mô tả payload được SOL-031 triển khai; Web đã kiểm tạo lịch qua API và replica set tạm với dữ liệu tổng hợp. Quy tắc payload/contact và retry intent/key thuần JavaScript nằm một nơi tại `shared/booking.js`, dùng thật bởi cả hai client; HTTP/lifecycle và UI vẫn riêng theo app. Không thêm workspace hoặc shared UI.
 
+[Nghiệm thu SOL-034](docs/booking-acceptance.md) có harness DB tạm, proxy gây mất response sau commit và test socket thật với adapter Web/Mobile. [Ma trận bằng chứng](docs/evidence/SOL-034/README.md) ghi Web khách/chủ và DB đã kiểm; Android UI chưa chạy vì lệnh start Expo bị duyệt tự động từ chối, nên SOL-034 còn Bị chặn. Test adapter trong Node và export bundle không thay nghiệm thu native.
+
 ## Kiểm tra
 
 ```powershell
