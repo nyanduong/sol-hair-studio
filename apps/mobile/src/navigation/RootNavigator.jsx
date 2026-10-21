@@ -10,6 +10,7 @@ import HomeScreen from '../features/home/screens/HomeScreen.jsx'
 import ServicesScreen from '../features/services/screens/ServicesScreen.jsx'
 import { colors } from '../theme/tokens.js'
 import BookingScreen from '../features/booking/screens/BookingScreen.jsx'
+import StylistShiftsScreen from '../features/staff/screens/StylistShiftsScreen.jsx'
 
 const Stack = createNativeStackNavigator()
 
@@ -19,6 +20,7 @@ export default function RootNavigator() {
       <Stack.Screen name="Home" component={HomeScreen} />
       <Stack.Screen name="Services" component={ServicesScreen} />
       <Stack.Screen name="Booking" component={BookingScreen} />
+      <Stack.Screen name="StylistShifts" component={StylistShiftsScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="OtpVerification" component={OtpVerificationScreen} />
