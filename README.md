@@ -100,6 +100,8 @@ Baseline thiết kế dữ liệu MVP: [DB baseline MVP — SOL-016](docs/databa
 
 API tài khoản, OTP email, phiên và phân quyền SOL-017: [Hợp đồng và cấu hình auth](docs/auth-api.md). Cần MongoDB hỗ trợ transaction, AUTH_SECRET và SMTP; UI tài khoản thuộc SOL-018/SOL-019.
 
+API lọc stylist và giờ trống SOL-030: [hợp đồng availability](docs/availability-api.md). Cần dịch vụ có thời lượng đặt lịch cố định do chủ cấu hình; kết quả đọc không giữ chỗ, API tạo lịch thuộc SOL-031.
+
 ## Kiểm tra
 
 ```powershell

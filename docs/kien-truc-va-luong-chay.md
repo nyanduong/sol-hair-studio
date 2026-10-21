@@ -4,6 +4,15 @@ Tài liệu này mô tả cấu trúc đang có trong repository. Phạm vi sả
 
 ## A. Nhìn tổng thể
 
+### Luồng bổ sung SOL-030
+
+`GET /api/availability` → middleware auth/quyền customer hoặc owner → availability controller →
+service validate/tính khoảng trống → repository đọc services, staff/accounts, staff_shifts,
+staff_time_off và appointments dùng chung → DTO stylist/slot allowlist.
+Mã nằm tại `apps/api/src/modules/availability/{availability.routes,availability.controller,availability.service,availability.repository}.js`.
+Không đổi đường dẫn cũ. Public services chuyển projection allowlist, giữ DTO cũ khi thêm bookingDurationMinutes.
+Đặc tả/giới hạn và phần cần kiểm lại khi ghi ở [hợp đồng availability](availability-api.md).
+
 Repository là một monorepo npm workspaces gồm ba ứng dụng:
 
 - `apps/api` là API Node.js/Express. API cung cấp `GET /api/health`, `GET /api/services` và kết nối MongoDB qua Mongoose nếu cấu hình `MONGODB_URI`.

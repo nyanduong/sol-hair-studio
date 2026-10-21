@@ -26,7 +26,7 @@ describe('findActiveServices', () => {
     expect(ServiceModel.find).toHaveBeenCalledWith({ isActive: true })
     expect(query.sort).toHaveBeenCalledWith({ displayOrder: 1, id: 1 })
     expect(query.select).toHaveBeenCalledWith(
-      '-_id -__v -isActive -displayOrder -createdAt -updatedAt',
+      'id slug name description category durationMinutes priceVnd imageUrl -_id',
     )
     expect(query.lean).toHaveBeenCalledOnce()
   })
