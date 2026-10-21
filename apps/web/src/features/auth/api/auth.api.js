@@ -44,6 +44,10 @@ export async function resendActivationOtp(apiBaseUrl, { email }, { signal } = {}
   return response.data
 }
 
+export async function verifyStaffActivationOtp(apiBaseUrl, { email, code }) { const response = await requestJson('/api/auth/otp/verify', { baseUrl: apiBaseUrl, method: 'POST', body: { email, purpose: 'activate_staff', code } }); return response.data }
+export async function completeStaffPassword(apiBaseUrl, { email, grant, password }) { const response = await requestJson('/api/auth/password/complete', { baseUrl: apiBaseUrl, method: 'POST', body: { email, purpose: 'activate_staff', grant, password } }); return response.data }
+export async function requestStaffActivationOtp(apiBaseUrl, { email }) { const response = await requestJson('/api/auth/otp/request', { baseUrl: apiBaseUrl, method: 'POST', body: { email, purpose: 'activate_staff' } }); return response.data }
+
 export async function getMe(apiBaseUrl, token, { signal } = {}) {
   const response = await requestJson('/api/auth/me', {
     baseUrl: apiBaseUrl,

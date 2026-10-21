@@ -8,7 +8,7 @@ Nền tảng dùng chung cho bài tập SDN302 và MMA301. Repository này chứ
 | `apps/mobile` | React Native + Expo + JavaScript/JSX | Danh mục dịch vụ native Android/iOS và màn hình kiểm tra kết nối API |
 | `apps/api` | Node.js + Express + JavaScript | API dùng chung, MongoDB và ảnh dịch vụ trên Cloudinary |
 
-Repository có trang chủ web, danh mục dịch vụ trên mobile và API dùng chung. MongoDB lưu dịch vụ; Cloudinary phân phối ảnh dịch vụ. API tài khoản/OTP/phân quyền được triển khai ở SOL-017; giao diện tài khoản thuộc SOL-018/SOL-019. Đặt lịch và trang tổng quan chưa triển khai, thanh toán ngoài MVP. Đây chưa phải tuyên bố đáp ứng rubric. Phạm vi hai môn và các giả định đang được ghi tại [docs/course-scope.md](docs/course-scope.md).
+Repository có trang chủ web, danh mục dịch vụ trên mobile và API dùng chung. MongoDB lưu dịch vụ; Cloudinary phân phối ảnh dịch vụ. API tài khoản/OTP/phân quyền được triển khai ở SOL-017; giao diện tài khoản thuộc SOL-018/SOL-019. Đặt lịch có UI Web/Mobile và API tạo lịch SOL-031; nghiệm thu native/dữ liệu thực tế tiếp tục ở SOL-034. Trang tổng quan chưa triển khai, thanh toán ngoài MVP. Đây chưa phải tuyên bố đáp ứng rubric. Phạm vi hai môn và các giả định đang được ghi tại [docs/course-scope.md](docs/course-scope.md).
 
 ## Runtime và cài đặt
 
@@ -100,7 +100,9 @@ Baseline thiết kế dữ liệu MVP: [DB baseline MVP — SOL-016](docs/databa
 
 API tài khoản, OTP email, phiên và phân quyền SOL-017: [Hợp đồng và cấu hình auth](docs/auth-api.md). Cần MongoDB hỗ trợ transaction, AUTH_SECRET và SMTP; UI tài khoản thuộc SOL-018/SOL-019.
 
-API lọc stylist và giờ trống SOL-030: [hợp đồng availability](docs/availability-api.md). Cần dịch vụ có thời lượng đặt lịch cố định do chủ cấu hình; kết quả đọc không giữ chỗ, API tạo lịch thuộc SOL-031.
+API lọc stylist và giờ trống SOL-030: [hợp đồng availability](docs/availability-api.md). Cần dịch vụ có thời lượng đặt lịch cố định do chủ cấu hình; kết quả đọc không giữ chỗ. [API tạo lịch SOL-031](docs/booking-api.md) ghi guard khách/stylist, snapshot, receipt 24 giờ và audit trong cùng transaction MongoDB replica set; server chuẩn bị collection/index trước khi nhận traffic.
+
+Giao diện đặt lịch: Web `/booking` (SOL-032), Mobile `Booking` (SOL-033). [Hợp đồng và phụ thuộc API](docs/booking-ui-contract.md) mô tả payload được SOL-031 triển khai; Web đã kiểm tạo lịch qua API và replica set tạm với dữ liệu tổng hợp. Quy tắc payload/contact và retry intent/key thuần JavaScript nằm một nơi tại `shared/booking.js`, dùng thật bởi cả hai client; HTTP/lifecycle và UI vẫn riêng theo app. Không thêm workspace hoặc shared UI.
 
 ## Kiểm tra
 
