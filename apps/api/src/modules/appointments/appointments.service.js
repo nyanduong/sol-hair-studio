@@ -14,6 +14,7 @@ import {
     persistNoShowAppointment,
     persistRescheduledAppointment,
     persistStartedAppointment,
+    persistCompletedAppointment,
     insertAppointmentEvent,
     findAppointmentCommandResources,
     findAppointmentServiceHistory,
@@ -81,7 +82,7 @@ function decodeAppointmentCursor(token, timeField = 'startAt') {
         }
 
     } catch {
-        throw new AppointmentError('Cursor không hợp lệ.', {
+        throw new AppointmentError('Invalid cursor.', {
             code: 'INVALID_CURSOR',
             status: 400,
         })
@@ -180,14 +181,14 @@ function toAppointmentListItem(appointment, role) {
 // Validation body, allowlist và revision dùng chung.
 function parseAppointmentCommandBody(body, allowedKeys) {
     if (body === null || typeof body !== 'object' || Array.isArray(body)) {
-        throw new AppointmentError('Body phải là JSON object.', {
+        throw new AppointmentError('Body must be a JSON object.', {
         code: 'INVALID_REQUEST_BODY',
         status: 400,
         })
     }
 
     if (Object.keys(body).some(key => !allowedKeys.includes(key))) {
-        throw new AppointmentError('Body chứa trường không được hỗ trợ.', {
+        throw new AppointmentError('Body contains unsupported fields.', {
         code: 'INVALID_REQUEST_BODY',
         status: 400,
         })
@@ -197,7 +198,7 @@ function parseAppointmentCommandBody(body, allowedKeys) {
         !Number.isSafeInteger(body.expectedRevision) ||
         body.expectedRevision < 0
     ) {
-        throw new AppointmentError('expectedRevision phải là số nguyên không âm.', {
+        throw new AppointmentError('expectedRevision must be a non-negative integer.', {
         code: 'INVALID_REVISION',
         status: 400,
         })
@@ -403,7 +404,7 @@ export function parseAppointmentCommandKey(value) {
         value.length > 100 ||
         value.trim().length === 0
     ) {
-        throw new AppointmentError('Key phải có từ 16 đến 100 ký tự.', {
+        throw new AppointmentError('Key must contain between 16 and 100 characters.', {
         code: 'INVALID_COMMAND_KEY',
         status: 400,
         })
@@ -413,17 +414,18 @@ export function parseAppointmentCommandKey(value) {
 
 // Hash intent đã validate, không đưa thời điểm server vào hash.
 function hashAppointmentCommand(operation, appointmentId, input) {
-  if (!['cancel', 'no_show', 'reschedule', 'start'].includes(operation)) throw new TypeError('Unsupported appointment operation')
-  const intent = { operation, appointmentId: appointmentId.toLowerCase(), expectedRevision: input.expectedRevision }
-  if (operation === 'cancel') intent.reason = input.reason ?? null
-  else if (operation === 'no_show') intent.contactAttemptedAt = input.contactAttemptedAt.toISOString()
-  else if (operation === 'reschedule') {
-    intent.startAt = input.startAt?.toISOString() ?? null
-    intent.staffId = input.staffId ?? null
-    intent.reason = input.reason ?? null
-  }
-  return createHash('sha256').update(JSON.stringify(intent), 'utf8').digest('hex')
+    if (!['cancel', 'no_show', 'reschedule', 'start', 'complete'].includes(operation)) throw new TypeError('Unsupported appointment operation')
+    const intent = { operation, appointmentId: appointmentId.toLowerCase(), expectedRevision: input.expectedRevision }
+    if (operation === 'cancel') intent.reason = input.reason ?? null
+    else if (operation === 'no_show') intent.contactAttemptedAt = input.contactAttemptedAt.toISOString()
+    else if (operation === 'reschedule') {
+        intent.startAt = input.startAt?.toISOString() ?? null
+        intent.staffId = input.staffId ?? null
+        intent.reason = input.reason ?? null
+    }
+    return createHash('sha256').update(JSON.stringify(intent), 'utf8').digest('hex')
 }
+
 function assertCustomerOwnerAppointmentAccess(identity, appointment) {
     if (!identity) {
         throw new AppointmentError('Need Login', {
@@ -456,16 +458,16 @@ function assertCustomerOwnerAppointmentAccess(identity, appointment) {
 }
 
 // Điều kiện chung cho lệnh mới chuyển khỏi confirmed.
-function assertConfirmedAppointmentCommand(appointment, expectedRevision) {
+function assertAppointmentStateCommand(appointment, expectedRevision, expectedStatus = 'confirmed') {
     if (appointment.revision !== expectedRevision) {
-        throw new AppointmentError('Lịch đã thay đổi. Hãy tải lại.', {
+        throw new AppointmentError('The schedule has changed. Please reload!', {
             code: 'APPOINTMENT_REVISION_CONFLICT',
             status: 409,
         })
     }
 
-    if (appointment.status !== 'confirmed' || appointment.startedAt !== undefined) {
-        throw new AppointmentError('Trạng thái lịch không cho phép thao tác.', {
+    if (appointment.status !== expectedStatus || (expectedStatus === 'confirmed' && appointment.startedAt !== undefined)) {
+        throw new AppointmentError('The status schedule is not permitted to operate.', {
             code: 'APPOINTMENT_STATE_CONFLICT',
             status: 409,
         })
@@ -476,7 +478,7 @@ function assertConfirmedAppointmentCommand(appointment, expectedRevision) {
         appointment.revision < 0 ||
         appointment.revision >= Number.MAX_SAFE_INTEGER
     ) {
-        throw new AppointmentError('Revision đã đạt giới hạn an toàn.', {
+        throw new AppointmentError('Revision has reached the safe integer limit.', {
             code: 'APPOINTMENT_REVISION_LIMIT',
             status: 409,
         })
@@ -486,7 +488,7 @@ function assertConfirmedAppointmentCommand(appointment, expectedRevision) {
 // Chỉ kiểm tra cho lệnh mới, sau khi đã xử lý trường hợp retry.
 function assertAppointmentCanBeCancelled(appointment, role, input, now) {
 
-    assertConfirmedAppointmentCommand(appointment, input.expectedRevision)
+    assertAppointmentStateCommand(appointment, input.expectedRevision)
     const remainingMs = appointment.startAt.getTime() - now.getTime()
     const cutoffMs = 2 * 60 * 60 * 1000
 
@@ -517,7 +519,7 @@ function isAppointmentCommandReplay(appointment, { actorId, key, hash },){
 
     // Cùng actor/key nhưng intent khác là dùng lại key không hợp lệ.
     if (previous.hash !== hash) {
-        throw new AppointmentError('Key đã được dùng cho nội dung khác.', {
+        throw new AppointmentError('Key has already been used for a different request.', {
         code: 'COMMAND_KEY_CONFLICT',
         status: 409,
         })
@@ -525,7 +527,7 @@ function isAppointmentCommandReplay(appointment, { actorId, key, hash },){
 
     // Receipt phải còn khớp revision hiện tại.
     if (previous.resultRevision !== appointment.revision) {
-        throw new AppointmentError('Không thể xác nhận kết quả lệnh trước.', {
+        throw new AppointmentError('Unable to verify the previous command result.', {
         code: 'COMMAND_RECEIPT_CONFLICT',
         status: 409,
         })
@@ -566,88 +568,98 @@ function buildAppointmentEventSnapshot(appointment) {
 
 // Customer first, then sorted and deduplicated old/target Staff guards.
 async function loadGuardedAppointmentForCommand(identity, appointmentId, resources, session, operation, targetStaffId) {
-  if (!['cancel', 'no_show', 'reschedule', 'start'].includes(operation)) throw new TypeError('Unsupported appointment operation')
-  const customerGuard = await lockAndBumpCustomerBookingRevision(String(resources.customerId), { session })
-  if (customerGuard.status !== 'ok') throw new AppointmentError('Cannot retrieve the Customer guard!', { code: 'CUSTOMER_GUARD_CONFLICT', status: 409 })
-  const staffIds = [...new Set([String(resources.staffId), ...(targetStaffId ? [targetStaffId] : [])])].sort()
-  for (const staffId of staffIds) {
-    const guard = await lockAndBumpStaffBookingRevision(staffId, session)
-    if (guard.status !== 'ok') throw new AppointmentError('Cannot obtain the Staff guard!', { code: 'STAFF_GUARD_CONFLICT', status: 409 })
-  }
-  const actor = await findAppointmentCommandActor(identity.accountId, identity.authRevision, { session })
-  if (!actor) throw new AppointmentError('The session is no longer valid!', { code: 'UNAUTHORIZED', status: 401 })
-  const appointment = await findAppointmentForUpdate(appointmentId, { session })
-  if (!appointment) throw new AppointmentError('Appointment not found', { code: 'APPOINTMENT_NOT_FOUND', status: 404 })
-  let role
-  if (operation === 'no_show') { requireAppointmentRole(actor, 'owner'); role = 'owner' }
-  else if (operation === 'start') {
-    role = actor.roles.includes('owner') ? 'owner' : 'stylist'
-    if (role === 'stylist') {
-      requireAppointmentRole(actor, 'stylist')
-      const staff = await findAppointmentStaffByAccountId(actor.accountId, { session })
-      if (!staff || String(staff._id) !== String(appointment.staffId)) {
-        throw new AppointmentError('Appointment not found', { code: 'APPOINTMENT_NOT_FOUND', status: 404 })
-      }
+    if (!['cancel', 'no_show', 'reschedule', 'start', 'complete'].includes(operation)) throw new TypeError('Unsupported appointment operation')
+    const customerGuard = await lockAndBumpCustomerBookingRevision(String(resources.customerId), { session })
+    if (customerGuard.status !== 'ok') throw new AppointmentError('Cannot retrieve the Customer guard!', { code: 'CUSTOMER_GUARD_CONFLICT', status: 409 })
+    const staffIds = [...new Set([String(resources.staffId), ...(targetStaffId ? [targetStaffId] : [])])].sort()
+    for (const staffId of staffIds) {
+        const guard = await lockAndBumpStaffBookingRevision(staffId, session)
+        if (guard.status !== 'ok') throw new AppointmentError('Cannot obtain the Staff guard!', { code: 'STAFF_GUARD_CONFLICT', status: 409 })
     }
-  } else role = assertCustomerOwnerAppointmentAccess(actor, appointment)
-  if (String(appointment.customerId) !== String(resources.customerId) || String(appointment.staffId) !== String(resources.staffId)) {
-    throw new AppointmentError('Appointment resources have changed.', { code: 'APPOINTMENT_RESOURCES_CHANGED', status: 409 })
-  }
-  return { appointment, actor, role }
+    const actor = await findAppointmentCommandActor(identity.accountId, identity.authRevision, { session })
+    if (!actor) throw new AppointmentError('The session is no longer valid!', { code: 'UNAUTHORIZED', status: 401 })
+    const appointment = await findAppointmentForUpdate(appointmentId, { session })
+    if (!appointment) throw new AppointmentError('Appointment not found', { code: 'APPOINTMENT_NOT_FOUND', status: 404 })
+    let role
+    if (operation === 'no_show') { requireAppointmentRole(actor, 'owner'); role = 'owner' }
+    else if (operation === 'start' || operation === 'complete') {
+        role = actor.roles.includes('owner') ? 'owner' : 'stylist'
+        if (role === 'stylist') {
+        requireAppointmentRole(actor, 'stylist')
+        const staff = await findAppointmentStaffByAccountId(actor.accountId, { session })
+        if (!staff || String(staff._id) !== String(appointment.staffId)) {
+            throw new AppointmentError('Appointment not found', { code: 'APPOINTMENT_NOT_FOUND', status: 404 })
+        }
+        }
+    } else role = assertCustomerOwnerAppointmentAccess(actor, appointment)
+    if (String(appointment.customerId) !== String(resources.customerId) || String(appointment.staffId) !== String(resources.staffId)) {
+        throw new AppointmentError('Appointment resources have changed.', { code: 'APPOINTMENT_RESOURCES_CHANGED', status: 409 })
+    }
+    return { appointment, actor, role }
 }
 
 // Xử lý một lần hủy bên trong transaction do caller mở.
 // Guard, replay, CAS va audit dung chung cho huy/no-show.
 // One guarded transaction pipeline for appointment commands.
 async function executeAppointmentCommand(session, { identity, appointmentId, resources, input, key, hash, operation }) {
-  const { appointment, actor, role } = await loadGuardedAppointmentForCommand(
-    identity, appointmentId, resources, session, operation, operation === 'reschedule' ? input.staffId : undefined,
-  )
-  if (isAppointmentCommandReplay(appointment, { actorId: actor.accountId, key, hash })) return { appointment: appointment.toObject(), role }
-  const now = new Date()
-  const before = buildAppointmentEventSnapshot(appointment)
-  const previousStaffId = String(appointment.staffId)
-  if (operation === 'start') {
-    assertConfirmedAppointmentCommand(appointment, input.expectedRevision)
-    await assertAppointmentCanStart(appointment, session, now)
-    appointment.status = 'in_progress'
-    appointment.startedAt = now
-    appointment.occupiedFrom = new Date(Math.min(appointment.startAt.getTime(), now.getTime()))
-    appointment.occupiedUntil = new Date(appointment.endAt.getTime() + 10 * 60_000)
-  } else if (operation === 'reschedule') {
-    const candidate = prepareAppointmentReschedule(appointment, role, input, now)
-    let available
-    try {
-      available = await assertAppointmentSlotAvailable({
-        staffId: candidate.staffId, customerId: String(appointment.customerId),
-        serviceIds: appointment.items.map(item => item.serviceId), durationMinutes: appointment.totalDurationMinutes,
-        startAt: candidate.startAt, owner: role === 'owner', excludeAppointmentId: String(appointment._id),
-      }, { session, now })
-    } catch (error) {
-      if (error instanceof AvailabilityError) throw new AppointmentError(error.message, { code: error.code, status: error.status })
-      throw error
+    const { appointment, actor, role } = await loadGuardedAppointmentForCommand(
+        identity, appointmentId, resources, session, operation, operation === 'reschedule' ? input.staffId : undefined,
+    )
+    if (isAppointmentCommandReplay(appointment, { actorId: actor.accountId, key, hash })) return { appointment: appointment.toObject(), role }
+    const now = new Date()
+    const before = buildAppointmentEventSnapshot(appointment)
+    const previousStaffId = String(appointment.staffId)
+    if (operation === 'complete') {
+        assertAppointmentStateCommand(appointment, input.expectedRevision, 'in_progress')
+        if (!(appointment.startedAt instanceof Date) || appointment.startedAt > now) {
+        throw new AppointmentError('Completion cannot precede actual start.', { code: 'INVALID_COMPLETION_TIME', status: 409 })
+        }
+        appointment.status = 'completed'
+        appointment.completedAt = now
+        appointment.occupiedFrom = appointment.startedAt
+        appointment.occupiedUntil = new Date(now.getTime() + 10 * 60_000)
+        appointment.estimatedEndAt = undefined
+    } else if (operation === 'start') {
+        assertAppointmentStateCommand(appointment, input.expectedRevision)
+        await assertAppointmentCanStart(appointment, session, now)
+        appointment.status = 'in_progress'
+        appointment.startedAt = now
+        appointment.occupiedFrom = new Date(Math.min(appointment.startAt.getTime(), now.getTime()))
+        appointment.occupiedUntil = new Date(appointment.endAt.getTime() + 10 * 60_000)
+    } else if (operation === 'reschedule') {
+        const candidate = prepareAppointmentReschedule(appointment, role, input, now)
+        let available
+        try {
+        available = await assertAppointmentSlotAvailable({
+            staffId: candidate.staffId, customerId: String(appointment.customerId),
+            serviceIds: appointment.items.map(item => item.serviceId), durationMinutes: appointment.totalDurationMinutes,
+            startAt: candidate.startAt, owner: role === 'owner', excludeAppointmentId: String(appointment._id),
+        }, { session, now })
+        } catch (error) {
+        if (error instanceof AvailabilityError) throw new AppointmentError(error.message, { code: error.code, status: error.status })
+        throw error
+        }
+        Object.assign(appointment, candidate, { lastRescheduledAt: now })
+        if (candidate.staffId !== previousStaffId) appointment.staffNameSnapshot = available.displayName
+    } else if (operation === 'cancel') {
+        assertAppointmentCanBeCancelled(appointment, role, input, now)
+        appointment.status = 'cancelled'; appointment.cancelledAt = now
+    } else {
+        assertAppointmentCanBeMarkedNoShow(appointment, input, now)
+        appointment.status = 'no_show'; appointment.noShowAt = now; appointment.contactAttemptedAt = input.contactAttemptedAt
     }
-    Object.assign(appointment, candidate, { lastRescheduledAt: now })
-    if (candidate.staffId !== previousStaffId) appointment.staffNameSnapshot = available.displayName
-  } else if (operation === 'cancel') {
-    assertAppointmentCanBeCancelled(appointment, role, input, now)
-    appointment.status = 'cancelled'; appointment.cancelledAt = now
-  } else {
-    assertAppointmentCanBeMarkedNoShow(appointment, input, now)
-    appointment.status = 'no_show'; appointment.noShowAt = now; appointment.contactAttemptedAt = input.contactAttemptedAt
-  }
-  appointment.revision = input.expectedRevision + 1
-  appointment.lastCommand = { key, actorId: actor.accountId, hash, resultRevision: appointment.revision }
-  const persist = operation === 'start' ? persistStartedAppointment : operation === 'reschedule' ? persistRescheduledAppointment : operation === 'cancel' ? persistCancelledAppointment : persistNoShowAppointment
-  const updated = await persist(appointment, { expectedRevision: input.expectedRevision, previousStaffId, session })
-  if (!updated) throw new AppointmentError('Appointment has changed. Reload it before trying again.', { code: 'APPOINTMENT_REVISION_CONFLICT', status: 409 })
-  await insertAppointmentEvent({
-    appointmentId: updated._id, actorId: actor.accountId, revision: updated.revision,
-    kind: operation === 'start' ? 'started' : operation === 'reschedule' ? 'rescheduled' : updated.status, occurredAt: now,
-    before, after: buildAppointmentEventSnapshot(updated),
-    ...(input.reason !== undefined ? { reason: input.reason } : {}),
-  }, { session })
-  return { appointment: updated, role }
+    appointment.revision = input.expectedRevision + 1
+    appointment.lastCommand = { key, actorId: actor.accountId, hash, resultRevision: appointment.revision }
+    const persist = operation === 'complete' ? persistCompletedAppointment : operation === 'start' ? persistStartedAppointment : operation === 'reschedule' ? persistRescheduledAppointment : operation === 'cancel' ? persistCancelledAppointment : persistNoShowAppointment
+    const updated = await persist(appointment, { expectedRevision: input.expectedRevision, previousStaffId, session })
+    if (!updated) throw new AppointmentError('Appointment has changed. Reload it before trying again.', { code: 'APPOINTMENT_REVISION_CONFLICT', status: 409 })
+    await insertAppointmentEvent({
+        appointmentId: updated._id, actorId: actor.accountId, revision: updated.revision,
+        kind: operation === 'start' ? 'started' : operation === 'reschedule' ? 'rescheduled' : updated.status, occurredAt: now,
+        before, after: buildAppointmentEventSnapshot(updated),
+        ...(input.reason !== undefined ? { reason: input.reason } : {}),
+    }, { session })
+    return { appointment: updated, role }
 }
 
 // Chạy lệnh trong transaction; chỉ trả kết quả sau khi commit.
@@ -691,7 +703,7 @@ export function markAppointmentNoShow(identity, appointmentId, body, commandKey)
 
 // Validate mot lan, retry tap tai nguyen huu han, DTO sau commit.
 async function runAppointmentCommand(operation, identity, appointmentId, body, commandKey) {
-    if (!['cancel', 'no_show', 'reschedule', 'start'].includes(operation)) {
+    if (!['cancel', 'no_show', 'reschedule', 'start', 'complete'].includes(operation)) {
         throw new TypeError('Unsupported appointment operation')
     }
     if (!identity) {
@@ -701,7 +713,7 @@ async function runAppointmentCommand(operation, identity, appointmentId, body, c
         requireAppointmentRole(identity, 'owner')
     } else {
         const roles = Array.isArray(identity.roles) ? identity.roles : []
-        if (!roles.includes('owner') && !roles.includes(operation === 'start' ? 'stylist' : 'customer')) {
+        if (!roles.includes('owner') && !roles.includes(['start', 'complete'].includes(operation) ? 'stylist' : 'customer')) {
         throw new AppointmentError('No permission to perform this appointment operation.', {
             code: 'FORBIDDEN', status: 403,
         })
@@ -712,7 +724,7 @@ async function runAppointmentCommand(operation, identity, appointmentId, body, c
         code: 'INVALID_APPOINTMENT_ID', status: 400,
         })
     }
-    const input = operation === 'start' ? parseAppointmentCommandBody(body, ['expectedRevision'])
+    const input = ['start', 'complete'].includes(operation) ? parseAppointmentCommandBody(body, ['expectedRevision'])
         : operation === 'reschedule' ? parseRescheduleAppointmentInput(body)
         : operation === 'cancel' ? parseCancelAppointmentInput(body) : parseNoShowAppointmentInput(body)
     const key = parseAppointmentCommandKey(commandKey)
@@ -744,7 +756,10 @@ async function runAppointmentCommand(operation, identity, appointmentId, body, c
             revision: appointment.revision,
             confirmedAt: appointment.confirmedAt.toISOString(),
         }
-        if (operation === 'start') {
+        if (operation === 'complete') {
+            response.startedAt = appointment.startedAt.toISOString()
+            response.completedAt = appointment.completedAt.toISOString()
+        } else if (operation === 'start') {
             response.startedAt = appointment.startedAt.toISOString()
         } else if (operation === 'cancel') {
             response.cancelledAt = appointment.cancelledAt.toISOString()
@@ -783,7 +798,7 @@ export function parseNoShowAppointmentInput(body) {
 
 // Chỉ gọi cho lệnh mới, sau kiểm quyền Owner và nhận diện replay.
 function assertAppointmentCanBeMarkedNoShow(appointment, input, now) {
-    assertConfirmedAppointmentCommand(appointment, input.expectedRevision)
+    assertAppointmentStateCommand(appointment, input.expectedRevision)
 
     // Đúng mốc 15 phút được phép ghi nhận.
     const earliestNoShowAt = appointment.startAt.getTime() + 15 * 60 * 1000
@@ -869,7 +884,7 @@ export function parseRescheduleAppointmentInput(body) {
 
 // Prepare from the guarded snapshot; availability is checked separately in the same session.
 function prepareAppointmentReschedule(appointment, role, input, now) {
-    assertConfirmedAppointmentCommand(appointment, input.expectedRevision)
+    assertAppointmentStateCommand(appointment, input.expectedRevision)
     const minute = 60_000
     const oldLead = appointment.startAt.getTime() - now.getTime()
     if (role === 'customer' && oldLead < 120 * minute) throw new AppointmentError('Rescheduling requires at least 2 hours before the old start.', { code: 'RESCHEDULE_CUTOFF', status: 409 })
@@ -920,4 +935,9 @@ async function assertAppointmentCanStart(appointment, session, now) {
         (String(item.staffId) === String(appointment.staffId) && overlaps(staffInterval, appointmentInterval(item, false, now))) ||
         (String(item.customerId) === String(appointment.customerId) && overlaps(customerInterval, appointmentInterval(item, true, now)))
     )) throw new AppointmentError('The serving interval conflicts with another appointment.', { code: 'START_APPOINTMENT_CONFLICT', status: 409 })
+}
+
+// Actual completion releases unused planned time only after ten minutes of cleanup.
+export function completeAppointment(identity, appointmentId, body, commandKey) {
+    return runAppointmentCommand('complete', identity, appointmentId, body, commandKey)
 }

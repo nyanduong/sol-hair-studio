@@ -398,19 +398,35 @@ export async function persistRescheduledAppointment(appointment, { expectedRevis
     } }, { session, returnDocument: 'after', runValidators: true }).lean()
 }
 
-// Start writes only lifecycle fields; reservation snapshots stay unchanged.
-export async function persistStartedAppointment(appointment, { expectedRevision, session }) {
+// Shared lifecycle CAS writer; planned times and snapshots are never updated.
+async function persistLifecycleAppointment(appointment, { expectedRevision, session }, completing) {
     if (!session?.inTransaction()) throw new TypeError('An active transaction session is required')
-    if (!(appointment instanceof AppointmentModel) || appointment.status !== 'in_progress' ||
+    const targetStatus = completing ? 'completed' : 'in_progress'
+    if (!(appointment instanceof AppointmentModel) || appointment.status !== targetStatus ||
         !Number.isSafeInteger(expectedRevision) || expectedRevision < 0 || expectedRevision >= Number.MAX_SAFE_INTEGER ||
-        appointment.revision !== expectedRevision + 1) throw new TypeError('A valid start transition is required')
+        appointment.revision !== expectedRevision + 1) throw new TypeError('A valid lifecycle transition is required')
     await appointment.validate()
-    return AppointmentModel.findOneAndUpdate({
-        _id: appointment._id, customerId: appointment.customerId, staffId: appointment.staffId,
-        revision: expectedRevision, status: 'confirmed', startedAt: { $exists: false },
-    }, { $set: {
+    const changes = {
         status: appointment.status, startedAt: appointment.startedAt,
         occupiedFrom: appointment.occupiedFrom, occupiedUntil: appointment.occupiedUntil,
         revision: appointment.revision, lastCommand: appointment.lastCommand.toObject(),
-    } }, { session, returnDocument: 'after', runValidators: true }).lean()
+        ...(completing ? { completedAt: appointment.completedAt } : {}),
+    }
+    return AppointmentModel.findOneAndUpdate({
+        _id: appointment._id, customerId: appointment.customerId, staffId: appointment.staffId,
+        revision: expectedRevision, status: completing ? 'in_progress' : 'confirmed',
+        startedAt: completing ? appointment.startedAt : { $exists: false },
+        ...(completing ? { completedAt: { $exists: false } } : {}),
+    }, {
+        $set: changes,
+        ...(completing ? { $unset: { estimatedEndAt: 1 } } : {}),
+    }, { session, returnDocument: 'after', runValidators: true }).lean()
+}
+
+export function persistStartedAppointment(appointment, options) {
+    return persistLifecycleAppointment(appointment, options, false)
+}
+
+export function persistCompletedAppointment(appointment, options) {
+    return persistLifecycleAppointment(appointment, options, true)
 }

@@ -8,6 +8,7 @@ import {
     markAppointmentNoShowController,
     rescheduleAppointmentController,
     startAppointmentController,
+    completeAppointmentController,
 } from "./appointments.controller.js";
 
 import { createBookingController, lookupBookingCustomersController } from './booking.controller.js'
@@ -22,5 +23,5 @@ appointmentsRouter.post('/appointments/:appointmentId/cancel', requireAuth,  req
 appointmentsRouter.post('/appointments/:appointmentId/no-show', requireAuth, requireRoles('owner'), markAppointmentNoShowController,)
 appointmentsRouter.get('/appointments/:appointmentId/service-history', requireAuth, requireRoles('stylist', 'owner'),getAppointmentServiceHistoryController)
 appointmentsRouter.post('/appointments/:appointmentId/reschedule', requireAuth, requireRoles('customer', 'owner'), rescheduleAppointmentController)
-
 appointmentsRouter.post('/appointments/:appointmentId/start', requireAuth, requireRoles('stylist', 'owner'), startAppointmentController)
+appointmentsRouter.post('/appointments/:appointmentId/complete', requireAuth, requireRoles('stylist', 'owner'), completeAppointmentController)

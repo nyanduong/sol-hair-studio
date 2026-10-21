@@ -833,3 +833,227 @@ describe('transactional appointment start', () => {
     await assertUnchanged(mine._id)
   })
 })
+
+// SOL-036 Step 2: actual completion on the same temporary replica set.
+describe('transactional appointment completion', () => {
+  const finish = (id, acting = stylist, body = { expectedRevision: 0 }, key = 'sol036-complete-command-0001') =>
+    command(id, 'complete', acting, body, key)
+  const serving = (patch = {}) => appointment({ status: 'in_progress', startAt: new Date(NOW.getTime() - 30 * MINUTE), ...patch })
+  const slots = async (staffId = stylist.staff._id) => {
+    const result = await get('/api/availability', owner).query({ serviceIds: 'service-cut-style',
+      staffId: String(staffId), customerId: String(client.customer._id), localDate: '2026-10-20' }).expect(200)
+    return result.body.data.stylists[0].slots.map(item => item.startAt)
+  }
+  async function assertServingUnchanged(mine) {
+    const stored = await AppointmentModel.findById(mine._id).lean()
+    expect(stored).toMatchObject({ status: 'in_progress', revision: 0 })
+    expect(stored.completedAt).toBeUndefined()
+    expect(stored.lastCommand).toBeUndefined()
+    expect(await AppointmentEventModel.countDocuments()).toBe(0)
+    expect((await CustomerModel.findById(client.customer._id)).bookingRevision).toBe(0)
+    expect((await StaffModel.findById(stylist.staff._id)).bookingRevision).toBe(0)
+  }
+  beforeEach(async () => {
+    await shift(stylist.staff._id)
+    await shift(otherStylist.staff._id)
+    await ServiceModel.create({ id: 'service-cut-style', slug: 'service-cut-style', name: 'Current service',
+      description: 'Synthetic service', category: 'Hair', durationMinutes: { min: 30, max: 30 },
+      bookingDurationMinutes: 30, priceVnd: 100000, imageUrl: 'https://res.cloudinary.com/demo/image/upload/sample.jpg' })
+  })
+
+  it.each(['stylist', 'owner'])('allows %s to complete using server time and one event', async role => {
+    const mine = await serving()
+    const response = await finish(mine._id, role === 'owner' ? owner : stylist).expect(200)
+    expect(response.headers['cache-control']).toBe('no-store')
+    expect(response.body.data).toMatchObject({ status: 'completed', revision: 1, startedAt: mine.startedAt.toISOString(), completedAt: NOW.toISOString() })
+    const stored = await AppointmentModel.findById(mine._id).lean()
+    expect(stored.occupiedFrom).toEqual(mine.startedAt)
+    expect(stored.occupiedUntil).toEqual(new Date(NOW.getTime() + 10 * MINUTE))
+    for (const field of ['startAt', 'endAt', 'items', 'customerSnapshot', 'staffNameSnapshot', 'totalPriceVnd', 'totalDurationMinutes', 'confirmedAt', 'bookingMode']) {
+      expect(stored[field]).toEqual(mine.toObject()[field])
+    }
+    expect(stored.status).not.toBe('paid')
+    expect((await CustomerModel.findById(client.customer._id)).bookingRevision).toBe(1)
+    expect((await StaffModel.findById(stylist.staff._id)).bookingRevision).toBe(1)
+    const event = await AppointmentEventModel.findOne().lean()
+    expect(event).toMatchObject({ kind: 'completed', revision: 1, occurredAt: NOW,
+      before: { status: 'in_progress' }, after: { status: 'completed', completedAt: NOW } })
+  })
+
+  it('completes early and opens the unused reservation after cleanup on the grid', async () => {
+    const mine = await serving({ startAt: new Date(NOW.getTime() - 10 * MINUTE) })
+    const before = await slots()
+    expect(before[0]).toBe(new Date(NOW.getTime() + 30 * MINUTE).toISOString())
+    await finish(mine._id).expect(200)
+    const after = await slots()
+    expect(after[0]).toBe(new Date(NOW.getTime() + 15 * MINUTE).toISOString())
+    expect(after).not.toContain(NOW.toISOString())
+    const stored = await AppointmentModel.findById(mine._id).lean()
+    expect(stored.endAt).toEqual(mine.endAt)
+    expect(stored.occupiedUntil.getTime()).toBeLessThan(mine.occupiedUntil.getTime())
+  })
+
+  it('accepts a slot exactly at cleanup end when it lies on the grid', async () => {
+    const mine = await serving()
+    vi.setSystemTime(new Date(NOW.getTime() + 5 * MINUTE))
+    await finish(mine._id).expect(200)
+    expect((await slots())[0]).toBe(new Date(NOW.getTime() + 15 * MINUTE).toISOString())
+  })
+
+  it('records late completion and releases an overdue unknown-end reservation', async () => {
+    const mine = await serving({ startAt: new Date(NOW.getTime() - 60 * MINUTE) })
+    expect(await slots()).toEqual([])
+    await finish(mine._id).expect(200)
+    const stored = await AppointmentModel.findById(mine._id).lean()
+    expect(stored.completedAt).toEqual(NOW)
+    expect(stored.occupiedUntil.getTime()).toBeGreaterThan(mine.occupiedUntil.getTime())
+    expect((await slots())[0]).toBe(new Date(NOW.getTime() + 15 * MINUTE).toISOString())
+  })
+
+  it('records actual completion even outside the shift and does not move an affected appointment', async () => {
+    const mine = await serving({ startAt: new Date(NOW.getTime() - 90 * MINUTE) })
+    const next = await appointment({ customerId: otherClient.customer._id, startAt: new Date(NOW.getTime() - 30 * MINUTE) })
+    await StaffShiftModel.deleteMany({})
+    await finish(mine._id).expect(200)
+    const unchanged = await AppointmentModel.findById(next._id).lean()
+    expect(unchanged).toMatchObject({ status: 'confirmed', revision: 0, startAt: next.startAt, endAt: next.endAt })
+    expect(await AppointmentEventModel.countDocuments({ appointmentId: next._id })).toBe(0)
+    expect(await slots()).toEqual([])
+  })
+
+  it('does not reserve customer cleanup on another Staff', async () => {
+    const mine = await serving()
+    await finish(mine._id).expect(200)
+    expect((await slots(otherStylist.staff._id))[0]).toBe(NOW.toISOString())
+    expect((await slots())[0]).toBe(new Date(NOW.getTime() + 15 * MINUTE).toISOString())
+  })
+
+  it('still requires enough service plus cleanup time before the next booking', async () => {
+    const mine = await serving()
+    await appointment({ customerId: otherClient.customer._id, startAt: new Date(NOW.getTime() + 45 * MINUTE) })
+    await finish(mine._id).expect(200)
+    const available = await slots()
+    expect(available).not.toContain(new Date(NOW.getTime() + 15 * MINUTE).toISOString())
+    expect(available).not.toContain(new Date(NOW.getTime() + 30 * MINUTE).toISOString())
+  })
+
+  it('keeps customer lead-time after releasing cleanup', async () => {
+    const mine = await serving()
+    await finish(mine._id).expect(200)
+    const result = await get('/api/availability').query({ serviceIds: 'service-cut-style', staffId: String(stylist.staff._id), localDate: '2026-10-20' }).expect(200)
+    expect(result.body.data.stylists[0].slots[0].startAt).toBe(new Date(NOW.getTime() + 30 * MINUTE).toISOString())
+  })
+
+  it('removes an existing ETA from the current document while preserving it in audit', async () => {
+    const eta = new Date(NOW.getTime() + 60 * MINUTE)
+    const mine = await serving({ estimatedEndAt: eta, occupiedUntil: new Date(eta.getTime() + 10 * MINUTE) })
+    await finish(mine._id).expect(200)
+    expect((await AppointmentModel.findById(mine._id).lean()).estimatedEndAt).toBeUndefined()
+    const event = await AppointmentEventModel.findOne().lean()
+    expect(event.before.estimatedEndAt).toEqual(eta)
+    expect(event.after.estimatedEndAt).toBeUndefined()
+  })
+
+  it('completes after Start using its new revision and preserves both audit events', async () => {
+    const mine = await appointment({ startAt: NOW })
+    await command(mine._id, 'start', stylist, { expectedRevision: 0 }, 'sol036-start-before-complete').expect(200)
+    vi.setSystemTime(new Date(NOW.getTime() + 5 * MINUTE))
+    const result = await finish(mine._id, stylist, { expectedRevision: 1 }).expect(200)
+    expect(result.body.data.revision).toBe(2)
+    expect((await AppointmentEventModel.find().sort({ revision: 1 }).lean()).map(item => item.kind)).toEqual(['started', 'completed'])
+  })
+
+  it.each(['customer', 'otherStylist'])('rejects %s without partial changes', async role => {
+    const mine = await serving()
+    await finish(mine._id, role === 'customer' ? client : otherStylist).expect(role === 'customer' ? 403 : 404)
+    await assertServingUnchanged(mine)
+  })
+
+  it('requires authentication and valid appointment ID', async () => {
+    await request(app).post(commandPath(oid(), 'complete')).send({ expectedRevision: 0 }).expect(401)
+    await finish('bad').expect(400)
+    await finish(oid()).expect(404)
+  })
+
+  it.each(['confirmed', 'completed', 'cancelled', 'no_show'])('rejects %s state', async status => {
+    const mine = await appointment({ status })
+    expect((await finish(mine._id).expect(409)).body.code).toBe('APPOINTMENT_STATE_CONFLICT')
+    expect(await AppointmentEventModel.countDocuments()).toBe(0)
+  })
+
+  it('rejects stale revision and rolls back guards', async () => {
+    const mine = await serving()
+    expect((await finish(mine._id, stylist, { expectedRevision: 1 }).expect(409)).body.code).toBe('APPOINTMENT_REVISION_CONFLICT')
+    await assertServingUnchanged(mine)
+  })
+
+  it('does not backdate completion before an invalid future actual start', async () => {
+    const mine = await serving({ startedAt: new Date(NOW.getTime() + MINUTE) })
+    expect((await finish(mine._id).expect(409)).body.code).toBe('INVALID_COMPLETION_TIME')
+    await assertServingUnchanged(mine)
+  })
+
+  it.each([{}, { expectedRevision: -1 }, { expectedRevision: 0.5 }, { expectedRevision: 0, completedAt: NOW.toISOString() }, { expectedRevision: 0, status: 'paid' }, { expectedRevision: 0, items: [] }])('rejects invalid body %j', async body => {
+    const mine = await serving()
+    await finish(mine._id, stylist, body).expect(400)
+    await assertServingUnchanged(mine)
+  })
+
+  it('requires a valid command key', async () => {
+    const mine = await serving()
+    await finish(mine._id, stylist, { expectedRevision: 0 }, 'bad').expect(400)
+    await assertServingUnchanged(mine)
+  })
+
+  it('replays the latest completion without another revision or event', async () => {
+    const mine = await serving()
+    const first = await finish(mine._id).expect(200)
+    vi.setSystemTime(new Date(NOW.getTime() + 20 * MINUTE))
+    const replay = await finish(mine._id).expect(200)
+    expect(replay.body).toEqual(first.body)
+    expect((await AppointmentModel.findById(mine._id)).revision).toBe(1)
+    expect(await AppointmentEventModel.countDocuments()).toBe(1)
+  })
+
+  it('rejects a changed intent on the same key', async () => {
+    const mine = await serving()
+    await finish(mine._id).expect(200)
+    expect((await finish(mine._id, stylist, { expectedRevision: 1 }).expect(409)).body.code).toBe('COMMAND_KEY_CONFLICT')
+    expect(await AppointmentEventModel.countDocuments()).toBe(1)
+  })
+
+  it('serializes identical concurrent completions', async () => {
+    const mine = await serving()
+    const responses = await Promise.all([finish(mine._id), finish(mine._id)])
+    expect(responses.map(item => item.status)).toEqual([200, 200])
+    expect(await AppointmentEventModel.countDocuments()).toBe(1)
+  })
+
+  it('allows only one of two different completion commands at the same revision', async () => {
+    const mine = await serving()
+    const responses = await Promise.all([finish(mine._id), finish(mine._id, owner, { expectedRevision: 0 }, 'sol036-complete-command-0002')])
+    expect(responses.map(item => item.status).sort()).toEqual([200, 409])
+    expect(await AppointmentEventModel.countDocuments()).toBe(1)
+  })
+
+  it('rolls back appointment and guards if the completed event cannot be inserted', async () => {
+    const mine = await serving()
+    vi.spyOn(appointmentRepository, 'insertAppointmentEvent').mockRejectedValueOnce(new Error('synthetic completion audit failure'))
+    await finish(mine._id).expect(500)
+    await assertServingUnchanged(mine)
+  })
+
+  it('rolls back guards when the lifecycle CAS loses', async () => {
+    const mine = await serving()
+    vi.spyOn(appointmentRepository, 'persistCompletedAppointment').mockResolvedValueOnce(null)
+    await finish(mine._id).expect(409)
+    await assertServingUnchanged(mine)
+  })
+
+  it('rereads current authorization inside the transaction', async () => {
+    const mine = await serving()
+    vi.spyOn(appointmentRepository, 'findAppointmentCommandActor').mockResolvedValueOnce(null)
+    await finish(mine._id).expect(401)
+    await assertServingUnchanged(mine)
+  })
+})
