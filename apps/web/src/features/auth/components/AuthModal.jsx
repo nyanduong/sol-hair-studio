@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import StaffActivationModal from './StaffActivationModal.jsx'
 import { getAuthErrorMessage } from '../api/auth.api.js'
 import { useAuth } from '../hooks/useAuth.js'
 import {
@@ -40,6 +41,7 @@ export default function AuthModal() {
   const [apiErrorCode, setApiErrorCode] = useState(null)
   const [successNotice, setSuccessNotice] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [staffActivationOpen, setStaffActivationOpen] = useState(false)
 
   const modalRef = useRef(null)
   const emailInputRef = useRef(null)
@@ -84,6 +86,7 @@ export default function AuthModal() {
   }, [isModalOpen, closeModal])
 
   if (!isModalOpen) return null
+  if (staffActivationOpen) return <StaffActivationModal onClose={() => setStaffActivationOpen(false)} />
 
   function handleModeChange(newMode) {
     setModalMode(newMode)
@@ -423,6 +426,7 @@ export default function AuthModal() {
             </button>
           </div>
         )}
+        {modalMode === 'login' && <button type="button" onClick={() => setStaffActivationOpen(true)} className="mt-4 w-full text-center text-xs font-semibold text-terracotta hover:underline">Kích hoạt tài khoản nhân viên</button>}
 
         {/* Global API Error Alert */}
         {apiError && (
