@@ -76,6 +76,6 @@ Planned times, occupied interval and localDate are recalculated; status remains 
 No Booking creation, booking_requests receipt, catalog backfill, time-off writer, notification, migration or seed is added here. SOL-031 creation writer is still a separate dependency for full end-to-end booking. That writer must reuse the same guards/readers; GET availability does not reserve a slot.
 The endpoint is tested with fixtures on a temporary MongoDB replica set, not live shared database data.
 
-## Baseline ambiguity for review
+## Owner start-time boundary
 
-The SOL-030 runtime and reschedule event checker allow Owner newStart == server-now on a valid scheduled grid; the generic example checker separately requires lastRescheduledAt < startAt. This implementation follows the SOL-030 scheduled rule (>= now) and tests it explicitly. Align the example-checker inequality with the agreed contract before treating it as a production migration validator; no approved business document/checker was edited here.
+Owner newStart >= server-now, including exact equality on a valid scheduled 15-minute grid. The baseline checker accepts lastRescheduledAt <= startAt and rejects a start before the command time. Runtime still validates against server-now; the persisted timestamp is not a substitute for that check. Customer cutoff/lead-time, Owner late-change reason and all availability checks remain unchanged.
