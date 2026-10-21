@@ -157,7 +157,7 @@ export async function getAvailability(identity, query, now = new Date(), session
   ) {
     throw new AvailabilityError('CUSTOMER_NOT_FOUND', 'Không tìm thấy hồ sơ khách.', 404)
   }
-  const services = await findBookingServices(options.serviceIds, session)
+  const services = await findBookingServices(options.serviceIds, { session })
   if (services.length !== options.serviceIds.length)
     throw new AvailabilityError('SERVICE_UNAVAILABLE', 'Dịch vụ không tồn tại hoặc đã ẩn.', 409)
   const items = options.serviceIds.map((id) => services.find((item) => item.id === id))
@@ -183,14 +183,14 @@ export async function getAvailability(identity, query, now = new Date(), session
     )
   }
   const totalDurationMinutes = items.reduce((sum, item) => sum + item.bookingDurationMinutes, 0)
-  const staff = await findEligibleStaff(options.serviceIds, options.staffId, session)
+  const staff = await findEligibleStaff(options.serviceIds, options.staffId, { session })
   const calendar = staff.length
     ? await findAvailabilityCalendar(
         staff.map((item) => item._id),
         options.customerId,
         options.from,
         options.until,
-        session,
+        { session },
       )
     : { shifts: [], timeOff: [], appointments: [] }
   return {

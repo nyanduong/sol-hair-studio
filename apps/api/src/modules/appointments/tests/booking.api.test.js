@@ -21,6 +21,7 @@ import { AppointmentEventModel } from '../appointment-events.model.js'
 import { BookingRequestModel } from '../booking-requests.model.js'
 import { prepareBookingStorage } from '../booking.repository.js'
 import { createBooking } from '../booking.service.js'
+import * as availabilityRepository from '../../availability/availability.repository.js'
 
 const NOW = new Date('2026-10-21T03:00:00.000Z')
 const at = (time) => new Date(`2026-10-21T${time}+07:00`)
@@ -149,7 +150,14 @@ afterEach(() => {
 
 describe('SOL-031 transactional booking HTTP + real temporary replica set', () => {
   it('creates confirmed snapshots, guards, event and 24h receipt; M5 reads the same appointment', async () => {
+    const servicesReader = vi.spyOn(availabilityRepository, 'findBookingServices')
+    const staffReader = vi.spyOn(availabilityRepository, 'findEligibleStaff')
+    const calendarReader = vi.spyOn(availabilityRepository, 'findAvailabilityCalendar')
     const response = await post({ serviceIds: ['spa', 'cut'] }).expect(201)
+    const session = servicesReader.mock.calls[0][1].session
+    expect(session).toBeInstanceOf(mongoose.mongo.ClientSession)
+    expect(staffReader.mock.calls[0][2].session).toBe(session)
+    expect(calendarReader.mock.calls[0][4].session).toBe(session)
     expect(response.headers['cache-control']).toBe('no-store')
     const appointment = await AppointmentModel.findById(response.body.data.id).lean()
     expect(appointment).toMatchObject({
