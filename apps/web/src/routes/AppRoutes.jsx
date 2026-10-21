@@ -3,6 +3,7 @@ import HealthPage from '../features/health/pages/HealthPage.jsx'
 import HomePage from '../features/home/pages/HomePage.jsx'
 import LoginPage from '../features/auth/pages/LoginPage.jsx'
 import MainLayout from '../layouts/MainLayout.jsx'
+import BookingPage from '../features/booking/pages/BookingPage.jsx'
 
 export default function AppRoutes() {
   return (
@@ -11,6 +12,7 @@ export default function AppRoutes() {
         <Route path="/" element={<HomePage />} />
         <Route path="/health" element={<HealthPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/booking" element={<BookingPage />} />
       </Route>
     </Routes>
   )
