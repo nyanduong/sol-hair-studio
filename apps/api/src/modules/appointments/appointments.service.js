@@ -690,7 +690,7 @@ async function executeAppointmentCommand(session,{ identity, appointmentId, reso
     }
 
     const persist = operation === 'cancel' ? persistCancelledAppointment : persistNoShowAppointment
-    
+
     const updated = await persist(appointment, { expectedRevision: input.expectedRevision, session })
     if (!updated) {
         throw new AppointmentError('Appointment has changed. Reload it before trying again.', {

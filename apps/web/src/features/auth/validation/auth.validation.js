@@ -98,4 +98,3 @@ export function validateOtpCode(code) {
 
   return { isValid: true, message: null, value: trimmed }
 }
-

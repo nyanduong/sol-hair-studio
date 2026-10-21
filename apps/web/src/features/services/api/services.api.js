@@ -1,9 +1,10 @@
 import { requestJson } from '../../../lib/http.js'
 
-export async function fetchServices(apiBaseUrl, { signal } = {}) {
+export async function fetchServices(apiBaseUrl, { signal, fetchImpl } = {}) {
   const response = await requestJson('/api/services', {
     baseUrl: apiBaseUrl,
     signal,
+    fetchImpl,
   })
 
   return response.data
