@@ -6,6 +6,7 @@ import {
     cancelAppointment,
     markAppointmentNoShow,
     rescheduleAppointment,
+    startAppointment,
 } from "./appointments.service.js";
 
 function sendAppointmentError(error, res, next) {
@@ -87,4 +88,8 @@ export async function getAppointmentServiceHistoryController(req, res, next) {
 
 export function rescheduleAppointmentController(req, res, next) {
     return appointmentCommandResponse(rescheduleAppointment, req, res, next)
+}
+
+export function startAppointmentController(req, res, next) {
+    return appointmentCommandResponse(startAppointment, req, res, next)
 }

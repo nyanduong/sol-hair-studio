@@ -82,10 +82,11 @@ export function findCustomerAppointments(customerId, {limit =20, cursor} = {}) {
     return findAppointmentPage(filter, limit, -1, { ...APPOINTMENT_LIST_FIELDS }, 50)
 }
 
-export function findAppointmentStaffByAccountId(accountId) {
+export function findAppointmentStaffByAccountId(accountId, { session } = {}) {
     assertObjectId(accountId, 'accountId')
 
     return StaffModel.findOne({ accountId })
+    .session(session ?? null)
     .select({
         _id: 1,
         isActive: 1,
@@ -393,6 +394,23 @@ export async function persistRescheduledAppointment(appointment, { expectedRevis
         occupiedFrom: appointment.occupiedFrom, occupiedUntil: appointment.occupiedUntil,
         localDate: appointment.localDate, timeZone: appointment.timeZone,
         lastRescheduledAt: appointment.lastRescheduledAt,
+        revision: appointment.revision, lastCommand: appointment.lastCommand.toObject(),
+    } }, { session, returnDocument: 'after', runValidators: true }).lean()
+}
+
+// Start writes only lifecycle fields; reservation snapshots stay unchanged.
+export async function persistStartedAppointment(appointment, { expectedRevision, session }) {
+    if (!session?.inTransaction()) throw new TypeError('An active transaction session is required')
+    if (!(appointment instanceof AppointmentModel) || appointment.status !== 'in_progress' ||
+        !Number.isSafeInteger(expectedRevision) || expectedRevision < 0 || expectedRevision >= Number.MAX_SAFE_INTEGER ||
+        appointment.revision !== expectedRevision + 1) throw new TypeError('A valid start transition is required')
+    await appointment.validate()
+    return AppointmentModel.findOneAndUpdate({
+        _id: appointment._id, customerId: appointment.customerId, staffId: appointment.staffId,
+        revision: expectedRevision, status: 'confirmed', startedAt: { $exists: false },
+    }, { $set: {
+        status: appointment.status, startedAt: appointment.startedAt,
+        occupiedFrom: appointment.occupiedFrom, occupiedUntil: appointment.occupiedUntil,
         revision: appointment.revision, lastCommand: appointment.lastCommand.toObject(),
     } }, { session, returnDocument: 'after', runValidators: true }).lean()
 }
