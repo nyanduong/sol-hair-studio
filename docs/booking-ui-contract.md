@@ -12,9 +12,10 @@ giá/thời lượng từ khoảng min–max hoặc tự chọn stylist. Không 
 - `GET /api/availability`: serviceIds phân cách dấu phẩy, localDate/mode, owner có thể truyền customerId đã chọn.
   Tổng giá/thời lượng/items và slot do server trả; UI không cộng thời gian/giá làm dữ liệu authoritative.
 
-## Handoff SOL-031 — Endpoint chưa triển khai khi bàn giao UI
+## API tạo lịch SOL-031
 
-Hai endpoint sau là hợp đồng consumer đề xuất cho SOL-031, không phải API đã có trên main:
+Hai endpoint sau được triển khai trong SOL-031 theo hợp đồng consumer Web/Mobile;
+chi tiết transaction, receipt và lỗi tại [booking-api.md](booking-api.md):
 
 `GET /api/customers?phone=<E.164>` chỉ owner → `{data:{items:[{id,displayName,phone}]}}`.
 Owner phải chọn đúng mã hồ sơ khi trùng số; không tự link/gộp. Không có kết quả thì có thể nhập khách vãng lai.
@@ -35,7 +36,7 @@ Owner dùng `owner_scheduled` hoặc `owner_walkin`; bổ sung đúng một tron
 Customer không gửi customerId, contact hay tổng giá/thời lượng, server lấy identity/catalog/profile.
 Success → `{data:{id,startAt,...}}`; nếu thiếu `id`, UI coi kết quả chưa xác định và giữ cùng key/intent.
 Đối với retry, giữ cùng payload và key. SOL-031 phải enforce quyền, snapshot, chống trùng và receipt 24h trong DB transaction;
-UI không thay được các bảo đảm này.
+UI không thay được các bảo đảm này. API hiện ghi guard, snapshot, receipt và event trong cùng transaction.
 
 ## Trạng thái và lifecycle
 
