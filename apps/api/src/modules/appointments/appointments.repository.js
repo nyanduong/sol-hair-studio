@@ -336,42 +336,63 @@ export function persistNoShowAppointment(appointment, options = {}) {
     return persistClosedAppointment(appointment, options, 'no_show')
 }
 // Kiem ngu canh va lay lich su trong cung query; khong nhan customerId tu client.
-export async function findAppointmentServiceHistory(
-  appointmentId,
-  { role, staffId, limit = 20, cursor } = {},
-) {
-  assertObjectId(appointmentId, 'appointmentId')
-  if (role !== 'owner' && role !== 'stylist') {
-    throw new TypeError('An owner or stylist scope is required')
-  }
-  if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
-    throw new TypeError('limit must be an integer between 1 and 50')
-  }
-  const context = { _id: new mongoose.Types.ObjectId(appointmentId) }
-  if (role === 'stylist') {
-    assertObjectId(staffId, 'staffId')
-    context.staffId = new mongoose.Types.ObjectId(staffId)
-    context.status = { $in: ['confirmed', 'in_progress', 'completed'] }
-  }
-  const historyFilter = {
-    status: 'completed',
-    $expr: { $eq: ['$customerId', '$$contextCustomerId'] },
-  }
-  applyAppointmentCursor(historyFilter, cursor, -1, 'completedAt')
-  const [result] = await AppointmentModel.aggregate([
-    { $match: context },
-    { $lookup: {
-      from: AppointmentModel.collection.name,
-      let: { contextCustomerId: '$customerId' },
-      pipeline: [
-        { $match: historyFilter },
-        { $sort: { completedAt: -1, _id: -1 } },
-        { $limit: limit + 1 },
-        { $project: { ...APPOINTMENT_LIST_FIELDS, completedAt: 1 } },
-      ],
-      as: 'items',
-    } },
-    { $project: { _id: 0, items: 1 } },
-  ])
-  return result ?? null
+export async function findAppointmentServiceHistory(appointmentId,{ role, staffId, limit = 20, cursor } = {}) {
+    assertObjectId(appointmentId, 'appointmentId')
+    if (role !== 'owner' && role !== 'stylist') {
+        throw new TypeError('An owner or stylist scope is required')
+    }
+    if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
+        throw new TypeError('limit must be an integer between 1 and 50')
+    }
+    const context = { _id: new mongoose.Types.ObjectId(appointmentId) }
+    if (role === 'stylist') {
+        assertObjectId(staffId, 'staffId')
+        context.staffId = new mongoose.Types.ObjectId(staffId)
+        context.status = { $in: ['confirmed', 'in_progress', 'completed'] }
+    }
+    const historyFilter = {
+        status: 'completed',
+        $expr: { $eq: ['$customerId', '$$contextCustomerId'] },
+    }
+    applyAppointmentCursor(historyFilter, cursor, -1, 'completedAt')
+    const [result] = await AppointmentModel.aggregate([
+        { $match: context },
+        { $lookup: {
+        from: AppointmentModel.collection.name,
+        let: { contextCustomerId: '$customerId' },
+        pipeline: [
+            { $match: historyFilter },
+            { $sort: { completedAt: -1, _id: -1 } },
+            { $limit: limit + 1 },
+            { $project: { ...APPOINTMENT_LIST_FIELDS, completedAt: 1 } },
+        ],
+        as: 'items',
+        } },
+        { $project: { _id: 0, items: 1 } },
+    ])
+    return result ?? null
+}
+
+// CAS doi lich: giu customer/snapshot va so Staff cu truoc khi ghi Staff moi.
+export async function persistRescheduledAppointment(appointment, { expectedRevision, previousStaffId, session } = {},) {
+    if (!session?.inTransaction()) throw new TypeError('An active transaction session is required')
+    assertObjectId(previousStaffId, 'previousStaffId')
+    if (
+        !(appointment instanceof AppointmentModel) || appointment.status !== 'confirmed' ||
+        !Number.isSafeInteger(expectedRevision) || expectedRevision < 0 ||
+        expectedRevision >= Number.MAX_SAFE_INTEGER || appointment.revision !== expectedRevision + 1
+    ) throw new TypeError('A valid reschedule document is required')
+    await appointment.validate()
+    return AppointmentModel.findOneAndUpdate({
+        _id: appointment._id, customerId: appointment.customerId, staffId: previousStaffId,
+        revision: expectedRevision, status: 'confirmed', startedAt: { $exists: false },
+    }, { $set: {
+        staffId: appointment.staffId,
+        staffNameSnapshot: appointment.staffNameSnapshot,
+        startAt: appointment.startAt, endAt: appointment.endAt,
+        occupiedFrom: appointment.occupiedFrom, occupiedUntil: appointment.occupiedUntil,
+        localDate: appointment.localDate, timeZone: appointment.timeZone,
+        lastRescheduledAt: appointment.lastRescheduledAt,
+        revision: appointment.revision, lastCommand: appointment.lastCommand.toObject(),
+    } }, { session, returnDocument: 'after', runValidators: true }).lean()
 }

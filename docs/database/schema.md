@@ -129,7 +129,7 @@ Giữ nghỉ ngoại lệ do chủ quản lý từ baseline cũ, không yêu c�
 | estimatedEndAt | Date O | Chỉ in_progress; giờ dự kiến kết thúc mới khi kéo dài, ≥now và >endAt khi cập nhật |
 | cancelledAt, noShowAt | Date O | Chỉ trạng thái tương ứng; noShowAt≥startAt+15 phút |
 | contactAttemptedAt | Date O | R khi no_show: chủ ghi nhận đã liên hệ, ≤noShowAt; không tự đánh dấu đủ thời gian là đã liên hệ |
-| lastRescheduledAt | Date O | Lần đổi gần nhất; audit lưu thay đổi trước |
+| lastRescheduledAt | Date O | lastRescheduledAt <= startAt; Lần đổi gần nhất; audit lưu thay đổi trước |
 | lastCommand | Object O/R | R khi revision>0: key, actorId ObjectId, hash, resultRevision=revision; receipt lệnh gần nhất, không lịch sử đầy đủ |
 
 Timestamp không liên quan phải thiếu. Sửa nhầm xóa mốc không còn đúng khỏi current document nhưng giữ before/after trong event, không mất dấu vết. cancelled/no_show có thể giữ khoảng đã hẹn để lịch sử, nhưng không chặn booking mới.

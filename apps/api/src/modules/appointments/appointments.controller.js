@@ -5,6 +5,7 @@ import {
     getAppointmentServiceHistory,
     cancelAppointment,
     markAppointmentNoShow,
+    rescheduleAppointment,
 } from "./appointments.service.js";
 
 function sendAppointmentError(error, res, next) {
@@ -75,11 +76,15 @@ async function appointmentCommandResponse(operation, req, res, next) {
 
 // Lich su phuc vu chi doc, khong ghi appointment hay audit.
 export async function getAppointmentServiceHistoryController(req, res, next) {
-  res.set('Cache-Control', 'no-store')
-  try {
-    const data = await getAppointmentServiceHistory(req.identity, req.params.appointmentId, req.query)
-    return res.status(200).json({ status: 'success', data })
-  } catch (error) {
-    return sendAppointmentError(error, res, next)
-  }
+    res.set('Cache-Control', 'no-store')
+    try {
+        const data = await getAppointmentServiceHistory(req.identity, req.params.appointmentId, req.query)
+        return res.status(200).json({ status: 'success', data })
+    } catch (error) {
+        return sendAppointmentError(error, res, next)
+    }
+}
+
+export function rescheduleAppointmentController(req, res, next) {
+    return appointmentCommandResponse(rescheduleAppointment, req, res, next)
 }

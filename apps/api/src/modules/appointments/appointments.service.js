@@ -1,3 +1,5 @@
+import { AvailabilityError, assertAppointmentSlotAvailable } from '../availability/availability.service.js'
+import { toHoChiMinhDate } from '../staff/staff-shifts.model.js'
 import {
     findCustomerAppointments,
     findStylistAppointments,
@@ -9,6 +11,7 @@ import {
     lockAndBumpCustomerBookingRevision,
     persistCancelledAppointment,
     persistNoShowAppointment,
+    persistRescheduledAppointment,
     insertAppointmentEvent,
     findAppointmentCommandResources,
     findAppointmentServiceHistory,
@@ -384,17 +387,10 @@ export async function getAppointmentDetail(identity, appointmentId) {
 }
 
 export function parseCancelAppointmentInput(body) {
-    const input = parseAppointmentCommandBody(body, ['expectedRevision', 'reason'],)
-    if(body.reason !== undefined) {
-        if(typeof body.reason !== 'string' || body.reason.trim().length === 0 || body.reason.length > 500) {
-            throw new AppointmentError('reason must be a non-empty string up to 500 characters', {
-                code: 'INVALID_REASON',
-                status: 400,
-            })
-        }
-        input.reason = body.reason.trim()
-    }
-    return input
+  const input = parseAppointmentCommandBody(body, ['expectedRevision', 'reason'])
+  const reason = parseAppointmentCommandReason(body.reason)
+  if (reason !== undefined) input.reason = reason
+  return input
 }
 
 // Kiểm tra key của một thao tác; retry phải giữ nguyên key.
@@ -415,30 +411,18 @@ export function parseAppointmentCommandKey(value) {
 
 // Hash intent đã validate, không đưa thời điểm server vào hash.
 function hashAppointmentCommand(operation, appointmentId, input) {
-    if (operation !== 'cancel' && operation !== 'no_show') {
-        throw new TypeError('Unsupported appointment operation')
-    }
-
-    // Giữ thứ tự field cố định để hash không phụ thuộc JSON client.
-    const intent = {
-        operation,
-        appointmentId: appointmentId.toLowerCase(),
-        expectedRevision: input.expectedRevision,
-    }
-
-    if (operation === 'cancel') {
-        // Giữ nguyên intent của cancellation đã triển khai.
-        intent.reason = input.reason ?? null
-    } else {
-        // Thời điểm liên hệ là dữ liệu intent của Owner, không phải server-now.
-        intent.contactAttemptedAt = input.contactAttemptedAt.toISOString()
-    }
-
-    return createHash('sha256')
-        .update(JSON.stringify(intent), 'utf8')
-        .digest('hex')
+  if (!['cancel', 'no_show', 'reschedule'].includes(operation)) throw new TypeError('Unsupported appointment operation')
+  const intent = { operation, appointmentId: appointmentId.toLowerCase(), expectedRevision: input.expectedRevision }
+  if (operation === 'cancel') intent.reason = input.reason ?? null
+  else if (operation === 'no_show') intent.contactAttemptedAt = input.contactAttemptedAt.toISOString()
+  else {
+    intent.startAt = input.startAt?.toISOString() ?? null
+    intent.staffId = input.staffId ?? null
+    intent.reason = input.reason ?? null
+  }
+  return createHash('sha256').update(JSON.stringify(intent), 'utf8').digest('hex')
 }
-function assertCancelAppointmentAccess(identity, appointment) {
+function assertCustomerOwnerAppointmentAccess(identity, appointment) {
     if (!identity) {
         throw new AppointmentError('Need Login', {
         code: 'UNAUTHORIZED',
@@ -452,7 +436,7 @@ function assertCancelAppointmentAccess(identity, appointment) {
     }
     // Stylist không có quyền hủy; Customer chỉ hủy lịch của mình.
     if (!roles.includes('customer')) {
-        throw new AppointmentError('You are not authorized to cancel this appointment', {
+        throw new AppointmentError('You are not authorized to manage this appointment', {
             code: 'FORBIDDEN',
             status: 403,
         })
@@ -578,136 +562,74 @@ function buildAppointmentEventSnapshot(appointment) {
     return snapshot
 }
 
-async function loadGuardedAppointmentForCommand(identity, appointmentId, resources, session, operation) {
-    if (operation !== 'cancel' && operation !== 'no_show') {
-        throw new TypeError('Unsupported appointment operation')
-    }
-
-    // Luôn Customer trước Staff, không chạy Promise.all.
-    const customerGuard = await lockAndBumpCustomerBookingRevision(
-        String(resources.customerId),
-        { session },
-    )
-    if (customerGuard.status !== 'ok') {
-        throw new AppointmentError('Cannot retrieve the Customer guard!', {
-            code: 'CUSTOMER_GUARD_CONFLICT',
-            status: 409,
-        })
-    }
-
-    // Hàm Staff hiện có nhận session trực tiếp, không phải { session }.
-    const staffGuard = await lockAndBumpStaffBookingRevision(
-        String(resources.staffId),
-        session,
-    )
-
-    if (staffGuard.status !== 'ok') {
-        throw new AppointmentError('Cannot obtain the Guard Staff!', {
-            code: 'STAFF_GUARD_CONFLICT',
-            status: 409,
-        })
-    }
-
-    // Đọc lại actor bằng cùng session.
-    const actor = await findAppointmentCommandActor(
-        identity.accountId,
-        identity.authRevision,
-        { session },
-    )
-
-    if (!actor) {
-        throw new AppointmentError('The session is no longer valid!', {
-            code: 'UNAUTHORIZED',
-            status: 401,
-        })
-    }
-
-    // Không sử dụng pre-read để quyết định trạng thái hoặc quyền.
-    const appointment = await findAppointmentForUpdate(
-        appointmentId,
-        { session },
-    )
-
-    if (!appointment) {
-        throw new AppointmentError('Appointment not found', {
-            code: 'APPOINTMENT_NOT_FOUND',
-            status: 404,
-        })
-    }
-    // No-show chỉ Owner; hủy giữ quyền Customer/Owner hiện tại.
-    let role
-    if (operation === 'no_show') {
-        requireAppointmentRole(actor, 'owner')
-        role = 'owner'
-    } else {
-        role = assertCancelAppointmentAccess(actor, appointment)
-    }
-
-    // Tài nguyên đổi thì phải abort, không lấy thêm guard giữa transaction.
-    if (
-        String(appointment.customerId) !== String(resources.customerId) ||
-        String(appointment.staffId) !== String(resources.staffId)
-    ) {
-        throw new AppointmentError('Tài nguyên của lịch đã thay đổi.', {
-        code: 'APPOINTMENT_RESOURCES_CHANGED',
-        status: 409,
-        })
-    }
-
-    return { appointment, actor, role }
+// Customer first, then sorted and deduplicated old/target Staff guards.
+async function loadGuardedAppointmentForCommand(identity, appointmentId, resources, session, operation, targetStaffId) {
+  if (!['cancel', 'no_show', 'reschedule'].includes(operation)) throw new TypeError('Unsupported appointment operation')
+  const customerGuard = await lockAndBumpCustomerBookingRevision(String(resources.customerId), { session })
+  if (customerGuard.status !== 'ok') throw new AppointmentError('Cannot retrieve the Customer guard!', { code: 'CUSTOMER_GUARD_CONFLICT', status: 409 })
+  const staffIds = [...new Set([String(resources.staffId), ...(targetStaffId ? [targetStaffId] : [])])].sort()
+  for (const staffId of staffIds) {
+    const guard = await lockAndBumpStaffBookingRevision(staffId, session)
+    if (guard.status !== 'ok') throw new AppointmentError('Cannot obtain the Staff guard!', { code: 'STAFF_GUARD_CONFLICT', status: 409 })
+  }
+  const actor = await findAppointmentCommandActor(identity.accountId, identity.authRevision, { session })
+  if (!actor) throw new AppointmentError('The session is no longer valid!', { code: 'UNAUTHORIZED', status: 401 })
+  const appointment = await findAppointmentForUpdate(appointmentId, { session })
+  if (!appointment) throw new AppointmentError('Appointment not found', { code: 'APPOINTMENT_NOT_FOUND', status: 404 })
+  let role
+  if (operation === 'no_show') { requireAppointmentRole(actor, 'owner'); role = 'owner' }
+  else role = assertCustomerOwnerAppointmentAccess(actor, appointment)
+  if (String(appointment.customerId) !== String(resources.customerId) || String(appointment.staffId) !== String(resources.staffId)) {
+    throw new AppointmentError('Appointment resources have changed.', { code: 'APPOINTMENT_RESOURCES_CHANGED', status: 409 })
+  }
+  return { appointment, actor, role }
 }
 
 // Xử lý một lần hủy bên trong transaction do caller mở.
 // Guard, replay, CAS va audit dung chung cho huy/no-show.
-async function executeAppointmentCommand(session,{ identity, appointmentId, resources, input, key, hash, operation }) {
-    const { appointment, actor, role } = await loadGuardedAppointmentForCommand(
-        identity, appointmentId, resources, session, operation,
-    )
-    if (isAppointmentCommandReplay(appointment, { actorId: actor.accountId, key, hash })) {
-        return { appointment: appointment.toObject(), role }
+// One guarded transaction pipeline for reschedule/cancel/no-show.
+async function executeAppointmentCommand(session, { identity, appointmentId, resources, input, key, hash, operation }) {
+  const { appointment, actor, role } = await loadGuardedAppointmentForCommand(
+    identity, appointmentId, resources, session, operation, operation === 'reschedule' ? input.staffId : undefined,
+  )
+  if (isAppointmentCommandReplay(appointment, { actorId: actor.accountId, key, hash })) return { appointment: appointment.toObject(), role }
+  const now = new Date()
+  const before = buildAppointmentEventSnapshot(appointment)
+  const previousStaffId = String(appointment.staffId)
+  if (operation === 'reschedule') {
+    const candidate = prepareAppointmentReschedule(appointment, role, input, now)
+    let available
+    try {
+      available = await assertAppointmentSlotAvailable({
+        staffId: candidate.staffId, customerId: String(appointment.customerId),
+        serviceIds: appointment.items.map(item => item.serviceId), durationMinutes: appointment.totalDurationMinutes,
+        startAt: candidate.startAt, owner: role === 'owner', excludeAppointmentId: String(appointment._id),
+      }, { session, now })
+    } catch (error) {
+      if (error instanceof AvailabilityError) throw new AppointmentError(error.message, { code: error.code, status: error.status })
+      throw error
     }
-
-    const now = new Date()
-    if (operation === 'cancel') {
-        assertAppointmentCanBeCancelled(appointment, role, input, now)
-    } else {
-        assertAppointmentCanBeMarkedNoShow(appointment, input, now)
-    }
-
-    const before = buildAppointmentEventSnapshot(appointment)
-
-    appointment.status = operation === 'cancel' ? 'cancelled' : 'no_show'
-
-    if (operation === 'cancel') {
-        appointment.cancelledAt = now
-    } else {
-        appointment.noShowAt = now
-        appointment.contactAttemptedAt = input.contactAttemptedAt
-    }
-    appointment.revision = input.expectedRevision + 1
-    appointment.lastCommand = {
-        key, actorId: actor.accountId, hash, resultRevision: appointment.revision,
-    }
-
-    const persist = operation === 'cancel' ? persistCancelledAppointment : persistNoShowAppointment
-
-    const updated = await persist(appointment, { expectedRevision: input.expectedRevision, session })
-    if (!updated) {
-        throw new AppointmentError('Appointment has changed. Reload it before trying again.', {
-            code: 'APPOINTMENT_REVISION_CONFLICT', status: 409,
-        })
-    }
-    await insertAppointmentEvent({
-        appointmentId: updated._id,
-        actorId: actor.accountId,
-        revision: updated.revision,
-        kind: updated.status,
-        occurredAt: now,
-        before,
-        after: buildAppointmentEventSnapshot(updated),
-        ...(input.reason !== undefined ? { reason: input.reason } : {}),
-    }, { session })
-    return { appointment: updated, role }
+    Object.assign(appointment, candidate, { lastRescheduledAt: now })
+    if (candidate.staffId !== previousStaffId) appointment.staffNameSnapshot = available.displayName
+  } else if (operation === 'cancel') {
+    assertAppointmentCanBeCancelled(appointment, role, input, now)
+    appointment.status = 'cancelled'; appointment.cancelledAt = now
+  } else {
+    assertAppointmentCanBeMarkedNoShow(appointment, input, now)
+    appointment.status = 'no_show'; appointment.noShowAt = now; appointment.contactAttemptedAt = input.contactAttemptedAt
+  }
+  appointment.revision = input.expectedRevision + 1
+  appointment.lastCommand = { key, actorId: actor.accountId, hash, resultRevision: appointment.revision }
+  const persist = operation === 'reschedule' ? persistRescheduledAppointment : operation === 'cancel' ? persistCancelledAppointment : persistNoShowAppointment
+  const updated = await persist(appointment, { expectedRevision: input.expectedRevision, previousStaffId, session })
+  if (!updated) throw new AppointmentError('Appointment has changed. Reload it before trying again.', { code: 'APPOINTMENT_REVISION_CONFLICT', status: 409 })
+  await insertAppointmentEvent({
+    appointmentId: updated._id, actorId: actor.accountId, revision: updated.revision,
+    kind: operation === 'reschedule' ? 'rescheduled' : updated.status, occurredAt: now,
+    before, after: buildAppointmentEventSnapshot(updated),
+    ...(input.reason !== undefined ? { reason: input.reason } : {}),
+  }, { session })
+  return { appointment: updated, role }
 }
 
 // Chạy lệnh trong transaction; chỉ trả kết quả sau khi commit.
@@ -735,7 +657,6 @@ async function runAppointmentTransaction(operation) {
         )
         }
 
-        // Lỗi nghiệp vụ hoặc database khác phải được truyền ra ngoài.
         throw error
     }
 }
@@ -752,7 +673,7 @@ export function markAppointmentNoShow(identity, appointmentId, body, commandKey)
 
 // Validate mot lan, retry tap tai nguyen huu han, DTO sau commit.
 async function runAppointmentCommand(operation, identity, appointmentId, body, commandKey) {
-    if (operation !== 'cancel' && operation !== 'no_show') {
+    if (!['cancel', 'no_show', 'reschedule'].includes(operation)) {
         throw new TypeError('Unsupported appointment operation')
     }
     if (!identity) {
@@ -773,8 +694,8 @@ async function runAppointmentCommand(operation, identity, appointmentId, body, c
         code: 'INVALID_APPOINTMENT_ID', status: 400,
         })
     }
-    const input = operation === 'cancel'
-        ? parseCancelAppointmentInput(body) : parseNoShowAppointmentInput(body)
+    const input = operation === 'reschedule' ? parseRescheduleAppointmentInput(body)
+        : operation === 'cancel' ? parseCancelAppointmentInput(body) : parseNoShowAppointmentInput(body)
     const key = parseAppointmentCommandKey(commandKey)
     const hash = hashAppointmentCommand(operation, appointmentId, input)
 
@@ -806,6 +727,8 @@ async function runAppointmentCommand(operation, identity, appointmentId, body, c
         }
         if (operation === 'cancel') {
             response.cancelledAt = appointment.cancelledAt.toISOString()
+        } else if (operation === 'reschedule') {
+            response.lastRescheduledAt = appointment.lastRescheduledAt.toISOString()
         } else {
             response.noShowAt = appointment.noShowAt.toISOString()
             response.contactAttemptedAt = appointment.contactAttemptedAt.toISOString()
@@ -897,4 +820,53 @@ export async function getAppointmentServiceHistory(identity, appointmentId, quer
     }
     // DTO co ban khong chua email/phone, account hoac audit.
     return buildAppointmentPage(result.items, options.limit, role, 'completedAt')
+}
+
+// Shared reason validation; only late Owner changes require this field.
+function parseAppointmentCommandReason(value) {
+    if (value === undefined) return undefined
+    if (typeof value !== 'string' || !value.trim() || value.length > 500) throw new AppointmentError('reason must be a non-empty string up to 500 characters', { code: 'INVALID_REASON', status: 400 })
+    return value.trim()
+}
+
+export function parseRescheduleAppointmentInput(body) {
+    const input = parseAppointmentCommandBody(body, ['expectedRevision', 'startAt', 'staffId', 'reason'])
+    if (body.startAt === undefined && body.staffId === undefined) throw new AppointmentError('Provide startAt or staffId to reschedule.', { code: 'RESCHEDULE_CHANGE_REQUIRED', status: 400 })
+    if (body.startAt !== undefined) {
+        const date = typeof body.startAt === 'string' ? new Date(body.startAt) : null
+        if (!date || !Number.isFinite(date.getTime()) || date.toISOString() !== body.startAt) throw new AppointmentError('startAt must be a valid ISO UTC value.', { code: 'INVALID_START_AT', status: 400 })
+        input.startAt = date
+    }
+    if (body.staffId !== undefined) {
+        if (typeof body.staffId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(body.staffId)) throw new AppointmentError('staffId is invalid.', { code: 'INVALID_STAFF_ID', status: 400 })
+        input.staffId = body.staffId.toLowerCase()
+    }
+    const reason = parseAppointmentCommandReason(body.reason)
+    if (reason !== undefined) input.reason = reason
+    return input
+}
+
+// Prepare from the guarded snapshot; availability is checked separately in the same session.
+function prepareAppointmentReschedule(appointment, role, input, now) {
+    assertConfirmedAppointmentCommand(appointment, input.expectedRevision)
+    const minute = 60_000
+    const oldLead = appointment.startAt.getTime() - now.getTime()
+    if (role === 'customer' && oldLead < 120 * minute) throw new AppointmentError('Rescheduling requires at least 2 hours before the old start.', { code: 'RESCHEDULE_CUTOFF', status: 409 })
+    if (role === 'owner' && oldLead < 120 * minute && !input.reason) throw new AppointmentError('A reason is required for a late reschedule.', { code: 'RESCHEDULE_REASON_REQUIRED', status: 400 })
+    const startAt = new Date((input.startAt ?? appointment.startAt).getTime())
+    const staffId = input.staffId ?? String(appointment.staffId)
+    if (startAt.getTime() === appointment.startAt.getTime() && staffId === String(appointment.staffId)) throw new AppointmentError('Time and Staff have not changed.', { code: 'RESCHEDULE_NO_CHANGE', status: 400 })
+    if (startAt.getTime() % (15 * minute) !== 0) throw new AppointmentError('startAt must follow the 15-minute grid.', { code: 'INVALID_START_AT', status: 400 })
+    if (startAt.getTime() < now.getTime() + (role === 'owner' ? 0 : 30 * minute)) throw new AppointmentError('The new start is before the permitted lead time.', { code: 'RESCHEDULE_LEAD_TIME', status: 409 })
+    if (startAt.getTime() > now.getTime() + 168 * 60 * minute) throw new AppointmentError('The new start exceeds the 168-hour horizon.', { code: 'RESCHEDULE_HORIZON', status: 409 })
+    const endAt = new Date(startAt.getTime() + appointment.totalDurationMinutes * minute)
+    return {
+        staffId, startAt, endAt, occupiedFrom: new Date(startAt.getTime()),
+        occupiedUntil: new Date(endAt.getTime() + appointment.bufferAfterMinutes * minute),
+        localDate: toHoChiMinhDate(startAt), timeZone: 'Asia/Ho_Chi_Minh',
+    }
+}
+
+export function rescheduleAppointment(identity, appointmentId, body, commandKey) {
+    return runAppointmentCommand('reschedule', identity, appointmentId, body, commandKey)
 }

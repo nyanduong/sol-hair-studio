@@ -77,6 +77,8 @@ TTL expiresAt expireAfterSeconds:0 **chỉ dọn receipt**, không đảm bảo 
 
 Không mở cancelled/no_show; tạo lịch mới nếu khách tới sau no-show. Không cập nhật đang phục vụ như thao tác reschedule, không khôi phục mọi trạng thái tùy ý. Khi correction cần giữ lại thời gian, phải xác định khoảng cần giữ, kiểm ca/nghỉ/lịch mới; có xung đột thì không lưu, trả danh sách để chủ xử lý trước. Nếu cần ETA để biết khoảng giữ khi mở lại lịch quá giờ, phải cung cấp ETA hợp lệ trong cùng lệnh. Mọi correction lưu actor/time/reason/before/after; không xóa event cũ.
 
+Owner reschedule: new startAt >= server-now (equality allowed on the scheduled 15-minute grid). Persisted data must satisfy lastRescheduledAt <= startAt. Validate against server-now in the service; the stored timestamp does not replace that check. Customer cutoff/lead-time and Owner late-change reason remain unchanged.
+
 Giữ lastCommand(key,actorId,hash,resultRevision) trên appointment để retry lệnh gần nhất và CAS expectedRevision ngăn ghi đè. Không hứa replay mọi lệnh cũ; stale thì GET lại, không retry mù bằng revision mới. Key tạo 24 giờ là cơ chế riêng, không áp TTL cho lastCommand/audit.
 
 <a id="history"></a>
