@@ -1,5 +1,5 @@
-import {Router} from "express";
-import { requireAuth, requireRoles } from "../../middlewares/auth.js";
+import { Router } from 'express'
+import { requireAuth, requireRoles } from '../../middlewares/auth.js'
 import {
     listAppointmentsController,
     getAppointmentDetailController,
@@ -9,7 +9,7 @@ import {
     rescheduleAppointmentController,
 } from "./appointments.controller.js";
 
-export const appointmentsRouter = Router();
+export const appointmentsRouter = Router()
 
 appointmentsRouter.get('/appointments', requireAuth,  requireRoles('customer', 'stylist', 'owner'), listAppointmentsController);
 appointmentsRouter.get('/appointments/:appointmentId', requireAuth,  requireRoles('customer', 'stylist', 'owner'), getAppointmentDetailController);

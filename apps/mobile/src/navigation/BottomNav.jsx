@@ -8,13 +8,13 @@ const items = [
   { route: 'Home', icon: 'home', label: 'Trang chủ' },
   { route: 'Services', icon: 'grid', label: 'Dịch vụ' },
   { route: 'Booking', icon: 'calendar', label: 'Đặt lịch', booking: true },
-  { icon: 'clock', label: 'Lịch hẹn' },
+  { route: 'StylistShifts', icon: 'clock', label: 'Lịch hẹn' },
   { route: 'Profile', icon: 'user', label: 'Tài khoản' },
 ]
 
 export default function BottomNav({ navigation, active }) {
   const showFeature = useFeatureUnavailable()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isStylist } = useAuth()
 
   function handlePress(item) {
     if (item.label === 'Tài khoản') {
@@ -46,6 +46,10 @@ export default function BottomNav({ navigation, active }) {
         navigation.navigate('Login', {
           notice: 'Vui lòng đăng nhập để theo dõi lịch hẹn của bạn.',
         })
+        return
+      }
+      if (isStylist) {
+        if (active !== 'StylistShifts') navigation.navigate('StylistShifts')
         return
       }
       return showFeature(item.label)
