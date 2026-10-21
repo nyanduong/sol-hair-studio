@@ -120,7 +120,7 @@ apps/mobile/
 │   │   ├── resolve-api-base-url.js   Ưu tiên URL cấu hình; tự nhận host trong dev
 │   │   └── tests/                   Test chọn host, đổi mạng và cấu hình riêng
 │   ├── navigation/RootNavigator.jsx  Mở Home; giữ Services và Health trong stack
-│   ├── navigation/BottomNav.jsx      5 mục; Home/Services điều hướng, 3 mục mở modal
+│   ├── navigation/BottomNav.jsx      5 mục; stylist vào Ca làm của tôi từ Lịch hẹn
 │   ├── components/FeatureUnavailableProvider.jsx  Một modal dùng chung toàn mobile
 │   ├── components/FeatureUnavailableModal.jsx     Báo tính năng đang phát triển, đóng bằng nút/Back
 │   ├── theme/tokens.js               Màu Sol và font hệ thống native
@@ -143,6 +143,13 @@ apps/mobile/
 │   │   ├── hooks/useHealth.js         Tải lần đầu, giữ state, thử lại và cleanup
 │   │   ├── api/health.api.js          Gọi endpoint health qua HTTP helper
 │   │   └── tests/health.api.test.js   Kiểm tra endpoint do feature chọn
+│   ├── features/staff/
+│   │   ├── screens/StylistShiftsScreen.jsx  Ghép màn Ca làm của tôi cho stylist
+│   │   ├── hooks/useStylistShifts.js  Đọc hồ sơ/ca theo phiên, retry và cleanup
+│   │   ├── api/staff.api.js           Chọn GET /api/staff và /api/staff/:staffId/shifts
+│   │   ├── staff-presentation.js      Tính tuần, định dạng ngày/giờ và trạng thái ca
+│   │   ├── styles/                    StyleSheet native của màn ca
+│   │   └── tests/staff.api.test.js    Kiểm tra hợp đồng endpoint và request mới nhất
 │   └── lib/
 │       ├── http.js                   Gọi JSON, timeout, abort và cleanup
 │       ├── latest-request.js          Hủy request cũ và bỏ qua kết quả cũ
@@ -171,6 +178,10 @@ Mobile mở `HomeScreen` trước với logo, hero và danh mục thật; thanh 
 
 `useServices` quản lý `loading`, `success` (gồm danh sách rỗng), `error` và tải lại. `services.api.js` chỉ chọn endpoint và lấy `data` từ envelope chung. HTTP helper tiếp tục dùng base URL môi trường/SOL-012, timeout 8 giây và abort. Cleanup hủy request khi unmount; `latest-request.js` bỏ qua kết quả cũ. Nút tải lại bị vô hiệu hóa lúc tải. Task này không đổi DTO, route API, model MongoDB hoặc tài nguyên Cloudinary.
 
+### Luồng ca làm stylist (SOL-027)
+
+Stylist đã đăng nhập bấm **Lịch hẹn** trên `BottomNav` để vào `StylistShifts`. Screen lấy tuần hiện tại và gọi `useStylistShifts`; hook lần lượt gọi `GET /api/staff` với token phiên, lấy duy nhất hồ sơ được API lọc theo `accountId`, rồi gọi `GET /api/staff/:staffId/shifts?fromDate=...&toDate=...`. Mobile không cho người dùng chọn hoặc truyền staffId. API tiếp tục kiểm ownership độc lập. Màn hiển thị tải, lỗi/thử lại, tuần trống hoặc ca với ngày, giờ và trạng thái; đổi tuần hoặc rời màn hủy request cũ bằng `latest-request.js`. Khách hàng vẫn nhận modal tính năng chưa phát triển khi bấm **Lịch hẹn**.
+
 ## E. Luồng chạy health
 
 ### Mở màn hình
@@ -197,7 +208,13 @@ Nếu response có HTTP status ngoài khoảng thành công, `requestJson` ném 
 
 ### Luồng API
 
-`server.js` gọi `connectToDatabase(config.mongoUri)`; nếu URI trống, database giữ trạng thái `not-configured` và API vẫn khởi động. `app.js` lần lượt gắn CORS, JSON parser, `apiRouter`, `notFound` và `errorHandler`. `healthRouter` ánh xạ `/health` tới `getHealth`, controller trả JSON hiện có cùng timestamp ISO.
+`server.js` gọi `connectToDatabase(config.mongoUri)`; nếu URI trống, database giữ trạng thái `not-configured` và API vẫn khởi động. Nếu có URI, `prepareBookingStorage` tạo collection/index lịch, audit và receipt trước listen, lỗi index làm startup thất bại. `app.js` lần lượt gắn CORS, JSON parser, `apiRouter`, `notFound` và `errorHandler`. `healthRouter` ánh xạ `/health` tới `getHealth`, controller trả JSON hiện có cùng timestamp ISO.
+
+SOL-031: `POST /api/appointments` → auth/roles → `booking.controller.js` → `booking.service.js`.
+Service validate intent, kiểm receipt 24h, tăng guard customer rồi staff, đọc lại availability bằng cùng session,
+ghi lịch confirmed/snapshot + receipt + created event trong một transaction. `GET /api/customers?phone=...`
+chỉ owner, trả danh sách hồ sơ để chọn đúng mã, không gộp số trùng. Model appointments và API M5 đọc/hủy
+vẫn cùng một collection. Chi tiết và giới hạn: [booking-api.md](booking-api.md).
 
 Parser JSON không hợp lệ được `errorHandler` nhận diện và trả 400 `INVALID_JSON`. Endpoint không tồn tại đi qua `notFound` trả 404 `NOT_FOUND`. Lỗi khác được log thông tin an toàn rồi trả 500 `INTERNAL_ERROR`; nếu header đã gửi, middleware chuyển lỗi cho Express qua `next(error)`.
 

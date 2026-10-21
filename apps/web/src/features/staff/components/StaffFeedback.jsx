@@ -15,7 +15,7 @@ export function ConflictList({ conflicts, demo = false }) {
 }
 
 export function LoadFeedback({ state, onRetry, label }) {
-  if (state.kind === 'loading') return <p role="status" className="mt-5 text-sm text-muted">Đang tải {label}…</p>
-  if (state.kind === 'error') return <div role="alert" className="mt-5 rounded-xl bg-red-50 p-4 text-sm text-red-900"><p>{staffErrorMessage(state.error)}</p><button type="button" onClick={onRetry} className="mt-3 font-semibold underline">Thử lại</button></div>
+  if (state.kind === 'loading') return <p role="status" className="mt-5 flex items-center gap-2 text-sm text-muted"><span aria-hidden="true" className="h-3 w-3 animate-spin rounded-full border-2 border-terracotta/25 border-t-terracotta motion-reduce:animate-none" />Đang tải {label}…</p>
+  if (state.kind === 'error') return <div role="alert" className="mt-5 rounded-xl bg-red-50 p-4 text-sm text-red-900 motion-safe:animate-rise-in motion-reduce:animate-none"><p>{staffErrorMessage(state.error)}</p><button type="button" onClick={onRetry} className="mt-3 font-semibold underline transition-colors hover:text-terracotta-dark focus-visible:rounded">Thử lại</button></div>
   return null
 }

@@ -1,0 +1,30 @@
+{
+  "data": [
+    {
+      "id": "accept-cut",
+      "slug": "accept-cut",
+      "name": "Changed acceptance catalog",
+      "description": "Synthetic acceptance catalog",
+      "category": "Hair",
+      "durationMinutes": {
+        "min": 30,
+        "max": 30
+      },
+      "priceVnd": 999000,
+      "imageUrl": "https://res.cloudinary.com/demo/image/upload/sample.jpg"
+    },
+    {
+      "id": "accept-spa",
+      "slug": "accept-spa",
+      "name": "Changed acceptance catalog",
+      "description": "Synthetic acceptance catalog",
+      "category": "Hair",
+      "durationMinutes": {
+        "min": 45,
+        "max": 45
+      },
+      "priceVnd": 999000,
+      "imageUrl": "https://res.cloudinary.com/demo/image/upload/sample.jpg"
+    }
+  ]
+}
