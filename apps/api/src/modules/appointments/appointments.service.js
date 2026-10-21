@@ -266,7 +266,7 @@ export async function listStylistAppointments( identity, { localDate, limit = 50
     return buildAppointmentPage(appointments, limit, 'stylist')
 }
 
-y// Kiểm tra bộ lọc ngày, Stylist và trạng thái của Owner.
+// Kiểm tra bộ lọc ngày, Stylist và trạng thái của Owner.
 export function parseOwnerAppointmentQuery(query = {}) {
     const allowedKeys =['localDate', 'staffId', 'status', 'limit', 'cursor']
     const options = parseAppointmentListQuery(query, allowedKeys, 50, 100, true)
