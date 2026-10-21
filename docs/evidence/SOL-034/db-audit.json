@@ -1,0 +1,50 @@
+{
+  "environment": "Synthetic acceptance data; actual Express + MongoDB 8.0.17 temporary replica set",
+  "generatedAt": "2026-10-21T02:26:20.685Z",
+  "appointments": [
+    {
+      "id": "6ad821d1ec92f4eb4094eb29",
+      "customerId": "6ad82165ec92f4eb4094eb0d",
+      "staffId": "6ad82165ec92f4eb4094eb13",
+      "bookingMode": "customer",
+      "status": "confirmed",
+      "startAt": "2026-10-21T03:30:00.000Z",
+      "endAt": "2026-10-21T04:00:00.000Z",
+      "confirmedAt": "2026-10-21T02:22:09.507Z",
+      "occupiedUntil": "2026-10-21T04:10:00.000Z",
+      "items": [
+        {
+          "serviceId": "accept-cut",
+          "name": "SOL034 Cut",
+          "priceVnd": 100000,
+          "durationMinutes": 30
+        }
+      ],
+      "totalPriceVnd": 100000,
+      "totalDurationMinutes": 30
+    },
+    {
+      "id": "6ad8224aec92f4eb4094eb30",
+      "customerId": "6ad82165ec92f4eb4094eb0f",
+      "staffId": "6ad82165ec92f4eb4094eb1d",
+      "bookingMode": "owner_walkin",
+      "status": "confirmed",
+      "startAt": "2026-10-21T02:24:10.596Z",
+      "endAt": "2026-10-21T02:54:10.596Z",
+      "confirmedAt": "2026-10-21T02:24:10.596Z",
+      "occupiedUntil": "2026-10-21T03:04:10.596Z",
+      "items": [
+        {
+          "serviceId": "accept-cut",
+          "name": "SOL034 Cut",
+          "priceVnd": 100000,
+          "durationMinutes": 30
+        }
+      ],
+      "totalPriceVnd": 100000,
+      "totalDurationMinutes": 30
+    }
+  ],
+  "events": 2,
+  "receipts": 2
+}
