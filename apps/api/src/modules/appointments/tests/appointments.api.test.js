@@ -14,6 +14,10 @@ import { connectToDatabase, disconnectFromDatabase } from '../../../config/datab
 import { AccountModel } from '../../auth/accounts.model.js'
 import { CustomerModel } from '../../customers/customers.model.js'
 import { StaffModel } from '../../staff/staff.model.js'
+import { StaffShiftModel } from '../../staff/staff-shifts.model.js'
+import { ServiceModel } from '../../services/services.model.js'
+import * as appointmentRepository from '../appointments.repository.js'
+import * as availabilityRepository from '../../availability/availability.repository.js'
 import { AppointmentModel } from '../appointments.model.js'
 import { AppointmentEventModel } from '../appointment-events.model.js'
 
@@ -97,7 +101,7 @@ beforeAll(async () => {
   // All mutations are confined to this newly started, temporary replica set.
   replica = await MongoMemoryReplSet.create({ replSet: { count: 1 }, binary: { version: '8.0.17' } })
   await connectToDatabase(replica.getUri('sol035_management_test'))
-  for (const model of [AccountModel, CustomerModel, StaffModel]) await model.init()
+  for (const model of [AccountModel, CustomerModel, StaffModel, StaffShiftModel, ServiceModel]) await model.init()
   for (const model of [AppointmentModel, AppointmentEventModel]) {
     await model.createCollection()
     await model.createIndexes()
@@ -110,7 +114,8 @@ afterAll(async () => {
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(NOW)
-  for (const model of [AppointmentEventModel, AppointmentModel, CustomerModel, StaffModel, AccountModel]) await model.deleteMany({})
+  for (const model of [AppointmentEventModel, AppointmentModel, StaffShiftModel, ServiceModel, CustomerModel, StaffModel, AccountModel]) await model.deleteMany({})
+  await mongoose.connection.db.collection('staff_time_off').deleteMany({})
   owner = await actor('owner')
   client = await actor('customer')
   otherClient = await actor('customer')
@@ -400,5 +405,264 @@ describe('command request validation and authentication', () => {
   it('requires login for list and detail', async () => {
     await request(app).get(listPath).expect(401)
     await request(app).get(detailPath(oid())).expect(401)
+  })
+})
+
+async function shift(staffId, date = '2026-10-20', from = '07:00', until = '23:00') {
+  return StaffShiftModel.create({ staffId, localDate: date,
+    startAt: new Date(date + 'T' + from + ':00+07:00'), endAt: new Date(date + 'T' + until + ':00+07:00'),
+  })
+}
+const newStart = minutes => new Date(NOW.getTime() + minutes * MINUTE).toISOString()
+
+// Real shared availability + command transaction; no calendar mocks in success/conflict tests.
+describe('transactional rescheduling', () => {
+  beforeEach(async () => {
+    await shift(stylist.staff._id)
+    await shift(otherStylist.staff._id)
+  })
+
+  it('changes time, excludes itself and preserves snapshots and confirmedAt', async () => {
+    const mine = await appointment()
+    const response = await command(mine._id, 'reschedule', client, { expectedRevision: 0, startAt: newStart(195) }).expect(200)
+    expect(response.body.data).toMatchObject({ startAt: newStart(195), endAt: newStart(225), status: 'confirmed', revision: 1, lastRescheduledAt: NOW.toISOString() })
+    const stored = await AppointmentModel.findById(mine._id).lean()
+    expect(stored.items).toEqual(mine.toObject().items)
+    expect(stored.customerSnapshot).toEqual(mine.toObject().customerSnapshot)
+    expect(stored.staffNameSnapshot).toBe(mine.staffNameSnapshot)
+    expect(stored.confirmedAt).toEqual(mine.confirmedAt)
+    expect(stored.totalPriceVnd).toBe(mine.totalPriceVnd)
+    expect(stored.occupiedUntil.toISOString()).toBe(newStart(235))
+    const event = await AppointmentEventModel.findOne({ appointmentId: mine._id }).lean()
+    expect(event).toMatchObject({ kind: 'rescheduled', revision: 1, before: { startAt: mine.startAt }, after: { startAt: stored.startAt } })
+  })
+
+  it('reassigns Staff and takes sorted guards exactly once for old and new Staff', async () => {
+    const mine = await appointment()
+    const guards = vi.spyOn(StaffModel, 'findOneAndUpdate')
+    const response = await command(mine._id, 'reschedule', client, { expectedRevision: 0, staffId: String(otherStylist.staff._id) }).expect(200)
+    expect(response.body.data).toMatchObject({ staffId: String(otherStylist.staff._id), staffNameSnapshot: otherStylist.staff.displayName, startAt: mine.startAt.toISOString() })
+    expect(guards.mock.calls.map(([filter]) => String(filter._id))).toEqual([String(stylist.staff._id), String(otherStylist.staff._id)].sort())
+    expect((await StaffModel.findById(stylist.staff._id)).bookingRevision).toBe(1)
+    expect((await StaffModel.findById(otherStylist.staff._id)).bookingRevision).toBe(1)
+  })
+
+  it('does not double-lock the same Staff for time-only changes', async () => {
+    const mine = await appointment()
+    await command(mine._id, 'reschedule', client, { expectedRevision: 0, startAt: newStart(195), staffId: String(stylist.staff._id) }).expect(200)
+    expect((await StaffModel.findById(stylist.staff._id)).bookingRevision).toBe(1)
+  })
+
+  it('allows time and Staff changes together and recalculates the salon date', async () => {
+    const mine = await appointment()
+    await shift(otherStylist.staff._id, '2026-10-21')
+    const startAt = newStart(24 * 60)
+    const response = await command(mine._id, 'reschedule', client, { expectedRevision: 0, startAt, staffId: String(otherStylist.staff._id) }).expect(200)
+    expect(response.body.data).toMatchObject({ startAt, staffId: String(otherStylist.staff._id), localDate: '2026-10-21' })
+  })
+
+  it('does not require active catalog or use current catalog durations/prices', async () => {
+    await ServiceModel.create({ id: 'service-cut-style', slug: 'service-cut-style', name: 'Changed name', description: 'Fixture', category: 'Hair', durationMinutes: { min: 30, max: 60 }, bookingDurationMinutes: 60, priceVnd: 999999, isActive: false, imageUrl: 'https://res.cloudinary.com/demo/image/upload/sample.jpg' })
+    const mine = await appointment()
+    const response = await command(mine._id, 'reschedule', client, { expectedRevision: 0, staffId: String(otherStylist.staff._id), startAt: newStart(195) }).expect(200)
+    expect(response.body.data.items).toEqual(mine.toObject().items)
+    expect(response.body.data.totalDurationMinutes).toBe(30)
+    expect(response.body.data.totalPriceVnd).toBe(100000)
+  })
+
+  it.each([1, 0, -1])('uses the OLD start for customer cutoff at 2 hours plus %i ms', async offset => {
+    const mine = await appointment({ startAt: new Date(NOW.getTime() + 120 * MINUTE + offset) })
+    const response = await command(mine._id, 'reschedule', client, { expectedRevision: 0, startAt: newStart(240) }).expect(offset < 0 ? 409 : 200)
+    if (offset < 0) { expect(response.body.code).toBe('RESCHEDULE_CUTOFF'); await assertUnchanged(mine._id) }
+  })
+
+  it('allows owner late changes with reason and does not apply customer lead-time', async () => {
+    const mine = await appointment({ startAt: new Date(NOW.getTime() - 20 * MINUTE) })
+    expect((await command(mine._id, 'reschedule', owner, { expectedRevision: 0, startAt: newStart(15) }).expect(400)).body.code).toBe('RESCHEDULE_REASON_REQUIRED')
+    await assertUnchanged(mine._id)
+    await command(mine._id, 'reschedule', owner, { expectedRevision: 0, startAt: newStart(15), reason: '  Owner contacted customer  ' }).expect(200)
+    expect((await AppointmentEventModel.findOne({ appointmentId: mine._id })).reason).toBe('Owner contacted customer')
+  })
+
+  it.each([30, 29])('checks new customer lead at %i minutes', async minutes => {
+    const mine = await appointment()
+    const response = await command(mine._id, 'reschedule', client, { expectedRevision: 0, startAt: newStart(minutes) }).expect(minutes === 30 ? 200 : 400)
+    if (minutes === 29) expect(response.body.code).toBe('INVALID_START_AT')
+  })
+
+  it('rejects customer new start before 30 minutes even on the grid', async () => {
+    const mine = await appointment()
+    expect((await command(mine._id, 'reschedule', client, { expectedRevision: 0, startAt: newStart(15) }).expect(409)).body.code).toBe('RESCHEDULE_LEAD_TIME')
+  })
+
+  it('rejects owner backdating, accepts now on the scheduled grid', async () => {
+    const mine = await appointment()
+    expect((await command(mine._id, 'reschedule', owner, { expectedRevision: 0, startAt: newStart(-15) }).expect(409)).body.code).toBe('RESCHEDULE_LEAD_TIME')
+    await command(mine._id, 'reschedule', owner, { expectedRevision: 0, startAt: NOW.toISOString() }).expect(200)
+  })
+
+  it('accepts exactly 168 hours and rejects beyond the instant horizon', async () => {
+    const mine = await appointment()
+    await shift(stylist.staff._id, '2026-10-27')
+    await command(mine._id, 'reschedule', client, { expectedRevision: 0, startAt: newStart(168 * 60) }).expect(200)
+    const another = await appointment({ customerId: otherClient.customer._id })
+    expect((await command(another._id, 'reschedule', owner, { expectedRevision: 0, startAt: newStart(168 * 60 + 15) }).expect(409)).body.code).toBe('RESCHEDULE_HORIZON')
+  })
+
+  it.each(['inactive', 'incapable', 'account-disabled'])('rejects %s target Staff and rolls back both guards', async kind => {
+    const mine = await appointment()
+    if (kind === 'inactive') await StaffModel.updateOne({ _id: otherStylist.staff._id }, { $set: { isActive: false } })
+    if (kind === 'incapable') await StaffModel.updateOne({ _id: otherStylist.staff._id }, { $set: { serviceIds: [] } })
+    if (kind === 'account-disabled') await AccountModel.updateOne({ _id: otherStylist.account._id }, { $set: { status: 'disabled' } })
+    expect((await command(mine._id, 'reschedule', client, { expectedRevision: 0, staffId: String(otherStylist.staff._id) }).expect(409)).body.code).toBe('STAFF_UNAVAILABLE')
+    await assertUnchanged(mine._id)
+    expect((await StaffModel.findById(otherStylist.staff._id)).bookingRevision).toBe(0)
+  })
+
+  it('rejects missing target Staff', async () => {
+    const mine = await appointment()
+    await command(mine._id, 'reschedule', client, { expectedRevision: 0, staffId: String(oid()) }).expect(409)
+    await assertUnchanged(mine._id)
+  })
+
+  it('rejects no shift or cleanup outside the active shift', async () => {
+    const mine = await appointment()
+    await StaffShiftModel.deleteMany({ staffId: otherStylist.staff._id })
+    expect((await command(mine._id, 'reschedule', client, { expectedRevision: 0, staffId: String(otherStylist.staff._id) }).expect(409)).body.code).toBe('SLOT_UNAVAILABLE')
+    await shift(otherStylist.staff._id, '2026-10-20', '12:00', '13:30')
+    await command(mine._id, 'reschedule', client, { expectedRevision: 0, staffId: String(otherStylist.staff._id) }).expect(409)
+    await assertUnchanged(mine._id)
+  })
+
+  it('rejects overlap with time off', async () => {
+    const mine = await appointment()
+    await mongoose.connection.db.collection('staff_time_off').insertOne({ staffId: otherStylist.staff._id, startAt: mine.startAt, endAt: mine.endAt })
+    expect((await command(mine._id, 'reschedule', client, { expectedRevision: 0, staffId: String(otherStylist.staff._id) }).expect(409)).body.code).toBe('SLOT_UNAVAILABLE')
+    await assertUnchanged(mine._id)
+  })
+
+  it('rejects overlap with another Staff booking including cleanup', async () => {
+    const mine = await appointment()
+    await appointment({ customerId: otherClient.customer._id, startAt: new Date(newStart(150)) })
+    await command(mine._id, 'reschedule', client, { expectedRevision: 0, startAt: newStart(180), staffId: String(otherStylist.staff._id) }).expect(200)
+    // Different Staff is allowed; switch back while old Staff is still cleaning.
+    expect((await command(mine._id, 'reschedule', client, { expectedRevision: 1, staffId: String(stylist.staff._id) }, 'second-reschedule-key1').expect(409)).body.code).toBe('SLOT_UNAVAILABLE')
+  })
+
+  it('checks Customer overlap across different Staff', async () => {
+    const mine = await appointment()
+    await appointment({ staffId: otherStylist.staff._id, startAt: new Date(newStart(240)) })
+    expect((await command(mine._id, 'reschedule', client, { expectedRevision: 0, startAt: newStart(240) }).expect(409)).body.code).toBe('SLOT_UNAVAILABLE')
+    await assertUnchanged(mine._id)
+  })
+
+  it('overdue in-progress with unknown end blocks a new slot', async () => {
+    const mine = await appointment()
+    await appointment({ customerId: otherClient.customer._id, staffId: otherStylist.staff._id, status: 'in_progress', startAt: new Date(newStart(-120)) })
+    expect((await command(mine._id, 'reschedule', client, { expectedRevision: 0, staffId: String(otherStylist.staff._id) }).expect(409)).body.code).toBe('SLOT_UNAVAILABLE')
+  })
+
+  it.each(['cancelled', 'no_show'])('ignores %s as a busy interval', async status => {
+    const mine = await appointment()
+    await appointment({ customerId: otherClient.customer._id, staffId: otherStylist.staff._id, status })
+    await command(mine._id, 'reschedule', client, { expectedRevision: 0, staffId: String(otherStylist.staff._id) }).expect(200)
+  })
+
+  it('rejects foreign Customer and Stylist role', async () => {
+    const mine = await appointment()
+    await command(mine._id, 'reschedule', otherClient, { expectedRevision: 0, startAt: newStart(195) }).expect(404)
+    await command(mine._id, 'reschedule', stylist, { expectedRevision: 0, startAt: newStart(195) }).expect(403)
+    await assertUnchanged(mine._id)
+  })
+
+  it.each(['in_progress', 'completed', 'cancelled', 'no_show'])('rejects transition from %s', async status => {
+    const mine = await appointment({ status })
+    expect((await command(mine._id, 'reschedule', owner, { expectedRevision: 0, startAt: newStart(240) }).expect(409)).body.code).toBe('APPOINTMENT_STATE_CONFLICT')
+  })
+
+  it.each([
+    { expectedRevision: 0 }, { expectedRevision: 0, startAt: 'bad' },
+    { expectedRevision: 0, startAt: 1 }, { expectedRevision: 0, staffId: { $ne: null } },
+    { expectedRevision: 0, startAt: newStart(195), items: [] },
+    { expectedRevision: 0, startAt: newStart(195), reason: '  ' },
+  ])('rejects invalid input %j', async body => {
+    const mine = await appointment()
+    await command(mine._id, 'reschedule', client, body).expect(400)
+    await assertUnchanged(mine._id)
+  })
+
+  it('rejects an unchanged assignment/time and stale revision', async () => {
+    const mine = await appointment()
+    expect((await command(mine._id, 'reschedule', client, { expectedRevision: 0, startAt: mine.startAt.toISOString() }).expect(400)).body.code).toBe('RESCHEDULE_NO_CHANGE')
+    expect((await command(mine._id, 'reschedule', client, { expectedRevision: 1, startAt: newStart(195) }).expect(409)).body.code).toBe('APPOINTMENT_REVISION_CONFLICT')
+    await assertUnchanged(mine._id)
+  })
+
+  it('replays reassignment despite changed calendar, but rejects key intent changes', async () => {
+    const mine = await appointment()
+    const body = { expectedRevision: 0, staffId: String(otherStylist.staff._id), startAt: newStart(195) }
+    const first = await command(mine._id, 'reschedule', client, body).expect(200)
+    await StaffShiftModel.deleteMany({ staffId: otherStylist.staff._id })
+    expect((await command(mine._id, 'reschedule', client, body).expect(200)).body).toEqual(first.body)
+    expect((await command(mine._id, 'reschedule', client, { ...body, startAt: newStart(210) }).expect(409)).body.code).toBe('COMMAND_KEY_CONFLICT')
+    expect(await AppointmentEventModel.countDocuments({ appointmentId: mine._id })).toBe(1)
+  })
+
+  it('passes the transaction session and exclude ID to shared availability readers', async () => {
+    const mine = await appointment()
+    const reader = vi.spyOn(availabilityRepository, 'findAvailabilityCalendar')
+    await command(mine._id, 'reschedule', client, { expectedRevision: 0, startAt: newStart(195) }).expect(200)
+    expect(reader).toHaveBeenCalledOnce()
+    expect(reader.mock.calls[0][4]).toMatchObject({ session: expect.any(Object), excludeAppointmentId: String(mine._id) })
+  })
+
+  it('re-reads resources after a changed guard set and does not commit the first guards', async () => {
+    const mine = await appointment()
+    vi.spyOn(appointmentRepository, 'findAppointmentCommandResources').mockResolvedValueOnce({
+      _id: mine._id, customerId: mine.customerId, staffId: otherStylist.staff._id,
+    })
+    await command(mine._id, 'reschedule', client, { expectedRevision: 0, startAt: newStart(195) }).expect(200)
+    expect((await StaffModel.findById(stylist.staff._id)).bookingRevision).toBe(1)
+    expect((await StaffModel.findById(otherStylist.staff._id)).bookingRevision).toBe(0)
+  })
+
+  it('rolls back reassignment and all guards if audit fails', async () => {
+    const mine = await appointment()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(AppointmentEventModel, 'create').mockRejectedValueOnce(new Error('Injected audit failure'))
+    await command(mine._id, 'reschedule', client, { expectedRevision: 0, staffId: String(otherStylist.staff._id) }).expect(500)
+    await assertUnchanged(mine._id)
+    expect(String((await AppointmentModel.findById(mine._id)).staffId)).toBe(String(stylist.staff._id))
+    expect((await StaffModel.findById(otherStylist.staff._id)).bookingRevision).toBe(0)
+  })
+
+  it('allows one of two appointments to acquire the same target slot', async () => {
+    const a = await appointment()
+    const b = await appointment({ customerId: otherClient.customer._id, startAt: new Date(newStart(300)) })
+    const responses = await Promise.all([
+      command(a._id, 'reschedule', client, { expectedRevision: 0, staffId: String(otherStylist.staff._id), startAt: newStart(240) }, 'reschedule-race-key1'),
+      command(b._id, 'reschedule', otherClient, { expectedRevision: 0, staffId: String(otherStylist.staff._id), startAt: newStart(240) }, 'reschedule-race-key2'),
+    ])
+    expect(responses.map(item => item.status).sort()).toEqual([200, 409])
+    expect(await AppointmentEventModel.countDocuments({ kind: 'rescheduled' })).toBe(1)
+  })
+
+  it('concurrent same-key requests produce one revision and one event', async () => {
+    const mine = await appointment()
+    const body = { expectedRevision: 0, startAt: newStart(195) }
+    const responses = await Promise.all([command(mine._id, 'reschedule', client, body), command(mine._id, 'reschedule', client, body)])
+    expect(responses.map(item => item.status)).toEqual([200, 200])
+    expect(responses[0].body).toEqual(responses[1].body)
+    expect(await AppointmentEventModel.countDocuments({ appointmentId: mine._id })).toBe(1)
+  })
+
+  it('serializes cancellation versus rescheduling on the same appointment', async () => {
+    const mine = await appointment()
+    const responses = await Promise.all([
+      command(mine._id, 'cancel', client, { expectedRevision: 0 }, 'cancel-reschedule-key1'),
+      command(mine._id, 'reschedule', client, { expectedRevision: 0, startAt: newStart(195) }, 'cancel-reschedule-key2'),
+    ])
+    expect(responses.map(item => item.status).sort()).toEqual([200, 409])
+    expect(await AppointmentEventModel.countDocuments({ appointmentId: mine._id })).toBe(1)
   })
 })

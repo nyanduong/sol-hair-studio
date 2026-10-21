@@ -213,3 +213,29 @@ export async function getAvailability(identity, query, now = new Date()) {
     })),
   }
 }
+
+// Writer chi goi sau guards; dung snapshot, khong doc lai catalog active.
+export async function assertAppointmentSlotAvailable({ staffId, customerId, serviceIds, durationMinutes, startAt, owner, excludeAppointmentId },{ session, now } = {}) {
+    if (!session?.inTransaction()) throw new TypeError('An active transaction session is required')
+    if (
+      !isId(staffId) || !isId(customerId) || !isId(excludeAppointmentId) ||
+      !Array.isArray(serviceIds) || serviceIds.length < 1 || serviceIds.length > 5 ||
+      !Number.isSafeInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 2400 ||
+      !(startAt instanceof Date) || !Number.isFinite(startAt.getTime()) ||
+      !(now instanceof Date) || !Number.isFinite(now.getTime()) || typeof owner !== 'boolean'
+    ) throw new TypeError('Valid snapshot and server timestamps are required')
+    const [staff] = await findEligibleStaff(serviceIds, staffId, { session })
+    if (!staff) throw new AvailabilityError('STAFF_UNAVAILABLE', 'Staff is inactive or lacks the required capabilities.', 409)
+    const localDate = toHoChiMinhDate(startAt)
+    const from = new Date(localDate + 'T00:00:00+07:00')
+    const until = new Date(from.getTime() + DAY)
+    const calendar = await findAvailabilityCalendar([staff._id], customerId, from, until, {
+      session, excludeAppointmentId,
+    })
+    const slots = calculateStaffSlots(staff._id, {
+      from, until, owner, customerId, mode: 'scheduled',
+    }, calendar, durationMinutes, now)
+    const slot = slots.find(item => item.startAt === startAt.toISOString())
+    if (!slot) throw new AvailabilityError('SLOT_UNAVAILABLE', 'The requested time is unavailable.', 409)
+    return { staffId: String(staff._id), displayName: staff.displayName, slot }
+}
