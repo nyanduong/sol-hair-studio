@@ -399,18 +399,22 @@ export async function persistRescheduledAppointment(appointment, { expectedRevis
 }
 
 // Shared lifecycle CAS writer; planned times and snapshots are never updated.
-async function persistLifecycleAppointment(appointment, { expectedRevision, session }, operation) {
+async function persistLifecycleAppointment(appointment, { expectedRevision, session, previousStartedAt }, operation) {
     if (!session?.inTransaction()) throw new TypeError('An active transaction session is required')
-    if (!['start', 'complete', 'eta'].includes(operation)) throw new TypeError('Unsupported lifecycle operation')
+    if (!['start', 'complete', 'eta', 'correct_start'].includes(operation)) throw new TypeError('Unsupported lifecycle operation')
     const completing = operation === 'complete'
     const updatingEta = operation === 'eta'
-    const targetStatus = completing ? 'completed' : 'in_progress'
+    const correctingStart = operation === 'correct_start'
+    const sourceInProgress = completing || updatingEta || correctingStart
+    const targetStatus = correctingStart ? 'confirmed' : completing ? 'completed' : 'in_progress'
+    if (correctingStart && (!(previousStartedAt instanceof Date) || !Number.isFinite(previousStartedAt.getTime()))) throw new TypeError('Previous actual start is required')
     if (!(appointment instanceof AppointmentModel) || appointment.status !== targetStatus ||
         !Number.isSafeInteger(expectedRevision) || expectedRevision < 0 || expectedRevision >= Number.MAX_SAFE_INTEGER ||
         appointment.revision !== expectedRevision + 1) throw new TypeError('A valid lifecycle transition is required')
     await appointment.validate()
     const changes = {
-        status: appointment.status, startedAt: appointment.startedAt,
+        status: appointment.status,
+        ...(!correctingStart ? { startedAt: appointment.startedAt } : {}),
         occupiedFrom: appointment.occupiedFrom, occupiedUntil: appointment.occupiedUntil,
         revision: appointment.revision, lastCommand: appointment.lastCommand.toObject(),
         ...(completing ? { completedAt: appointment.completedAt } : {}),
@@ -418,12 +422,12 @@ async function persistLifecycleAppointment(appointment, { expectedRevision, sess
     }
     return AppointmentModel.findOneAndUpdate({
         _id: appointment._id, customerId: appointment.customerId, staffId: appointment.staffId,
-        revision: expectedRevision, status: completing || updatingEta ? 'in_progress' : 'confirmed',
-        startedAt: completing || updatingEta ? appointment.startedAt : { $exists: false },
-        ...(completing || updatingEta ? { completedAt: { $exists: false } } : {}),
+        revision: expectedRevision, status: sourceInProgress ? 'in_progress' : 'confirmed',
+        startedAt: sourceInProgress ? (correctingStart ? previousStartedAt : appointment.startedAt) : { $exists: false },
+        ...(sourceInProgress ? { completedAt: { $exists: false } } : {}),
     }, {
         $set: changes,
-        ...(completing ? { $unset: { estimatedEndAt: 1 } } : {}),
+        ...(correctingStart ? { $unset: { startedAt: 1, completedAt: 1, estimatedEndAt: 1 } } : completing ? { $unset: { estimatedEndAt: 1 } } : {}),
     }, { session, returnDocument: 'after', runValidators: true }).lean()
 }
 
@@ -440,12 +444,16 @@ export function persistAppointmentEta(appointment, options) {
 }
 
 // Read-only warnings under the same guards/session; never update affected appointments.
-export function findAppointmentEtaCandidates(appointment, until, { session } = {}) {
+export function findAppointmentConflictCandidates(appointment, until, { session, includeCompleted = false } = {}) {
     if (!session?.inTransaction()) throw new TypeError('An active transaction session is required')
     return AppointmentModel.find({
-        _id: { $ne: appointment._id }, status: { $in: ['confirmed', 'in_progress'] },
+        _id: { $ne: appointment._id }, status: { $in: ['confirmed', 'in_progress', ...(includeCompleted ? ['completed'] : [])] },
         occupiedFrom: { $lt: until },
         $or: [{ staffId: appointment.staffId }, { customerId: appointment.customerId }],
     }).select('_id staffId customerId status startAt endAt startedAt completedAt estimatedEndAt occupiedFrom occupiedUntil')
         .sort({ startAt: 1, _id: 1 }).session(session).lean()
+}
+
+export function persistCorrectedStartAppointment(appointment, options) {
+    return persistLifecycleAppointment(appointment, options, 'correct_start')
 }

@@ -10,6 +10,7 @@ import {
     startAppointmentController,
     completeAppointmentController,
     updateAppointmentEtaController,
+    correctAppointmentStartController,
 } from "./appointments.controller.js";
 
 import { createBookingController, lookupBookingCustomersController } from './booking.controller.js'
@@ -27,3 +28,4 @@ appointmentsRouter.post('/appointments/:appointmentId/reschedule', requireAuth, 
 appointmentsRouter.post('/appointments/:appointmentId/start', requireAuth, requireRoles('stylist', 'owner'), startAppointmentController)
 appointmentsRouter.post('/appointments/:appointmentId/complete', requireAuth, requireRoles('stylist', 'owner'), completeAppointmentController)
 appointmentsRouter.post('/appointments/:appointmentId/eta', requireAuth, requireRoles('stylist', 'owner'), updateAppointmentEtaController)
+appointmentsRouter.post('/appointments/:appointmentId/correct-start', requireAuth, requireRoles('owner'), correctAppointmentStartController)

@@ -1268,7 +1268,7 @@ describe('transactional ETA and scoped impact warnings', () => {
   it.each(['audit', 'warnings', 'CAS'])('rolls back ETA and guards after %s failure', async stage => {
     const mine = await serving()
     if (stage === 'audit') vi.spyOn(appointmentRepository, 'insertAppointmentEvent').mockRejectedValueOnce(new Error('synthetic ETA audit failure'))
-    if (stage === 'warnings') vi.spyOn(appointmentRepository, 'findAppointmentEtaCandidates').mockRejectedValueOnce(new Error('synthetic warning read failure'))
+    if (stage === 'warnings') vi.spyOn(appointmentRepository, 'findAppointmentConflictCandidates').mockRejectedValueOnce(new Error('synthetic warning read failure'))
     if (stage === 'CAS') vi.spyOn(appointmentRepository, 'persistAppointmentEta').mockResolvedValueOnce(null)
     await update(mine._id).expect(stage === 'CAS' ? 409 : 500)
     await unchanged(mine)
@@ -1278,6 +1278,229 @@ describe('transactional ETA and scoped impact warnings', () => {
     const mine = await serving()
     vi.spyOn(appointmentRepository, 'findAppointmentCommandActor').mockResolvedValueOnce(null)
     await update(mine._id).expect(401)
+    await unchanged(mine)
+  })
+})
+
+// SOL-036 Step 4 only: Owner corrects an accidental Start, never a completed appointment.
+describe('Owner correction of accidental start', () => {
+  const at = minutes => new Date(NOW.getTime() + minutes * MINUTE)
+  const serving = (patch = {}) => appointment({ status: 'in_progress', startAt: at(15), startedAt: NOW, occupiedFrom: NOW, ...patch })
+  const body = (patch = {}) => ({ expectedRevision: 0, reason: 'Start was pressed accidentally; service has not begun.', serviceNotStarted: true, ...patch })
+  const correct = (id, acting = owner, input = body(), key = 'sol036-correct-start-command-0001') => command(id, 'correct-start', acting, input, key)
+  async function unchanged(mine) {
+    const stored = await AppointmentModel.findById(mine._id).lean()
+    expect(stored).toMatchObject({ status: 'in_progress', revision: mine.revision, startedAt: mine.startedAt })
+    expect(stored.estimatedEndAt).toEqual(mine.estimatedEndAt)
+    expect(stored.occupiedFrom).toEqual(mine.occupiedFrom)
+    expect(stored.occupiedUntil).toEqual(mine.occupiedUntil)
+    expect(stored.lastCommand).toBeUndefined()
+    expect(await AppointmentEventModel.countDocuments()).toBe(0)
+    expect((await CustomerModel.findById(client.customer._id)).bookingRevision).toBe(0)
+    expect((await StaffModel.findById(stylist.staff._id)).bookingRevision).toBe(0)
+  }
+  beforeEach(async () => { await shift(stylist.staff._id); await shift(otherStylist.staff._id) })
+
+  it('preserves the started event and appends a corrected event with actor/reason/before/after', async () => {
+    const mine = await appointment({ startAt: at(15) })
+    await command(mine._id, 'start', stylist, { expectedRevision: 0 }, 'sol036-start-before-correction').expect(200)
+    const result = await correct(mine._id, owner, body({ expectedRevision: 1, reason: '  Accidental start; no actual service.  ' })).expect(200)
+    expect(result.headers['cache-control']).toBe('no-store')
+    expect(result.body.data).toMatchObject({ status: 'confirmed', revision: 2, occupiedFrom: mine.startAt.toISOString(), occupiedUntil: mine.occupiedUntil.toISOString() })
+    expect(result.body.data).not.toHaveProperty('startedAt')
+    const stored = await AppointmentModel.findById(mine._id).lean()
+    expect(stored.startedAt).toBeUndefined()
+    expect(stored.completedAt).toBeUndefined()
+    expect(stored.estimatedEndAt).toBeUndefined()
+    expect(stored.serviceNotStarted).toBeUndefined()
+    for (const field of ['startAt', 'endAt', 'items', 'customerSnapshot', 'staffNameSnapshot', 'staffId', 'customerId', 'totalPriceVnd', 'totalDurationMinutes', 'confirmedAt', 'bookingMode']) {
+      expect(stored[field]).toEqual(mine.toObject()[field])
+    }
+    const events = await AppointmentEventModel.find().sort({ revision: 1 }).lean()
+    expect(events.map(event => event.kind)).toEqual(['started', 'corrected'])
+    expect(events[1]).toMatchObject({ actorId: owner.account._id, revision: 2, occurredAt: NOW,
+      reason: 'Accidental start; no actual service.', before: { status: 'in_progress', startedAt: NOW }, after: { status: 'confirmed' } })
+    expect(events[1].after.startedAt).toBeUndefined()
+    expect(events[0].after.startedAt).toEqual(NOW)
+  })
+
+  it('removes ETA/actual fields only from the current document and retains them in audit', async () => {
+    const mine = await serving({ estimatedEndAt: at(90), occupiedUntil: at(100) })
+    await correct(mine._id).expect(200)
+    const stored = await AppointmentModel.findById(mine._id).lean()
+    expect(stored.occupiedFrom).toEqual(mine.startAt)
+    expect(stored.occupiedUntil).toEqual(at(55))
+    expect(stored.startedAt).toBeUndefined()
+    expect(stored.estimatedEndAt).toBeUndefined()
+    const event = await AppointmentEventModel.findOne().lean()
+    expect(event.before).toMatchObject({ startedAt: NOW, estimatedEndAt: at(90) })
+    expect(event.after.estimatedEndAt).toBeUndefined()
+  })
+
+  it('does not apply new-booking lead-time, grid, horizon or current catalog capabilities', async () => {
+    const mine = await serving()
+    await StaffModel.updateOne({ _id: stylist.staff._id }, { serviceIds: [] })
+    await ServiceModel.deleteMany({})
+    await correct(mine._id).expect(200)
+    expect((await AppointmentModel.findById(mine._id)).startAt).toEqual(mine.startAt)
+  })
+
+  it.each(['stylist', 'customer'])('rejects %s without exposing conflict details', async role => {
+    const mine = await serving()
+    await appointment({ customerId: otherClient.customer._id, startAt: at(30) })
+    const result = await correct(mine._id, role === 'stylist' ? stylist : client).expect(403)
+    expect(result.body).not.toHaveProperty('details')
+    await unchanged(mine)
+  })
+
+  it('requires authentication and a valid existing appointment ID', async () => {
+    await request(app).post(commandPath(oid(), 'correct-start')).send(body()).expect(401)
+    await correct('bad').expect(400)
+    await correct(oid()).expect(404)
+  })
+
+  it.each(['confirmed', 'completed', 'cancelled', 'no_show'])('does not correct %s in Step 4', async status => {
+    const mine = await appointment({ status })
+    expect((await correct(mine._id).expect(409)).body.code).toBe('APPOINTMENT_STATE_CONFLICT')
+    expect(await AppointmentEventModel.countDocuments()).toBe(0)
+  })
+
+  it.each([undefined, '', '   ', 42, 'x'.repeat(501)])('requires a valid reason %j', async reason => {
+    const mine = await serving()
+    await correct(mine._id, owner, body({ reason })).expect(400)
+    await unchanged(mine)
+  })
+
+  it.each([undefined, false, 'true', 1])('requires explicit service-not-started confirmation %j', async serviceNotStarted => {
+    const mine = await serving()
+    expect((await correct(mine._id, owner, body({ serviceNotStarted })).expect(400)).body.code).toBe('SERVICE_NOT_STARTED_CONFIRMATION_REQUIRED')
+    await unchanged(mine)
+  })
+
+  it.each([{ expectedRevision: -1 }, { expectedRevision: 0.5 }, { startAt: NOW.toISOString() }, { status: 'confirmed' }, { estimatedEndAt: at(90).toISOString() }])('rejects invalid or extra fields %j', async patch => {
+    const mine = await serving()
+    await correct(mine._id, owner, body(patch)).expect(400)
+    await unchanged(mine)
+  })
+
+  it('rejects stale revision and invalid command key', async () => {
+    const mine = await serving()
+    expect((await correct(mine._id, owner, body({ expectedRevision: 1 })).expect(409)).body.code).toBe('APPOINTMENT_REVISION_CONFLICT')
+    await correct(mine._id, owner, body(), 'bad').expect(400)
+    await unchanged(mine)
+  })
+
+  it.each(['missing', 'cancelled', 'cleanup', 'split'])('rejects %s shift coverage without changing state', async variant => {
+    await StaffShiftModel.deleteMany({})
+    if (variant === 'cancelled') {
+      const shiftDoc = await shift(stylist.staff._id)
+      await StaffShiftModel.updateOne({ _id: shiftDoc._id }, { status: 'cancelled' })
+    }
+    if (variant === 'cleanup') await shift(stylist.staff._id, '2026-10-20', '09:00', '10:45')
+    if (variant === 'split') {
+      await shift(stylist.staff._id, '2026-10-20', '09:00', '10:30')
+      await shift(stylist.staff._id, '2026-10-20', '10:30', '12:00')
+    }
+    const mine = await serving()
+    const result = await correct(mine._id).expect(409)
+    expect(result.body).toMatchObject({ code: 'CORRECTION_CONFLICT', details: { shiftConflict: true } })
+    await unchanged(mine)
+  })
+
+  it('returns time-off conflict details to Owner without partial updates', async () => {
+    const mine = await serving()
+    await mongoose.connection.db.collection('staff_time_off').insertOne({ staffId: stylist.staff._id, startAt: at(45), endAt: at(60) })
+    const result = await correct(mine._id).expect(409)
+    expect(result.body.details).toEqual({ shiftConflict: false, timeOffConflicts: [{ startAt: at(45).toISOString(), endAt: at(60).toISOString() }], conflictingAppointments: [] })
+    await unchanged(mine)
+  })
+
+  it.each(['staff', 'customer', 'both', 'overdue'])('returns %s overlap details and leaves the other appointment unchanged', async variant => {
+    const mine = await serving()
+    const next = await appointment({ customerId: variant === 'customer' || variant === 'both' ? client.customer._id : otherClient.customer._id,
+      staffId: variant === 'customer' ? otherStylist.staff._id : stylist.staff._id,
+      startAt: variant === 'overdue' ? at(-60) : at(30), ...(variant === 'overdue' ? { status: 'in_progress' } : {}) })
+    const result = await correct(mine._id).expect(409)
+    expect(result.body.code).toBe('CORRECTION_CONFLICT')
+    expect(result.body.details.conflictingAppointments).toHaveLength(1)
+    expect(result.body.details.conflictingAppointments[0]).toEqual({ id: String(next._id), staffId: String(next.staffId), status: next.status,
+      startAt: next.startAt.toISOString(), endAt: next.endAt.toISOString(), reasons: variant === 'both' ? ['staff_overlap', 'customer_overlap'] : variant === 'customer' ? ['customer_overlap'] : ['staff_overlap'] })
+    expect((await AppointmentModel.findById(next._id)).toObject()).toEqual(next.toObject())
+    await unchanged(mine)
+  })
+
+  it('does not treat Customer cleanup on another Staff as a conflict', async () => {
+    const mine = await serving()
+    await appointment({ staffId: otherStylist.staff._id, startAt: at(45) })
+    await correct(mine._id).expect(200)
+  })
+
+  it('includes completed Staff cleanup in conflict checks', async () => {
+    const mine = await serving({ startAt: NOW, startedAt: at(-20), occupiedFrom: at(-20) })
+    const previous = await appointment({ status: 'completed', customerId: otherClient.customer._id, startAt: at(-30), completedAt: at(-5), occupiedUntil: at(5) })
+    const result = await correct(mine._id).expect(409)
+    expect(result.body.details.conflictingAppointments[0].id).toBe(String(previous._id))
+    await unchanged(mine)
+  })
+
+  it.each(['cancelled', 'no_show'])('ignores %s reservations', async status => {
+    const mine = await serving()
+    await appointment({ status, customerId: otherClient.customer._id, startAt: at(30) })
+    await correct(mine._id).expect(200)
+  })
+
+  it('accepts exact Staff cleanup adjacency and exact time-off adjacency', async () => {
+    const mine = await serving({ endAt: at(35), totalDurationMinutes: 20,
+      items: [{ serviceId: 'service-cut-style', name: 'Historical service', priceVnd: 100000, durationMinutes: 20 }], occupiedUntil: at(45) })
+    await appointment({ customerId: otherClient.customer._id, startAt: at(45) })
+    await mongoose.connection.db.collection('staff_time_off').insertOne({ staffId: stylist.staff._id, startAt: at(45), endAt: at(60) })
+    await correct(mine._id).expect(200)
+  })
+
+  it('allows the same original key/revision to replay even if shift data later changes', async () => {
+    const mine = await serving()
+    const first = await correct(mine._id).expect(200)
+    await StaffShiftModel.deleteMany({})
+    const replay = await correct(mine._id).expect(200)
+    expect(replay.body).toEqual(first.body)
+    expect(await AppointmentEventModel.countDocuments()).toBe(1)
+    expect((await AppointmentModel.findById(mine._id)).revision).toBe(1)
+  })
+
+  it('rejects a changed correction reason with the same key', async () => {
+    const mine = await serving()
+    await correct(mine._id).expect(200)
+    expect((await correct(mine._id, owner, body({ reason: 'Different reason' })).expect(409)).body.code).toBe('COMMAND_KEY_CONFLICT')
+    expect(await AppointmentEventModel.countDocuments()).toBe(1)
+  })
+
+  it('serializes concurrent identical corrections to one event', async () => {
+    const mine = await serving()
+    const responses = await Promise.all([correct(mine._id), correct(mine._id)])
+    expect(responses.map(item => item.status)).toEqual([200, 200])
+    expect(await AppointmentEventModel.countDocuments()).toBe(1)
+  })
+
+  it('allows only one concurrent correction with different keys at the same revision', async () => {
+    const mine = await serving()
+    const responses = await Promise.all([correct(mine._id), correct(mine._id, owner, body(), 'sol036-correct-start-command-0002')])
+    expect(responses.map(item => item.status).sort()).toEqual([200, 409])
+    expect(await AppointmentEventModel.countDocuments()).toBe(1)
+  })
+
+  it.each(['audit', 'CAS', 'calendar'])('fully rolls back after %s failure', async stage => {
+    const mine = await serving()
+    if (stage === 'audit') vi.spyOn(appointmentRepository, 'insertAppointmentEvent').mockRejectedValueOnce(new Error('synthetic correction audit failure'))
+    if (stage === 'CAS') vi.spyOn(appointmentRepository, 'persistCorrectedStartAppointment').mockResolvedValueOnce(null)
+    if (stage === 'calendar') vi.spyOn(availabilityRepository, 'findAvailabilityCalendar').mockRejectedValueOnce(new Error('synthetic correction calendar failure'))
+    await correct(mine._id).expect(stage === 'CAS' ? 409 : 500)
+    await unchanged(mine)
+  })
+
+  it('checks Owner permission again inside the transaction', async () => {
+    const mine = await serving()
+    vi.spyOn(appointmentRepository, 'findAppointmentCommandActor').mockResolvedValueOnce({ accountId: String(owner.account._id), roles: ['stylist'], authRevision: owner.account.authRevision })
+    await correct(mine._id).expect(403)
     await unchanged(mine)
   })
 })

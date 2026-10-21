@@ -9,6 +9,7 @@ import {
     startAppointment,
     completeAppointment,
     updateAppointmentEta,
+    correctAppointmentStart,
 } from "./appointments.service.js";
 
 function sendAppointmentError(error, res, next) {
@@ -19,6 +20,7 @@ function sendAppointmentError(error, res, next) {
         status: 'error',
         code: error.code,
         message: error.message,
+        ...(error.details !== undefined ? { details: error.details } : {}),
     })
 }
 
@@ -102,4 +104,8 @@ export function completeAppointmentController(req, res, next) {
 
 export function updateAppointmentEtaController(req, res, next) {
     return appointmentCommandResponse(updateAppointmentEta, req, res, next)
+}
+
+export function correctAppointmentStartController(req, res, next) {
+    return appointmentCommandResponse(correctAppointmentStart, req, res, next)
 }
