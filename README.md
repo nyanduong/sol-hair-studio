@@ -102,6 +102,8 @@ API tài khoản, OTP email, phiên và phân quyền SOL-017: [Hợp đồng v�
 
 API lọc stylist và giờ trống SOL-030: [hợp đồng availability](docs/availability-api.md). Cần dịch vụ có thời lượng đặt lịch cố định do chủ cấu hình; kết quả đọc không giữ chỗ, API tạo lịch thuộc SOL-031.
 
+Giao diện đặt lịch: Web `/booking` (SOL-032), Mobile `Booking` (SOL-033). [Hợp đồng và phụ thuộc API](docs/booking-ui-contract.md) mô tả endpoint tạo lịch còn chờ SOL-031. Quy tắc payload/contact và retry intent/key thuần JavaScript nằm một nơi tại `shared/booking.js`, dùng thật bởi cả hai client; HTTP/lifecycle và UI vẫn riêng theo app. Không thêm workspace hoặc shared UI.
+
 ## Kiểm tra
 
 ```powershell
