@@ -8,7 +8,12 @@ import styles from '../../services/styles/ServicesScreen.styles.js'
 
 export default function HomeScreen({ navigation }) {
   return <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={styles.safeArea}>
-    <ServicesList showToolbar={false} navigation={navigation} header={<HomeHeader onServices={() => navigation.navigate('Services')} />} footer={<BookingBanner />} />
+    <ServicesList
+      showToolbar={false}
+      navigation={navigation}
+      header={<HomeHeader navigation={navigation} onServices={() => navigation.navigate('Services')} />}
+      footer={<BookingBanner navigation={navigation} />}
+    />
     <BottomNav navigation={navigation} active="Home" />
     <StatusBar style="dark" />
   </SafeAreaView>

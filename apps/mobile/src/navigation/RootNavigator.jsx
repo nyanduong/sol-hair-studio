@@ -1,6 +1,12 @@
-import HomeScreen from '../features/home/screens/HomeScreen.jsx'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
+import ForgotPasswordScreen from '../features/auth/screens/ForgotPasswordScreen.jsx'
+import LoginScreen from '../features/auth/screens/LoginScreen.jsx'
+import OtpVerificationScreen from '../features/auth/screens/OtpVerificationScreen.jsx'
+import ProfileScreen from '../features/auth/screens/ProfileScreen.jsx'
+import RegisterScreen from '../features/auth/screens/RegisterScreen.jsx'
+import ResetPasswordScreen from '../features/auth/screens/ResetPasswordScreen.jsx'
 import HealthScreen from '../features/health/screens/HealthScreen.jsx'
+import HomeScreen from '../features/home/screens/HomeScreen.jsx'
 import ServicesScreen from '../features/services/screens/ServicesScreen.jsx'
 import { colors } from '../theme/tokens.js'
 
@@ -11,6 +17,12 @@ export default function RootNavigator() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Home" component={HomeScreen} />
       <Stack.Screen name="Services" component={ServicesScreen} />
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Register" component={RegisterScreen} />
+      <Stack.Screen name="OtpVerification" component={OtpVerificationScreen} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+      <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen
         name="Health"
         component={HealthScreen}

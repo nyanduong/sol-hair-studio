@@ -1,16 +1,52 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useFeatureUnavailable } from '../../../components/FeatureUnavailableProvider.jsx'
+import { useAuth } from '../../auth/hooks/useAuth.js'
 import { colors, displayFont } from '../../../theme/tokens.js'
 
-export default function BookingBanner() {
+export default function BookingBanner({ navigation }) {
   const showFeature = useFeatureUnavailable()
-  return <View style={styles.banner}>
-    <Text style={styles.eyebrow}>YOUR TIME AT SOL</Text>
-    <Text accessibilityRole="header" style={styles.title}>Mái tóc mới, bắt đầu từ một cuộc hẹn.</Text>
-    <Text style={styles.copy}>Chọn stylist và thời gian phù hợp với bạn.</Text>
-    <Pressable accessibilityRole="button" onPress={() => showFeature('Đặt lịch')} style={({ pressed }) => [styles.badge, pressed && { opacity: 0.75 }]}><Text style={styles.badgeText}>Đặt lịch ngay →</Text></Pressable>
-  </View>
+  const { isAuthenticated, isProfileComplete } = useAuth()
+
+  function handleBooking() {
+    if (!isAuthenticated) {
+      if (navigation) {
+        navigation.navigate('Login', {
+          notice: 'Vui lòng đăng nhập tài khoản trước khi đặt lịch hẹn.',
+        })
+      } else {
+        showFeature('Đặt lịch')
+      }
+      return
+    }
+
+    if (!isProfileComplete) {
+      if (navigation) {
+        navigation.navigate('Profile')
+      } else {
+        showFeature('Đặt lịch')
+      }
+      return
+    }
+
+    showFeature('Đặt lịch')
+  }
+
+  return (
+    <View style={styles.banner}>
+      <Text style={styles.eyebrow}>YOUR TIME AT SOL</Text>
+      <Text accessibilityRole="header" style={styles.title}>Mái tóc mới, bắt đầu từ một cuộc hẹn.</Text>
+      <Text style={styles.copy}>Chọn stylist và thời gian phù hợp với bạn.</Text>
+      <Pressable
+        accessibilityRole="button"
+        onPress={handleBooking}
+        style={({ pressed }) => [styles.badge, pressed && { opacity: 0.75 }]}
+      >
+        <Text style={styles.badgeText}>Đặt lịch ngay →</Text>
+      </Pressable>
+    </View>
+  )
 }
+
 const styles = StyleSheet.create({
   banner: { marginTop: 24, padding: 24, backgroundColor: colors.copper, borderRadius: 24 },
   eyebrow: { color: colors.surface, fontSize: 10, letterSpacing: 2 },

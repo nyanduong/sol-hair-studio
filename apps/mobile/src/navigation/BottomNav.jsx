@@ -1,19 +1,58 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import Feather from '@expo/vector-icons/Feather'
-import { colors } from '../theme/tokens.js'
 import { useFeatureUnavailable } from '../components/FeatureUnavailableProvider.jsx'
+import { useAuth } from '../features/auth/hooks/useAuth.js'
+import { colors } from '../theme/tokens.js'
 
 const items = [
   { route: 'Home', icon: 'home', label: 'Trang chủ' },
   { route: 'Services', icon: 'grid', label: 'Dịch vụ' },
   { icon: 'calendar', label: 'Đặt lịch', booking: true },
   { icon: 'clock', label: 'Lịch hẹn' },
-  { icon: 'user', label: 'Tài khoản' },
+  { route: 'Profile', icon: 'user', label: 'Tài khoản' },
 ]
 
 export default function BottomNav({ navigation, active }) {
   const showFeature = useFeatureUnavailable()
+  const { isAuthenticated, isProfileComplete } = useAuth()
+
   function handlePress(item) {
+    if (item.label === 'Tài khoản') {
+      if (active === 'Profile') return
+      if (isAuthenticated) {
+        navigation.navigate('Profile')
+      } else {
+        navigation.navigate('Login', {
+          notice: 'Vui lòng đăng nhập để xem thông tin tài khoản.',
+        })
+      }
+      return
+    }
+
+    if (item.label === 'Đặt lịch') {
+      if (!isAuthenticated) {
+        navigation.navigate('Login', {
+          notice: 'Vui lòng đăng nhập tài khoản trước khi đặt lịch hẹn.',
+        })
+        return
+      }
+      if (!isProfileComplete) {
+        navigation.navigate('Profile')
+        return
+      }
+      return showFeature(item.label)
+    }
+
+    if (item.label === 'Lịch hẹn') {
+      if (!isAuthenticated) {
+        navigation.navigate('Login', {
+          notice: 'Vui lòng đăng nhập để theo dõi lịch hẹn của bạn.',
+        })
+        return
+      }
+      return showFeature(item.label)
+    }
+
     if (!item.route) return showFeature(item.label)
     if (item.route === active) return
     if (item.route === 'Home') navigation.popTo('Home')
