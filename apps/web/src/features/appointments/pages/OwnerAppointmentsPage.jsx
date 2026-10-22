@@ -5,6 +5,7 @@ import { useAuth } from '../../auth/hooks/useAuth.js'
 import SiteHeader from '../../home/components/SiteHeader.jsx'
 import SiteFooter from '../../home/components/SiteFooter.jsx'
 import OwnerAppointmentsView from '../components/OwnerAppointmentsView.jsx'
+import OwnerAppointmentManagement from '../components/OwnerAppointmentManagement.jsx'
 import { isOwnerAccount, useOwnerAppointmentRead, ownerAppointmentStatuses } from '../hooks/useOwnerAppointments.js'
 
 const field = 'mt-1.5 min-h-10 w-full rounded-xl border border-[#efe6db] bg-white px-3 py-2 text-xs sm:text-sm font-medium text-ink focus:border-[#3E2317] focus:outline-none transition-colors'
@@ -41,6 +42,7 @@ function OwnerWorkspace({ token, appointmentId, onLogin }) {
         />
       )}
       <OwnerResults
+        key={JSON.stringify([appointmentId, filters])}
         token={token}
         appointmentId={appointmentId}
         filters={filters}
@@ -194,12 +196,24 @@ function OwnerFilters({ token, filters, onChange }) {
 }
 
 function OwnerResults({ token, appointmentId, filters, search, onLogin }) {
+  const [notice, setNotice] = useState('')
   const state = useOwnerAppointmentRead(
     token,
     appointmentId ? 'detail' : 'list',
     appointmentId ? { id: appointmentId } : filters,
   )
-  return <OwnerAppointmentsView state={state} detailed={Boolean(appointmentId)} search={search} onLogin={onLogin} />
+  function changed(value, operation) {
+    if (value) setNotice(operation === 'cancel' ? 'Đã hủy lịch hẹn.' : 'Đã đánh dấu không đến.')
+    void state.retry()
+  }
+  return <>
+    {notice && <p role="status" className="mt-4 text-sm text-terracotta">{notice}</p>}
+    <OwnerAppointmentsView state={state} detailed={Boolean(appointmentId)} search={search} onLogin={onLogin}
+      actions={appointmentId && state.kind === 'success' ? (
+        <OwnerAppointmentManagement key={state.value.id + ':' + state.value.revision}
+          token={token} appointment={state.value} onChanged={changed} />
+      ) : null} />
+  </>
 }
 
 export default function OwnerAppointmentsPage() {

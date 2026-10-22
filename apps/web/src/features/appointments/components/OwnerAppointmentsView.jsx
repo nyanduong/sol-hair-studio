@@ -124,7 +124,7 @@ function CompactAppointmentCard({ appointment, search }) {
   )
 }
 
-function DetailedAppointmentView({ appointment }) {
+function DetailedAppointmentView({ appointment, actions }) {
   const start = new Date(appointment.startAt)
   const end = new Date(appointment.endAt)
 
@@ -214,11 +214,12 @@ function DetailedAppointmentView({ appointment }) {
           </section>
         </div>
       </div>
+      {actions}
     </article>
   )
 }
 
-export default function OwnerAppointmentsView({ state, detailed = false, search = '', onLogin }) {
+export default function OwnerAppointmentsView({ state, detailed = false, search = '', onLogin, actions }) {
   if (state.kind === 'denied' || state.kind === 'notFound') {
     return (
       <section role="alert" className="mt-6 rounded-2xl border border-border bg-white p-6 text-sm">
@@ -251,7 +252,7 @@ export default function OwnerAppointmentsView({ state, detailed = false, search 
       )}
 
       {detailed && state.kind === 'success' && (
-        <DetailedAppointmentView appointment={state.value} />
+        <DetailedAppointmentView appointment={state.value} actions={actions} />
       )}
 
       {!detailed && (

@@ -10,7 +10,7 @@ import { listOwnerAppointments, readOwnerAppointment } from '../api/owner-appoin
 const id = '1234567890abcdef12345678'
 const owner = { accountId: 'owner-a', roles: ['owner'], status: 'active' }
 const item = {
-  id, customerId: 'customer-a', customerSnapshot: { displayName: 'Khách A', phone: '+84901234567' },
+  id, revision: 3, customerId: 'customer-a', customerSnapshot: { displayName: 'Khách A', phone: '+84901234567' },
   staffId: 'staff-a', staffNameSnapshot: 'Stylist An', status: 'confirmed',
   startAt: '2026-10-23T02:00:00.000Z', endAt: '2026-10-23T03:00:00.000Z',
   totalDurationMinutes: 60, totalPriceVnd: 150000,

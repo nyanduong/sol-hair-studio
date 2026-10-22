@@ -14,6 +14,7 @@ function ownerAppointment(data) {
   }
   // Chỉ giữ DTO cần hiển thị; không giữ account/email, guard, receipt hoặc audit.
   return {
+    ...(Number.isSafeInteger(data.revision) && data.revision >= 0 ? { revision: data.revision } : {}),
     id: data.id, customerId: data.customerId,
     customerSnapshot: { displayName: data.customerSnapshot.displayName, phone: data.customerSnapshot.phone },
     staffId: data.staffId, staffNameSnapshot: data.staffNameSnapshot,
@@ -47,5 +48,27 @@ export async function readOwnerAppointment(baseUrl, token, id, signal) {
     baseUrl, headers: { Authorization: `Bearer ${token}` }, signal,
   })
   if (response.data?.id?.toLowerCase() !== id.toLowerCase()) throw new Error('Sai mã lịch hẹn trong phản hồi.')
+  if (!Number.isSafeInteger(response.data.revision) || response.data.revision < 0) throw new Error('Missing or invalid appointment revision.')
   return ownerAppointment(response.data)
+}
+
+export async function sendOwnerAppointmentCommand(baseUrl, token, id, operation, payload, key, signal) {
+  if (!/^[a-fA-F0-9]{24}$/.test(id ?? '') || !['cancel', 'no-show'].includes(operation)) {
+    throw new Error('Thao tác hoặc mã lịch không hợp lệ.')
+  }
+  const allowed = operation === 'cancel' ? ['expectedRevision', 'reason'] : ['expectedRevision', 'contactAttemptedAt']
+  if (!payload || Object.keys(payload).some(field => !allowed.includes(field)) ||
+      !Number.isSafeInteger(payload.expectedRevision) || payload.expectedRevision < 0) {
+    throw new Error('Dữ liệu thao tác không hợp lệ.')
+  }
+  const response = await requestJson('/api/appointments/' + encodeURIComponent(id) + '/' + operation, {
+    baseUrl, method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Idempotency-Key': key },
+    body: payload, signal,
+  })
+  const data = response.data
+  if (data?.id !== id || data.status !== (operation === 'cancel' ? 'cancelled' : 'no_show') ||
+      data.revision !== payload.expectedRevision + 1) {
+    throw new Error('Chưa xác định được kết quả. Hãy thử lại cùng yêu cầu.')
+  }
+  return { ...ownerAppointment(data), revision: data.revision }
 }
