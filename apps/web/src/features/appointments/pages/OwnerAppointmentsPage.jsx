@@ -52,8 +52,10 @@ function OwnerWorkspace({ token, appointmentId, onLogin }) {
 }
 
 function OwnerFilters({ token, filters, onChange }) {
+  const [isMobileOpen, setIsMobileOpen] = useState(false)
   const staff = useOwnerAppointmentRead(token, 'staff', {})
   const people = staff.kind === 'success' ? staff.value : []
+  const activeCount = [filters.staffId, filters.status].filter(Boolean).length
 
   return (
     <form
@@ -61,7 +63,20 @@ function OwnerFilters({ token, filters, onChange }) {
       className="mt-6 rounded-2xl border border-[#efe6db] bg-[#faf6f0] p-4 sm:p-5 shadow-2xs"
       onSubmit={event => event.preventDefault()}
     >
-      <div className="flex items-center justify-between border-b border-[#efe6db] pb-3">
+      {/* Header bar: Trên mobile bấm vào để xổ xuống / thu gọn */}
+      <div
+        className="flex items-center justify-between cursor-pointer sm:cursor-default select-none border-b border-[#efe6db] pb-3"
+        onClick={() => setIsMobileOpen(prev => !prev)}
+        role="button"
+        tabIndex={0}
+        aria-expanded={isMobileOpen}
+        onKeyDown={e => {
+          if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault()
+            setIsMobileOpen(prev => !prev)
+          }
+        }}
+      >
         <div className="flex items-center gap-2">
           <span className="flex size-6 items-center justify-center rounded-md bg-[#f0e8dc] text-terracotta">
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -71,70 +86,108 @@ function OwnerFilters({ token, filters, onChange }) {
           <span className="text-xs font-bold uppercase tracking-wider text-terracotta">
             Bộ lọc lịch hẹn
           </span>
+          {activeCount > 0 && (
+            <span className="rounded-full bg-terracotta px-1.5 py-0.2 text-[10px] font-bold text-white sm:hidden">
+              {activeCount}
+            </span>
+          )}
         </div>
-        <span className="text-xs text-muted">Dashboard quản lý</span>
+
+        {/* Nút toggle trên mobile / Nhãn trên desktop */}
+        <div className="flex items-center gap-2">
+          <span className="hidden text-xs text-muted sm:inline">Dashboard quản lý</span>
+          <button
+            type="button"
+            aria-label={isMobileOpen ? 'Thu gọn bộ lọc' : 'Mở rộng bộ lọc'}
+            className="flex items-center gap-1 text-xs font-medium text-terracotta sm:hidden"
+            onClick={e => {
+              e.stopPropagation()
+              setIsMobileOpen(prev => !prev)
+            }}
+          >
+            <span>{isMobileOpen ? 'Thu gọn' : 'Lọc lịch'}</span>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={`transition-transform duration-200 ${isMobileOpen ? 'rotate-180' : ''}`}
+              aria-hidden="true"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+        </div>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <label className="text-xs font-semibold text-ink">
-          Ngày hẹn
-          <input
-            type="date"
-            required
-            className={field}
-            value={filters.localDate}
-            onChange={event => onChange('localDate', event.target.value)}
-          />
-        </label>
+      {/* Nội dung các trường lọc: Trên mobile thu lại mặc định, click xổ xuống; desktop luôn hiển thị */}
+      <div className={`${isMobileOpen ? 'block' : 'hidden'} mt-4 sm:block sm:mt-4`}>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <label className="text-xs font-semibold text-ink">
+            Ngày hẹn
+            <input
+              type="date"
+              required
+              className={field}
+              value={filters.localDate}
+              onChange={event => onChange('localDate', event.target.value)}
+            />
+          </label>
 
-        <label className="text-xs font-semibold text-ink">
-          Stylist
-          <select
-            className={field}
-            value={filters.staffId}
-            onChange={event => onChange('staffId', event.target.value)}
-          >
-            <option value="">Tất cả stylist</option>
-            {filters.staffId && !people.some(person => person.staffId === filters.staffId) && (
-              <option value={filters.staffId}>Stylist đã chọn</option>
+          <label className="text-xs font-semibold text-ink">
+            Stylist
+            <select
+              className={field}
+              value={filters.staffId}
+              onChange={event => onChange('staffId', event.target.value)}
+            >
+              <option value="">Tất cả stylist</option>
+              {filters.staffId && !people.some(person => person.staffId === filters.staffId) && (
+                <option value={filters.staffId}>Stylist đã chọn</option>
+              )}
+              {people.map(person => (
+                <option key={person.staffId} value={person.staffId}>
+                  {person.displayName}
+                  {person.isActive ? '' : ' (ngừng hoạt động)'}
+                </option>
+              ))}
+            </select>
+            {staff.kind === 'loading' && (
+              <span role="status" className="mt-1 block text-[11px] font-normal text-muted">
+                Đang tải stylist…
+              </span>
             )}
-            {people.map(person => (
-              <option key={person.staffId} value={person.staffId}>
-                {person.displayName}
-                {person.isActive ? '' : ' (ngừng hoạt động)'}
-              </option>
-            ))}
-          </select>
-          {staff.kind === 'loading' && (
-            <span role="status" className="mt-1 block text-[11px] font-normal text-muted">
-              Đang tải stylist…
-            </span>
-          )}
-          {['error', 'denied'].includes(staff.kind) && (
-            <span role="alert" className="mt-1 block text-[11px] font-normal text-terracotta">
-              Không tải được danh sách stylist.{' '}
-              <button type="button" onClick={staff.retry} className="underline">
-                Thử lại
-              </button>
-            </span>
-          )}
-        </label>
+            {['error', 'denied'].includes(staff.kind) && (
+              <span role="alert" className="mt-1 block text-[11px] font-normal text-terracotta">
+                Không tải được danh sách stylist.{' '}
+                <button type="button" onClick={staff.retry} className="underline">
+                  Thử lại
+                </button>
+              </span>
+            )}
+          </label>
 
-        <label className="text-xs font-semibold text-ink">
-          Trạng thái
-          <select
-            className={field}
-            value={filters.status}
-            onChange={event => onChange('status', event.target.value)}
-          >
-            <option value="">Tất cả trạng thái</option>
-            {Object.entries(ownerAppointmentStatuses).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
+          <label className="text-xs font-semibold text-ink">
+            Trạng thái
+            <select
+              className={field}
+              value={filters.status}
+              onChange={event => onChange('status', event.target.value)}
+            >
+              <option value="">Tất cả trạng thái</option>
+              {Object.entries(ownerAppointmentStatuses).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
     </form>
   )

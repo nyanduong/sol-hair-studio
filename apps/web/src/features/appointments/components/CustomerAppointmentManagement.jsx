@@ -72,29 +72,9 @@ function CommandDialog({ token, appointment, operation, editable, onClose, onCha
   const ambiguous = Boolean(command.pending) && command.kind !== 'loading'
 
   if (operation === 'cancel') {
-    return (
-      <dialog ref={dialog} aria-labelledby="appointment-command-title"
-        onCancel={event => { event.preventDefault(); if (!command.locked) onClose() }}
-        className="fixed inset-0 m-auto max-h-[90svh] w-[calc(100%_-_2rem)] max-w-xl overflow-y-auto rounded-3xl border border-border bg-canvas p-6 text-ink shadow-xl backdrop:bg-ink/40 sm:p-8">
-        <h2 id="appointment-command-title" className="font-display text-3xl">Hủy lịch hẹn?</h2>
-        <p className="mt-3 text-sm text-muted">
-          Bạn có chắc muốn hủy lịch này? Lịch đã hủy không thể mở lại; nếu cần, bạn đặt một lịch mới.
-        </p>
-        {!editable && !command.pending && <p role="alert" className="mt-4 text-sm">Lịch không còn đủ điều kiện đổi/hủy. Hãy tải lại lịch.</p>}
-        {(localError || error) && <p role="alert" className="mt-4 text-sm text-terracotta">
-          {localError || (ambiguous ? 'Chưa xác định được kết quả. Thử lại cùng yêu cầu; không tạo thao tác khác.' :
-            error.status === 409 ? 'Lịch hoặc giờ trống đã thay đổi. Tải lại lịch và chọn lại trước khi xác nhận.' :
-            [401, 403, 404].includes(error.status) ? 'Phiên đăng nhập hoặc quyền truy cập đã thay đổi. Hãy đăng nhập/tải lại lịch.' :
-            'Không thực hiện được yêu cầu. Vui lòng thử lại.')}
-        </p>}
-        <div className="mt-6 flex flex-wrap justify-end gap-3">
-          <button className={secondary} disabled={command.locked} onClick={onClose}>Quay lại</button>
-          {error?.status === 409 && !command.pending && <button className={secondary} onClick={() => { onChanged(); onClose() }}>Tải lại lịch</button>}
-          <button className={primary} disabled={command.kind === 'loading' || (!command.pending && !editable)}
-            onClick={confirm}>{command.kind === 'loading' ? 'Đang xử lý…' : ambiguous ? 'Thử lại cùng yêu cầu' : 'Xác nhận hủy lịch'}</button>
-        </div>
-      </dialog>
-    )
+    return <CancellationDialog dialogRef={dialog} appointment={appointment} command={command}
+      editable={editable} localError={localError} onConfirm={confirm} onClose={onClose}
+      onReload={() => { onChanged(); onClose() }} />
   }
 
   return (
@@ -123,6 +103,51 @@ function CommandDialog({ token, appointment, operation, editable, onClose, onCha
         onClose={onClose}
         onReload={() => { onChanged(); onClose() }}
       />
+    </dialog>
+  )
+}
+
+
+// Chỉ hiển thị xác nhận; quyền, cutoff và ghi dữ liệu vẫn do command/API kiểm tra.
+export function CancellationDialog({ dialogRef, appointment, command, editable, localError = '', onConfirm, onClose, onReload }) {
+  const error = command.error
+  const ambiguous = Boolean(command.pending) && command.kind !== 'loading'
+  const rejected = !command.pending && [401, 403, 404, 409].includes(error?.status)
+  const messages = {
+    CANCELLATION_CUTOFF: 'Lịch còn dưới 2 giờ theo giờ hệ thống nên không thể hủy trực tuyến. Vui lòng liên hệ salon.',
+    APPOINTMENT_REVISION_CONFLICT: 'Lịch đã được cập nhật. Hãy tải lại và kiểm tra trước khi hủy.',
+    APPOINTMENT_STATE_CONFLICT: 'Trạng thái lịch đã thay đổi nên không thể hủy. Hãy tải lại lịch.',
+    COMMAND_KEY_CONFLICT: 'Yêu cầu này không còn phù hợp với dữ liệu hiện tại. Hãy tải lại lịch trước khi thao tác.',
+  }
+  const message = localError || (error && (ambiguous
+    ? 'Chưa xác định được kết quả. Thử lại cùng yêu cầu; không tạo thao tác khác.'
+    : [401, 403, 404].includes(error.status)
+      ? 'Phiên đăng nhập hoặc quyền truy cập đã thay đổi. Hãy đăng nhập/tải lại lịch.'
+      : messages[error.code] ?? (error.status === 409
+        ? 'Lịch đã thay đổi. Hãy tải lại lịch trước khi xác nhận.'
+        : 'Không hủy được lịch hẹn. Vui lòng thử lại.')))
+  return (
+    <dialog ref={dialogRef} aria-labelledby="appointment-command-title" aria-describedby="appointment-cancel-description"
+      onCancel={event => { event.preventDefault(); if (!command.locked) onClose() }}
+      className="fixed inset-0 m-auto max-h-[90svh] w-[calc(100%_-_2rem)] max-w-xl overflow-y-auto rounded-3xl border border-border bg-canvas p-6 text-ink shadow-xl backdrop:bg-ink/40 sm:p-8">
+      <h2 id="appointment-command-title" className="font-display text-3xl">Hủy lịch hẹn?</h2>
+      <p id="appointment-cancel-description" className="mt-3 text-sm text-muted">
+        Bạn có chắc muốn hủy lịch này? Lịch đã hủy không thể mở lại; nếu cần, bạn đặt một lịch mới.
+      </p>
+      <dl className="mt-4 space-y-2 rounded-2xl border border-border bg-soft-surface p-4 text-sm">
+        <div><dt className="text-muted">Mã lịch</dt><dd className="break-all font-medium">{appointment.id}</dd></div>
+        <div><dt className="text-muted">Thời gian hẹn</dt><dd className="font-medium">{formatScheduleSummary(appointment.startAt)} · {new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(appointment.startAt))}</dd></div>
+        <div><dt className="text-muted">Stylist</dt><dd className="font-medium">{appointment.staffNameSnapshot}</dd></div>
+        <div><dt className="text-muted">Dịch vụ</dt><dd className="font-medium">{appointment.items.map(item => item.name).join(' · ')}</dd></div>
+      </dl>
+      {!editable && !command.pending && <p role="alert" className="mt-4 text-sm">Lịch không còn đủ điều kiện đổi/hủy. Hãy tải lại lịch.</p>}
+      {message && <p role="alert" className="mt-4 text-sm text-terracotta">{message}</p>}
+      <div className="mt-6 flex flex-wrap justify-end gap-3">
+        <button className={secondary} disabled={command.locked} onClick={onClose}>Quay lại</button>
+        {rejected && <button className={secondary} onClick={onReload}>Tải lại lịch</button>}
+        <button className={primary} disabled={command.kind === 'loading' || (!command.pending && (!editable || rejected))}
+          onClick={onConfirm}>{command.kind === 'loading' ? 'Đang xử lý…' : ambiguous ? 'Thử lại cùng yêu cầu' : 'Xác nhận hủy lịch'}</button>
+      </div>
     </dialog>
   )
 }
