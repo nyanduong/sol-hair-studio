@@ -258,13 +258,19 @@ function AppointmentCard({ appointment, isUpcomingSoon, now }) {
               Hỗ trợ
             </a>
           ) : cfg.canReschedule ? (
-            <a
-              href={`/booking?reschedule=${appointment.id}`}
+            <Link
+              to={`/lich-cua-toi/${appointment.id}?action=reschedule`}
               className="inline-flex min-h-8 items-center rounded-lg bg-[#7a3426] px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#63281c]"
             >
               Đổi lịch
-            </a>
+            </Link>
           ) : null}
+          {!isUpcomingSoon && cfg.canReschedule && (
+            <Link to={`/lich-cua-toi/${appointment.id}?action=cancel`}
+              className="inline-flex min-h-8 items-center rounded-lg bg-soft-surface px-4 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-border">
+              Hủy lịch
+            </Link>
+          )}
         </div>
       </div>
     </li>

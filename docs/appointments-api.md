@@ -10,6 +10,7 @@ Availability remains a separate shared API: [availability-api.md](availability-a
 | --- | --- | --- | --- |
 | GET | /api/appointments | Customer own; Stylist assigned; Owner whole shop | Implemented SOL-035 |
 | GET | /api/appointments/:appointmentId | Same role-based object scope | Implemented SOL-035 |
+| GET | /api/appointments/:appointmentId/reschedule-options | Customer own; snapshot-based available slots | Implemented SOL-037 integration |
 | GET | /api/appointments/:appointmentId/service-history | Assigned Stylist or Owner; contextual completed history | Implemented SOL-035 |
 | POST | /api/appointments/:appointmentId/cancel | Customer own or Owner | Implemented SOL-035 |
 | POST | /api/appointments/:appointmentId/no-show | Owner only | Implemented SOL-035 |
@@ -490,3 +491,29 @@ Any CAS/audit/calendar error aborts the full transaction. No partial restoration
 
 Tests run only on the existing temporary MongoDB replica set with synthetic data. They cover the full Start/Complete/Correct lifecycle, original actual-time and event retention, ETA-required/equality/invalid cases, authorization, state/revision, shift/time-off/Staff/Customer/cleanup conflicts, real SOL-031 booking after false completion, cancellation resolving a conflict, booking-vs-correction races, rollback and duplicate requests, and availability after restoration.
 API tests do not claim live database, Postman, browser/native UI or deployed GitHub Actions acceptance.
+
+## Customer reschedule options — SOL-037 integration
+
+`GET /api/appointments/:appointmentId/reschedule-options?localDate=YYYY-MM-DD`
+requires an active Customer-only session and an owned, confirmed appointment at least
+two hours from server-now (equality allowed). Inaccessible IDs return the same 404
+as appointment detail. Owner/Stylist sessions receive 403.
+
+Only `localDate` is accepted. No customerId, serviceIds, duration or exclusion ID
+may be supplied by the client. The server uses the appointment's service IDs and
+duration snapshot, current staff capabilities/shifts/time-off and the existing
+SOL-030 slot calculator, excluding exactly the scoped appointment itself.
+Hidden or changed catalog services do not replace the snapshot. No algorithm,
+guard or write path in SOL-030 is changed.
+
+200 data: `{appointmentId,revision,generatedAt,localDate,timeZone,stylists:
+[{staffId,displayName,slots:[{startAt,endAt,occupiedUntil}]}]}`.
+Empty staff/slots is a valid result. `Cache-Control: no-store`.
+400: invalid ID/date/query or date outside booking horizon; 401/403: session/role;
+404: missing/out-of-scope; 409: APPOINTMENT_STATE_CONFLICT or RESCHEDULE_CUTOFF.
+
+This read does not reserve time. Existing POST reschedule is the final authority,
+revalidating cutoff, availability, expectedRevision and guards in its transaction.
+Customer Web sends only expectedRevision/staffId/startAt for reschedule and
+expectedRevision for cancellation. Ambiguous retries preserve body, revision and
+Idempotency-Key; confirmed 409 rejection requires refreshing and user confirmation.

@@ -1,4 +1,6 @@
-import { Link, useParams } from 'react-router-dom'
+import { useState } from 'react'
+import CustomerAppointmentManagement from '../components/CustomerAppointmentManagement.jsx'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../auth/hooks/useAuth.js'
 import SiteHeader from '../../home/components/SiteHeader.jsx'
 import SiteFooter from '../../home/components/SiteFooter.jsx'
@@ -8,7 +10,24 @@ import { useCustomerAppointmentDetail } from '../hooks/useCustomerAppointmentDet
 
 function AppointmentDetail({ token, appointmentId, onLogin }) {
   const state = useCustomerAppointmentDetail(token, appointmentId)
-  return <CustomerAppointmentDetail state={state} onLogin={onLogin} />
+  const [search, setSearch] = useSearchParams()
+  const [notice, setNotice] = useState('')
+  function changed(value, operation) {
+    if (value) setNotice(operation === 'cancel' ? 'Đã hủy lịch hẹn.' : 'Đã đổi lịch hẹn.')
+    state.retry()
+  }
+  const close = () => setSearch(previous => {
+    const next = new URLSearchParams(previous)
+    next.delete('action')
+    return next
+  }, { replace: true })
+  return <>
+    {notice && <p role="status" className="mt-5 text-sm text-terracotta">{notice}</p>}
+    <CustomerAppointmentDetail state={state} onLogin={onLogin} actions={state.kind === 'success' ? (
+      <CustomerAppointmentManagement token={token} appointment={state.value} onChanged={changed}
+        initialAction={search.get('action')} onClose={close} />
+    ) : null} />
+  </>
 }
 
 export default function CustomerAppointmentDetailPage() {

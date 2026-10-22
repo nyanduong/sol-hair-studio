@@ -1,5 +1,6 @@
 import {
     AppointmentError,
+    getCustomerRescheduleOptions,
     listAppointments,
     getAppointmentDetail,
     getAppointmentServiceHistory,
@@ -113,4 +114,14 @@ export function correctAppointmentStartController(req, res, next) {
 
 export function correctAppointmentCompletionController(req, res, next) {
     return appointmentCommandResponse(correctAppointmentCompletion, req, res, next)
+}
+
+export async function getCustomerRescheduleOptionsController(req, res, next) {
+    res.set('Cache-Control', 'no-store')
+    try {
+        const data = await getCustomerRescheduleOptions(req.identity, req.params.appointmentId, req.query)
+        return res.status(200).json({ status: 'success', data })
+    } catch (error) {
+        return sendAppointmentError(error, res, next)
+    }
 }

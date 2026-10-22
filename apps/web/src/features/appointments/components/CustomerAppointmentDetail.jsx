@@ -64,7 +64,7 @@ function cap(str) {
   return str ? str.charAt(0).toUpperCase() + str.slice(1) : str
 }
 
-export default function CustomerAppointmentDetail({ state, onLogin }) {
+export default function CustomerAppointmentDetail({ state, onLogin, actions }) {
   if (state.kind === 'loading') {
     return (
       <section role="status" aria-busy="true" className="mt-6 rounded-3xl border border-border bg-white p-6 sm:p-8 shadow-sm">
@@ -137,6 +137,8 @@ export default function CustomerAppointmentDetail({ state, onLogin }) {
           {statusCfg.label}
         </span>
       </div>
+
+      {actions}
 
       {/* ── Main Grid: Thời gian + Dịch vụ ── */}
       <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-12">

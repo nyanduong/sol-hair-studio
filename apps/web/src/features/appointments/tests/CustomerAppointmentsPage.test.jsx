@@ -64,7 +64,7 @@ describe('customer appointments Web', () => {
     expect(html).toContain('Đã xác nhận')
     expect(html).not.toContain('Upcoming')
     expect(html).toContain('Chi tiết')
-    expect(html).not.toContain('Hủy lịch')
+    expect(html).toContain('action=cancel')
   })
   it('offers reauthentication on expiry instead of showing old rows', () => {
     const html = list({ kind: 'denied', items: [item], error: { status: 401 } })

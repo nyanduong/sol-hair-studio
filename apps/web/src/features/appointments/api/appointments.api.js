@@ -42,3 +42,31 @@ export async function readCustomerAppointment(baseUrl, token, appointmentId, sig
   }
   return data
 }
+
+export async function readRescheduleOptions(baseUrl, token, appointmentId, localDate, signal) {
+  const response = await requestJson('/api/appointments/' + encodeURIComponent(appointmentId) +
+    '/reschedule-options?' + new URLSearchParams({ localDate }), {
+    baseUrl, headers: { Authorization: `Bearer ${token}` }, signal,
+  })
+  const data = response.data
+  if (!data || data.appointmentId !== appointmentId || !Number.isSafeInteger(data.revision) ||
+      !Array.isArray(data.stylists) || data.stylists.some(staff => !Array.isArray(staff.slots))) {
+    throw new Error('Không đọc được giờ trống cho lịch hẹn.')
+  }
+  return data
+}
+
+export async function sendAppointmentCommand(baseUrl, token, appointmentId, operation, payload, key, signal) {
+  if (!['cancel', 'reschedule'].includes(operation)) throw new Error('Thao tác không hợp lệ.')
+  const allowed = operation === 'cancel' ? ['expectedRevision'] : ['expectedRevision', 'staffId', 'startAt']
+  if (Object.keys(payload).some(field => !allowed.includes(field))) throw new Error('Không được đổi dịch vụ hoặc dữ liệu ngoài phạm vi.')
+  const response = await requestJson('/api/appointments/' + encodeURIComponent(appointmentId) + '/' + operation, {
+    baseUrl, method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Idempotency-Key': key }, body: payload, signal,
+  })
+  if (!response.data || response.data.id !== appointmentId ||
+      !Number.isSafeInteger(response.data.revision) ||
+      response.data.status !== (operation === 'cancel' ? 'cancelled' : 'confirmed')) {
+    throw new Error('Chưa xác định được kết quả thao tác. Hãy thử lại cùng yêu cầu.')
+  }
+  return response.data
+}

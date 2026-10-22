@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { requireAuth, requireRoles } from '../../middlewares/auth.js'
 import {
     listAppointmentsController,
+    getCustomerRescheduleOptionsController,
     getAppointmentDetailController,
     getAppointmentServiceHistoryController,
     cancelAppointmentController,
@@ -25,6 +26,7 @@ appointmentsRouter.get('/appointments/:appointmentId', requireAuth,  requireRole
 appointmentsRouter.post('/appointments/:appointmentId/cancel', requireAuth,  requireRoles('customer', 'owner'), cancelAppointmentController);
 appointmentsRouter.post('/appointments/:appointmentId/no-show', requireAuth, requireRoles('owner'), markAppointmentNoShowController,)
 appointmentsRouter.get('/appointments/:appointmentId/service-history', requireAuth, requireRoles('stylist', 'owner'),getAppointmentServiceHistoryController)
+appointmentsRouter.get('/appointments/:appointmentId/reschedule-options', requireAuth, requireRoles('customer'), getCustomerRescheduleOptionsController)
 appointmentsRouter.post('/appointments/:appointmentId/reschedule', requireAuth, requireRoles('customer', 'owner'), rescheduleAppointmentController)
 appointmentsRouter.post('/appointments/:appointmentId/start', requireAuth, requireRoles('stylist', 'owner'), startAppointmentController)
 appointmentsRouter.post('/appointments/:appointmentId/complete', requireAuth, requireRoles('stylist', 'owner'), completeAppointmentController)

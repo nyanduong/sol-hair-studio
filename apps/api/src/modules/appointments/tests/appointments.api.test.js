@@ -1847,3 +1847,74 @@ describe('Owner correction of accidental completion', () => {
     await unchanged(mine)
   })
 })
+
+describe('customer reschedule option snapshots', () => {
+  beforeEach(async () => {
+    await shift(stylist.staff._id)
+    await shift(otherStylist.staff._id)
+  })
+  const path = id => detailPath(id) + '/reschedule-options?localDate=2026-10-20'
+
+  it('uses the existing snapshot, excludes itself and works without active catalog services', async () => {
+    const mine = await appointment()
+    const response = await get(path(mine._id)).expect(200)
+    expect(response.headers['cache-control']).toBe('no-store')
+    expect(response.body.data).toMatchObject({ appointmentId: String(mine._id), revision: 0 })
+    const staff = response.body.data.stylists.find(item => item.staffId === String(stylist.staff._id))
+    expect(staff.slots.some(slot => slot.startAt === mine.startAt.toISOString())).toBe(true)
+    expect(staff.slots.find(slot => slot.startAt === mine.startAt.toISOString()).endAt).toBe(mine.endAt.toISOString())
+    expect(JSON.stringify(response.body)).not.toContain('Private customer')
+    expect(JSON.stringify(response.body)).not.toContain('+849')
+    await assertUnchanged(mine._id)
+  })
+  it('reflects another appointment, cleanup and unchanged snapshot duration', async () => {
+    const mine = await appointment()
+    await appointment({ customerId: otherClient.customer._id, startAt: new Date(newStart(240)),
+      endAt: new Date(newStart(270)), occupiedFrom: new Date(newStart(240)), occupiedUntil: new Date(newStart(280)) })
+    const data = (await get(path(mine._id)).expect(200)).body.data
+    const slots = data.stylists.find(item => item.staffId === String(stylist.staff._id)).slots
+    expect(slots.some(slot => slot.startAt === newStart(225))).toBe(false)
+    expect(slots.some(slot => slot.startAt === newStart(270))).toBe(false)
+    expect(slots.some(slot => slot.startAt === newStart(285))).toBe(true)
+  })
+  it('uses current staff capabilities and assigned shifts', async () => {
+    const mine = await appointment()
+    await StaffModel.updateOne({ _id: otherStylist.staff._id }, { $set: { serviceIds: [] } })
+    const data = (await get(path(mine._id)).expect(200)).body.data
+    expect(data.stylists.map(item => item.staffId)).not.toContain(String(otherStylist.staff._id))
+    await StaffShiftModel.deleteMany({ staffId: stylist.staff._id })
+    const noShift = (await get(path(mine._id)).expect(200)).body.data
+    expect(noShift.stylists.find(item => item.staffId === String(stylist.staff._id)).slots).toEqual([])
+  })
+  it('does not expose another Customer appointment (IDOR)', async () => {
+    const mine = await appointment()
+    await get(path(mine._id), otherClient).expect(404)
+  })
+  it.each(['owner', 'stylist'])('rejects %s actors', async role => {
+    const mine = await appointment()
+    await get(path(mine._id), role === 'owner' ? owner : stylist).expect(403)
+  })
+  it('requires an active session', async () => {
+    await request(app).get(path(oid())).expect(401)
+  })
+  it.each(['in_progress', 'completed', 'cancelled', 'no_show'])('rejects %s appointments', async status => {
+    const mine = await appointment({ status })
+    expect((await get(path(mine._id)).expect(409)).body.code).toBe('APPOINTMENT_STATE_CONFLICT')
+  })
+  it('allows exact two-hour cutoff and rejects one millisecond later', async () => {
+    const mine = await appointment({ startAt: new Date(newStart(120)), endAt: new Date(newStart(150)),
+      occupiedFrom: new Date(newStart(120)), occupiedUntil: new Date(newStart(160)) })
+    await get(path(mine._id)).expect(200)
+    vi.setSystemTime(new Date(NOW.getTime() + 1))
+    expect((await get(path(mine._id)).expect(409)).body.code).toBe('RESCHEDULE_CUTOFF')
+  })
+  it('rejects client-supplied snapshot, scope, exclusion and invalid dates', async () => {
+    const mine = await appointment()
+    for (const field of ['customerId', 'serviceIds', 'excludeAppointmentId', 'durationMinutes']) {
+      await get(path(mine._id) + '&' + field + '=other').expect(400)
+    }
+    await get(detailPath(mine._id) + '/reschedule-options?localDate=bad').expect(400)
+    await get(detailPath(mine._id) + '/reschedule-options?localDate=2026-11-01').expect(400)
+    await get(detailPath('invalid') + '/reschedule-options?localDate=2026-10-20').expect(400)
+  })
+})

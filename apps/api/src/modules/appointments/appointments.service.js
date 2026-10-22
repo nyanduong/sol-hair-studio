@@ -1,5 +1,5 @@
-import { findAvailabilityCalendar } from '../availability/availability.repository.js'
-import { AvailabilityError, assertAppointmentSlotAvailable, appointmentInterval } from '../availability/availability.service.js'
+import { findAvailabilityCalendar, findEligibleStaff } from '../availability/availability.repository.js'
+import { AvailabilityError, assertAppointmentSlotAvailable, appointmentInterval, parseAvailabilityQuery, calculateStaffSlots } from '../availability/availability.service.js'
 import { toHoChiMinhDate } from '../staff/staff-shifts.model.js'
 import {
     findCustomerAppointments,
@@ -1104,4 +1104,53 @@ async function assertCorrectionCanRestoreInterval(appointment, session, now) {
 // Owner sửa nhầm hoàn tất, đưa lịch về in_progress.
 export function correctAppointmentCompletion(identity, appointmentId, body, commandKey) {
     return runAppointmentCommand('correct_complete', identity, appointmentId, body, commandKey)
+}
+
+export async function getCustomerRescheduleOptions(identity, appointmentId, query = {}, now = new Date()) {
+    requireAppointmentRole(identity, 'customer')
+    if (identity.roles.some(role => ['owner', 'stylist'].includes(role))) {
+        throw new AppointmentError('Customer session required.', { code: 'FORBIDDEN', status: 403 })
+    }
+    const appointment = await getAppointmentDetail(identity, appointmentId)
+    if (appointment.status !== 'confirmed') {
+        throw new AppointmentError('Appointment is not confirmed.', { code: 'APPOINTMENT_STATE_CONFLICT', status: 409 })
+    }
+    if (new Date(appointment.startAt).getTime() - now.getTime() < 7_200_000) {
+        throw new AppointmentError('Rescheduling cutoff reached.', { code: 'RESCHEDULE_CUTOFF', status: 409 })
+    }
+    if (Object.keys(query).some(key => key !== 'localDate')) {
+        throw new AppointmentError('Unsupported reschedule options query.', { code: 'INVALID_QUERY', status: 400 })
+    }
+    try {
+        const options = parseAvailabilityQuery({
+            localDate: query.localDate, serviceIds: appointment.items.map(item => item.serviceId).join(','),
+        }, identity, now)
+        const staff = await findEligibleStaff(options.serviceIds)
+        const calendar = staff.length ? await findAvailabilityCalendar(
+            staff.map(item => item._id), identity.customerId, options.from, options.until,
+            { excludeAppointmentId: appointmentId },
+        ) : { shifts: [], timeOff: [], appointments: [] }
+        return {
+            appointmentId: appointment.id,
+            items:appointment.items.map(item=>({
+                serviceId: item.serviceId,
+                name: item.name,
+                priceVnd: item.priceVnd,
+                durationMinutes: item.durationMinutes,
+            })),
+            revision: appointment.revision,
+            generatedAt: now.toISOString(),
+            localDate: options.localDate,
+            timeZone: appointment.timeZone,
+            stylists: staff.map(item => ({
+                staffId: String(item._id), displayName: item.displayName,
+                slots: calculateStaffSlots(item._id, options, calendar, appointment.totalDurationMinutes, now),
+            })),
+        }
+    } catch (error) {
+        if (error instanceof AvailabilityError) {
+            throw new AppointmentError(error.message, { code: error.code, status: error.status })
+        }
+        throw error
+    }
 }

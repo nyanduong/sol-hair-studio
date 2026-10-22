@@ -83,14 +83,14 @@ describe('service snapshots and cutoff display', () => {
     vi.useFakeTimers()
     vi.setSystemTime(now)
     const html = render(state([item]))
-    expect(html.includes('href="/booking?reschedule=a"')).toBe(!locked)
+    expect(html.includes('href="/lich-cua-toi/a?action=reschedule"')).toBe(!locked)
     expect(html.includes('href="tel:19006828"')).toBe(locked)
     if (offset >= 7200000) expect(html).toContain('Lịch hẹn đã đến hoặc quá giờ.')
   })
   it.each(['in_progress', 'completed', 'cancelled', 'no_show'])('never permits reschedule for %s', status => {
     expect(isAppointmentCutoffReached({ ...item, status }, NOW.getTime())).toBe(false)
     const html = render(state([{ ...item, status }]))
-    expect(html).not.toContain('href="/booking?reschedule=')
+    expect(html).not.toContain('action=reschedule')
   })
   it('updates at the exact cutoff boundary and clears timers/listeners when disposed', () => {
     vi.useFakeTimers()
