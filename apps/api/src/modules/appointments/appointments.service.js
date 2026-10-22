@@ -1106,16 +1106,17 @@ export function correctAppointmentCompletion(identity, appointmentId, body, comm
     return runAppointmentCommand('correct_complete', identity, appointmentId, body, commandKey)
 }
 
-export async function getCustomerRescheduleOptions(identity, appointmentId, query = {}, now = new Date()) {
-    requireAppointmentRole(identity, 'customer')
-    if (identity.roles.some(role => ['owner', 'stylist'].includes(role))) {
-        throw new AppointmentError('Customer session required.', { code: 'FORBIDDEN', status: 403 })
+export async function getAppointmentRescheduleOptions(identity, appointmentId, query = {}, now = new Date()) {
+    const owner = identity?.roles?.includes('owner')
+    requireAppointmentRole(identity, owner ? 'owner' : 'customer')
+    if (!owner && identity.roles.includes('stylist')) {
+        throw new AppointmentError('Customer or Owner session required.', { code: 'FORBIDDEN', status: 403 })
     }
     const appointment = await getAppointmentDetail(identity, appointmentId)
     if (appointment.status !== 'confirmed') {
         throw new AppointmentError('Appointment is not confirmed.', { code: 'APPOINTMENT_STATE_CONFLICT', status: 409 })
     }
-    if (new Date(appointment.startAt).getTime() - now.getTime() < 7_200_000) {
+    if (!owner && new Date(appointment.startAt).getTime() - now.getTime() < 7_200_000) {
         throw new AppointmentError('Rescheduling cutoff reached.', { code: 'RESCHEDULE_CUTOFF', status: 409 })
     }
     if (Object.keys(query).some(key => key !== 'localDate')) {
@@ -1124,10 +1125,11 @@ export async function getCustomerRescheduleOptions(identity, appointmentId, quer
     try {
         const options = parseAvailabilityQuery({
             localDate: query.localDate, serviceIds: appointment.items.map(item => item.serviceId).join(','),
+            ...(owner ? { customerId: appointment.customerId } : {}),
         }, identity, now)
         const staff = await findEligibleStaff(options.serviceIds)
         const calendar = staff.length ? await findAvailabilityCalendar(
-            staff.map(item => item._id), identity.customerId, options.from, options.until,
+            staff.map(item => item._id), options.customerId, options.from, options.until,
             { excludeAppointmentId: appointmentId },
         ) : { shifts: [], timeOff: [], appointments: [] }
         return {

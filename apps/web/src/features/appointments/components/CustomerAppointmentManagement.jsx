@@ -7,6 +7,18 @@ import { useRescheduleOptions } from '../hooks/useRescheduleOptions.js'
 const primary = 'inline-flex min-h-11 items-center justify-center rounded-full bg-terracotta px-6 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
 const secondary = 'inline-flex min-h-11 items-center justify-center rounded-full bg-soft-surface px-6 py-2 text-sm font-semibold text-ink disabled:opacity-50'
 
+const rescheduleErrors = {
+  RESCHEDULE_CUTOFF: 'Lịch còn dưới 2 giờ theo giờ server. Vui lòng liên hệ salon.',
+  RESCHEDULE_LEAD_TIME: 'Giờ mới đã quá gần hoặc nằm trong quá khứ. Hãy tải lại giờ trống.',
+  RESCHEDULE_HORIZON: 'Giờ mới vượt cửa sổ 168 giờ. Hãy chọn lại.',
+  RESCHEDULE_REASON_REQUIRED: 'Đổi lịch sát giờ hoặc quá giờ hẹn cần nhập lý do.',
+  INVALID_REASON: 'Lý do phải có nội dung và không quá 500 ký tự.',
+  APPOINTMENT_REVISION_CONFLICT: 'Lịch đã được cập nhật. Hãy tải lại lịch trước khi xác nhận.',
+  APPOINTMENT_STATE_CONFLICT: 'Trạng thái lịch đã thay đổi, không thể đổi lịch. Hãy tải lại lịch.',
+  SLOT_UNAVAILABLE: 'Giờ đã chọn không còn trống. Hãy tải lại lịch và chọn lại.',
+  STAFF_UNAVAILABLE: 'Chuyên viên không còn đáp ứng lịch này. Hãy tải lại và chọn lại.',
+}
+
 const fmtWeekday = new Intl.DateTimeFormat('vi-VN', {
   timeZone: 'Asia/Ho_Chi_Minh',
   weekday: 'long',
@@ -166,6 +178,8 @@ export function RescheduleForm({
   onConfirm,
   onClose,
   onReload,
+  extraFields = null,
+  confirmDisabled = false,
 }) {
   const [stylistMode, setStylistMode] = useState('current')
   const [otherStaffId, setOtherStaffId] = useState('')
@@ -187,6 +201,7 @@ export function RescheduleForm({
   }, [selected, onSelect])
 
   function handleModeChange(mode) {
+    if (locked) return
     setStylistMode(mode)
     setStartAt('')
     onSelect(null)
@@ -196,18 +211,21 @@ export function RescheduleForm({
   }
 
   function handleSelectOther(staffId) {
+    if (locked) return
     setOtherStaffId(staffId)
     setStartAt('')
     onSelect(null)
   }
 
   function chooseDate(newDate) {
+    if (locked) return
     setLocalDate(newDate)
     setStartAt('')
     onSelect(null)
   }
 
   function chooseSlot(slotStartAt) {
+    if (locked) return
     setStartAt(slotStartAt)
     onSelect({
       staffId: activeStaffId,
@@ -217,11 +235,11 @@ export function RescheduleForm({
   }
 
   const baseToday = useMemo(() => salonDate(), [])
-  const upcomingDays = useMemo(() => {
+  const allUpcomingDays = useMemo(() => {
     const [y, m, d] = baseToday.split('-').map(Number)
     const list = []
     const weekdayNames = ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7']
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 8; i++) {
       const dt = new Date(Date.UTC(y, m - 1, d + i, 12, 0, 0))
       const dateStr = dt.toISOString().slice(0, 10)
       list.push({
@@ -235,19 +253,20 @@ export function RescheduleForm({
     return list
   }, [baseToday])
 
-  const currentDayIdx = upcomingDays.findIndex(d => d.dateStr === localDate)
-  const currentDayMeta = upcomingDays[currentDayIdx >= 0 ? currentDayIdx : 0]
+  const currentDayIdx = allUpcomingDays.findIndex(d => d.dateStr === localDate)
+  const upcomingDays = currentDayIdx === 7 ? allUpcomingDays.slice(1) : allUpcomingDays.slice(0, 7)
+  const currentDayMeta = allUpcomingDays[currentDayIdx >= 0 ? currentDayIdx : 0]
   const monthDisplay = currentDayMeta ? `Tháng ${currentDayMeta.month}, ${currentDayMeta.year}` : ''
 
   function handlePrevDay() {
     if (currentDayIdx > 0) {
-      chooseDate(upcomingDays[currentDayIdx - 1].dateStr)
+      chooseDate(allUpcomingDays[currentDayIdx - 1].dateStr)
     }
   }
 
   function handleNextDay() {
-    if (currentDayIdx >= 0 && currentDayIdx < upcomingDays.length - 1) {
-      chooseDate(upcomingDays[currentDayIdx + 1].dateStr)
+    if (currentDayIdx >= 0 && currentDayIdx < allUpcomingDays.length - 1) {
+      chooseDate(allUpcomingDays[currentDayIdx + 1].dateStr)
     }
   }
 
@@ -392,7 +411,7 @@ export function RescheduleForm({
                 <button
                   type="button"
                   aria-label="Ngày sau"
-                  disabled={currentDayIdx >= upcomingDays.length - 1}
+                  disabled={currentDayIdx >= allUpcomingDays.length - 1}
                   onClick={handleNextDay}
                   className="flex size-7 items-center justify-center rounded-lg border border-[#efe6db] bg-white text-ink transition-colors hover:bg-soft-surface disabled:cursor-not-allowed disabled:opacity-30"
                 >
@@ -440,7 +459,7 @@ export function RescheduleForm({
                   <span className="size-2 rounded-full bg-emerald-500" /> Còn sẵn
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-[#3E2317]" /> Đã chọn
+                  <span className="size-2 rounded-full bg-terracotta" /> Đã chọn
                 </span>
               </div>
             </div>
@@ -473,31 +492,33 @@ export function RescheduleForm({
                         : 'Chuyên viên được chọn không có giờ trống trong ngày này. Hãy chọn ngày hoặc chuyên viên khác.'}
                     </p>
                   ) : (
-                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                      {activeStaffObj.slots.map(slot => {
-                        const isSelected = startAt === slot.startAt
-                        const isCurrentSlot = activeStaffId === appointment.staffId && slot.startAt === appointment.startAt
-                        return (
-                          <button
-                            type="button"
-                            key={slot.startAt}
-                            disabled={locked || isCurrentSlot}
-                            onClick={() => chooseSlot(slot.startAt)}
-                            className={`flex flex-col items-center justify-center rounded-xl p-3 text-center transition-all ${
-                              isSelected
-                                ? 'bg-[#3E2317] text-white shadow-xs'
-                                : isCurrentSlot
-                                  ? 'border border-[#efe6db] bg-[#f3eee6] text-muted opacity-60 cursor-not-allowed'
-                                  : 'border border-[#efe6db] bg-white text-ink hover:border-[#3E2317]'
-                            }`}
-                          >
-                            <span className="font-semibold text-sm sm:text-base">{slotTime(slot.startAt)}</span>
-                            <span className={`text-[11px] mt-0.5 ${isSelected ? 'text-white/80' : 'text-muted'}`}>
-                              {isSelected ? 'Đã chọn' : isCurrentSlot ? 'Lịch hiện tại' : 'Còn chỗ'}
-                            </span>
-                          </button>
-                        )
-                      })}
+                    <div className="max-h-56 sm:max-h-64 overflow-y-auto pr-1 rounded-xl">
+                      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                        {activeStaffObj.slots.map(slot => {
+                          const isSelected = startAt === slot.startAt
+                          const isCurrentSlot = activeStaffId === appointment.staffId && slot.startAt === appointment.startAt
+                          return (
+                            <button
+                              type="button"
+                              key={slot.startAt}
+                              disabled={locked || isCurrentSlot}
+                              onClick={() => chooseSlot(slot.startAt)}
+                              className={`flex flex-col items-center justify-center rounded-xl p-3 text-center transition-all ${
+                                isSelected
+                                  ? 'bg-terracotta text-white shadow-xs'
+                                  : isCurrentSlot
+                                    ? 'border border-[#efe6db] bg-[#f3eee6] text-muted opacity-60 cursor-not-allowed'
+                                    : 'border border-[#efe6db] bg-white text-ink hover:border-[#3E2317]'
+                              }`}
+                            >
+                              <span className="font-semibold text-sm sm:text-base">{slotTime(slot.startAt)}</span>
+                              <span className={`text-[11px] mt-0.5 ${isSelected ? 'text-white/80' : 'text-muted'}`}>
+                                {isSelected ? 'Đã chọn' : isCurrentSlot ? 'Lịch hiện tại' : 'Còn chỗ'}
+                              </span>
+                            </button>
+                          )
+                        })}
+                      </div>
                     </div>
                   )}
                 </>
@@ -519,7 +540,7 @@ export function RescheduleForm({
           </div>
           {appointment.items.length > 0 && (
             appointment.items.map(item => (
-              <div className="min-w-0">
+              <div key={item.serviceId} className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-[#8c827a]">Dịch vụ</p>
                 <p className="mt-0.5 font-display text-sm italic font-semibold text-ink">
                   {item.name}
@@ -587,7 +608,7 @@ export function RescheduleForm({
             <div className="flex justify-between gap-2">
               <dt className="text-muted shrink-0">Thời lượng:</dt>
               <dd className="font-medium text-ink text-right">
-                {appointment.totalDurationMinutes} phút (đã bao gồm dọn)
+                {appointment.totalDurationMinutes} phút
               </dd>
             </div>
             <div className="flex justify-between gap-2 border-t border-[#efe6db] pt-3 text-sm font-semibold">
@@ -609,6 +630,8 @@ export function RescheduleForm({
           <p>Dịch vụ, giá và thời lượng giữ nguyên theo lịch hẹn ban đầu. Bạn chỉ thay đổi ngày, giờ và (nếu chọn) chuyên viên.</p>
         </div>
 
+        {extraFields}
+
         {/* Thông báo lỗi / trạng thái */}
         {!editable && !command.pending && (
           <p role="alert" className="text-xs text-terracotta">Lịch không còn đủ điều kiện đổi/hủy. Hãy tải lại lịch.</p>
@@ -616,6 +639,7 @@ export function RescheduleForm({
         {(localError || error) && (
           <p role="alert" className="text-xs text-terracotta">
             {localError || (ambiguous ? 'Chưa xác định được kết quả. Thử lại cùng yêu cầu; không tạo thao tác khác.' :
+              rescheduleErrors[error.code] ? rescheduleErrors[error.code] :
               error.status === 409 ? 'Lịch hoặc giờ trống đã thay đổi. Tải lại lịch và chọn lại trước khi xác nhận.' :
               [401, 403, 404].includes(error.status) ? 'Phiên đăng nhập hoặc quyền truy cập đã thay đổi. Hãy đăng nhập/tải lại lịch.' :
               'Không thực hiện được yêu cầu. Vui lòng thử lại.')}
@@ -627,7 +651,7 @@ export function RescheduleForm({
           <button
             type="button"
             className="w-full inline-flex min-h-12 items-center justify-center rounded-full bg-terracotta hover:bg-[#2b170e] px-6 py-3 text-sm font-semibold text-white shadow-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={command.kind === 'loading' || (!command.pending && (!editable || !selection))}
+            disabled={command.kind === 'loading' || (!command.pending && (!editable || !selection || !selected || confirmDisabled || [401, 403, 404, 409].includes(error?.status)))}
             onClick={onConfirm}
           >
             {command.kind === 'loading'
@@ -644,7 +668,7 @@ export function RescheduleForm({
           >
             Quay lại
           </button>
-          {error?.status === 409 && !command.pending && (
+          {[401, 403, 404, 409].includes(error?.status) && !command.pending && (
             <button
               type="button"
               className="w-full inline-flex min-h-11 items-center justify-center rounded-full bg-soft-surface px-6 py-2 text-sm font-semibold text-ink hover:bg-[#eae2d7]"

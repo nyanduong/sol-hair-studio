@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import OwnerAppointmentReschedule from './OwnerAppointmentReschedule.jsx'
 import { ownerAppointmentActions, ownerAppointmentPayload, useOwnerAppointmentCommand, useOwnerAppointmentTime } from '../hooks/useOwnerAppointmentCommand.js'
 
 const primary = 'min-h-11 rounded-full bg-terracotta px-5 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
@@ -14,11 +15,14 @@ export default function OwnerAppointmentManagement({ token, appointment, onChang
   return (
     <div className="border-t border-border px-6 py-5 sm:px-8">
       <div className="flex flex-wrap justify-end gap-3">
+        <button className={secondary} onClick={() => setOperation('reschedule')}>Đổi lịch</button>
         <button className={secondary} onClick={() => setOperation('cancel')}>Hủy lịch</button>
         <button className={primary} disabled={!actions.noShow} onClick={() => setOperation('no-show')}>Đánh dấu không đến</button>
       </div>
       {!actions.noShow && <p className="mt-2 text-right text-xs text-muted">Không đến: chỉ ghi nhận từ 15 phút sau giờ hẹn, khi đã liên hệ và khách chưa đến.</p>}
-      {operation && <OwnerCommandDialog key={operation} token={token} appointment={appointment}
+      {operation === 'reschedule' && <OwnerAppointmentReschedule token={token} appointment={appointment} now={now}
+        onClose={() => setOperation(null)} onChanged={onChanged} />}
+      {operation && operation !== 'reschedule' && <OwnerCommandDialog key={operation} token={token} appointment={appointment}
         operation={operation} now={now} onClose={() => setOperation(null)} onChanged={onChanged} />}
     </div>
   )

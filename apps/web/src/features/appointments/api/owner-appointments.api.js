@@ -53,10 +53,11 @@ export async function readOwnerAppointment(baseUrl, token, id, signal) {
 }
 
 export async function sendOwnerAppointmentCommand(baseUrl, token, id, operation, payload, key, signal) {
-  if (!/^[a-fA-F0-9]{24}$/.test(id ?? '') || !['cancel', 'no-show'].includes(operation)) {
+  if (!/^[a-fA-F0-9]{24}$/.test(id ?? '') || !['cancel', 'no-show', 'reschedule'].includes(operation)) {
     throw new Error('Thao tác hoặc mã lịch không hợp lệ.')
   }
-  const allowed = operation === 'cancel' ? ['expectedRevision', 'reason'] : ['expectedRevision', 'contactAttemptedAt']
+  const allowed = operation === 'reschedule' ? ['expectedRevision', 'startAt', 'staffId', 'reason']
+    : operation === 'cancel' ? ['expectedRevision', 'reason'] : ['expectedRevision', 'contactAttemptedAt']
   if (!payload || Object.keys(payload).some(field => !allowed.includes(field)) ||
       !Number.isSafeInteger(payload.expectedRevision) || payload.expectedRevision < 0) {
     throw new Error('Dữ liệu thao tác không hợp lệ.')
@@ -66,7 +67,7 @@ export async function sendOwnerAppointmentCommand(baseUrl, token, id, operation,
     body: payload, signal,
   })
   const data = response.data
-  if (data?.id !== id || data.status !== (operation === 'cancel' ? 'cancelled' : 'no_show') ||
+  if (data?.id !== id || data.status !== (operation === 'reschedule' ? 'confirmed' : operation === 'cancel' ? 'cancelled' : 'no_show') ||
       data.revision !== payload.expectedRevision + 1) {
     throw new Error('Chưa xác định được kết quả. Hãy thử lại cùng yêu cầu.')
   }

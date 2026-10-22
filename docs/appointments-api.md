@@ -10,7 +10,7 @@ Availability remains a separate shared API: [availability-api.md](availability-a
 | --- | --- | --- | --- |
 | GET | /api/appointments | Customer own; Stylist assigned; Owner whole shop | Implemented SOL-035 |
 | GET | /api/appointments/:appointmentId | Same role-based object scope | Implemented SOL-035 |
-| GET | /api/appointments/:appointmentId/reschedule-options | Customer own; snapshot-based available slots | Implemented SOL-037 integration |
+| GET | /api/appointments/:appointmentId/reschedule-options | Customer own or Owner; snapshot-based available slots | Implemented SOL-037 integration |
 | GET | /api/appointments/:appointmentId/service-history | Assigned Stylist or Owner; contextual completed history | Implemented SOL-035 |
 | POST | /api/appointments/:appointmentId/cancel | Customer own or Owner | Implemented SOL-035 |
 | POST | /api/appointments/:appointmentId/no-show | Owner only | Implemented SOL-035 |
@@ -120,6 +120,34 @@ Body example:
 - Only confirmed with no startedAt. Other states cannot be reopened by this operation.
 - New start <= now + 168 hours, inclusive. Both time-only and Staff-only changes are checked.
 - All limits use the actor/time reread during the transaction, not bookingMode or client clock.
+
+
+### Owner agreement workflow — SOL-037 Web
+
+**Confirmed for Web by the SOL-037 user requirement on 2026-10-23:** Owner reschedules only
+after discussing and agreeing the new date/time/Stylist with the customer.
+The Owner form requires a nonblank reason (maximum 500 characters) for every
+reschedule and an explicit, initially unchecked attestation that the discussion
+and agreement took place. Changing the selected date/time/Stylist clears that
+attestation. Customer Reschedule and its cutoff/lead-time remain unchanged.
+
+**Implemented API contract stays unchanged:** reason is already supported and
+stored on the rescheduled event when supplied. The API requires it only for late
+Owner changes; Web always supplies it under the workflow above. Only
+expectedRevision/startAt/staffId/reason are sent by Owner Web. No confirmation
+flag, customer-approval status or additional payload field is sent.
+
+The checkbox is an Owner declaration checked on Web; the API does not persist
+or independently enforce it. It is not an authenticated Customer acceptance.
+Backend still rechecks identity, confirmed state, revision, capabilities,
+shifts/time off, Staff/Customer conflicts and snapshot-based availability in its
+existing transaction. No other appointment is automatically changed.
+
+**Not implemented / requires a separate decision:** server-side structured
+attestation audit, compulsory reason for all Owner API requests, customer
+approval requests/screens and automatic notifications. These are not approved
+API fields or new MVP features. Do not infer customer agreement from a successful
+API response.
 
 ### Snapshot and availability
 
@@ -492,16 +520,20 @@ Any CAS/audit/calendar error aborts the full transaction. No partial restoration
 Tests run only on the existing temporary MongoDB replica set with synthetic data. They cover the full Start/Complete/Correct lifecycle, original actual-time and event retention, ETA-required/equality/invalid cases, authorization, state/revision, shift/time-off/Staff/Customer/cleanup conflicts, real SOL-031 booking after false completion, cancellation resolving a conflict, booking-vs-correction races, rollback and duplicate requests, and availability after restoration.
 API tests do not claim live database, Postman, browser/native UI or deployed GitHub Actions acceptance.
 
-## Customer reschedule options — SOL-037 integration
+## Customer and Owner reschedule options — SOL-037 integration
 
 `GET /api/appointments/:appointmentId/reschedule-options?localDate=YYYY-MM-DD`
-requires an active Customer-only session and an owned, confirmed appointment at least
-two hours from server-now (equality allowed). Inaccessible IDs return the same 404
-as appointment detail. Owner/Stylist sessions receive 403.
+requires an active Customer-only or Owner session and a confirmed appointment.
+Customer: own appointment, old start at least two hours from server-now (equality
+allowed), new slots at least 30 minutes ahead. Owner: any shop appointment,
+no Customer cutoff or lead-time; new scheduled slots are at/after server-now.
+Owner role takes priority for mixed-role accounts; Stylist without Owner is denied.
+Inaccessible IDs return the same 404 as appointment detail.
 
 Only `localDate` is accepted. No customerId, serviceIds, duration or exclusion ID
 may be supplied by the client. The server uses the appointment's service IDs and
-duration snapshot, current staff capabilities/shifts/time-off and the existing
+duration snapshot, the appointment's Customer profile (also for Owner), current
+staff capabilities/shifts/time-off and the existing
 SOL-030 slot calculator, excluding exactly the scoped appointment itself.
 Hidden or changed catalog services do not replace the snapshot. No algorithm,
 guard or write path in SOL-030 is changed.
@@ -517,3 +549,9 @@ revalidating cutoff, availability, expectedRevision and guards in its transactio
 Customer Web sends only expectedRevision/staffId/startAt for reschedule and
 expectedRevision for cancellation. Ambiguous retries preserve body, revision and
 Idempotency-Key; confirmed 409 rejection requires refreshing and user confirmation.
+
+Owner Web reuses the Customer reschedule form and sends expectedRevision/staffId/startAt
+plus a required reason. The agreement attestation is checked only on Web and
+is never sent as an API field. Snapshot services are read-only. Both roles keep the
+original intent/key after uncertain outcomes, refresh detail after confirmed success,
+and reload the filtered list when returning. No Booking creation API is used.

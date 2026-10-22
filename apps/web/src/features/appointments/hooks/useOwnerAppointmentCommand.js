@@ -4,6 +4,7 @@ import { apiBaseUrl } from '../../../config/env.js'
 import { getMe } from '../../auth/api/auth.api.js'
 import { sendOwnerAppointmentCommand } from '../api/owner-appointments.api.js'
 import { isOwnerAccount } from './useOwnerAppointments.js'
+import { rescheduleSelectionPayload } from './useAppointmentCommand.js'
 
 // Quyền cuối cùng, cutoff và giờ server vẫn được API kiểm tra tại lúc ghi.
 export function ownerAppointmentActions(appointment, now = Date.now()) {
@@ -120,4 +121,19 @@ export function useOwnerAppointmentTime(startAt) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => watchOwnerAppointmentTime(startAt, setNow), [startAt])
   return now
+}
+
+// Owner dùng cùng snapshot/slot đã đọc, nhưng không chịu cutoff/lead-time Customer.
+export function ownerReschedulePayload(appointment, selection, options, reason = '', now = Date.now(), customerAgreementConfirmed = false) {
+  if (!ownerAppointmentActions(appointment, now).cancel) throw new Error('Chỉ được đổi lịch đã xác nhận. Hãy tải lại lịch.')
+  const payload = rescheduleSelectionPayload(appointment, selection ?? {}, options, now, 0)
+  if (typeof reason !== 'string' || !reason.trim() || reason.length > 500) {
+    throw new Error('Cần nhập lý do đổi lịch có nội dung và không quá 500 ký tự.')
+  }
+  if (customerAgreementConfirmed !== true) {
+    throw new Error('Cần xác nhận đã trao đổi và thống nhất lịch mới với khách.')
+  }
+  // Xác nhận chỉ kiểm tra tại Web; không thêm field ngoài API contract.
+  payload.reason = reason.trim()
+  return payload
 }

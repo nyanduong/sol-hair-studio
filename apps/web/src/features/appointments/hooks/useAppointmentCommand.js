@@ -15,15 +15,20 @@ export function assertCustomerAppointmentEditable(appointment, now = Date.now())
 
 export function reschedulePayload(appointment, selection, options, now = Date.now()) {
   assertCustomerAppointmentEditable(appointment, now)
+  return rescheduleSelectionPayload(appointment, selection, options, now, 1_800_000)
+}
+
+// Dùng chung kiểm tra snapshot slot; mỗi role truyền lead-time riêng.
+export function rescheduleSelectionPayload(appointment, selection, options, now, leadTimeMs) {
   if (!options || options.revision !== appointment.revision ||
       !options.stylists.some(staff => staff.staffId === selection.staffId && staff.slots.some(slot => slot.startAt === selection.startAt))) {
     throw new Error('Vui lòng chọn lại stylist và giờ trống mới nhất.')
   }
   const start = new Date(selection.startAt)
   if (!Number.isFinite(start.getTime()) || start.toISOString() !== selection.startAt ||
-      start.getTime() < now + 1_800_000 || start.getTime() > now + 604_800_000 ||
+      start.getTime() < now + leadTimeMs || start.getTime() > now + 604_800_000 ||
       start.getUTCMinutes() % 15 || start.getUTCSeconds() || start.getUTCMilliseconds()) {
-    throw new Error('Giờ mới phải theo mốc 15 phút, trước ít nhất 30 phút và trong 7 ngày tới.')
+    throw new Error(leadTimeMs ? 'Giờ mới phải theo mốc 15 phút, trước ít nhất 30 phút và trong 7 ngày tới.' : 'Giờ mới phải theo mốc 15 phút, không ở quá khứ và trong 7 ngày tới.')
   }
   if (selection.staffId === appointment.staffId && selection.startAt === appointment.startAt) {
     throw new Error('Hãy chọn giờ hoặc stylist khác lịch hiện tại.')

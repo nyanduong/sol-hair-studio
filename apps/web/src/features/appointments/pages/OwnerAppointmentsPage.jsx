@@ -203,7 +203,7 @@ function OwnerResults({ token, appointmentId, filters, search, onLogin }) {
     appointmentId ? { id: appointmentId } : filters,
   )
   function changed(value, operation) {
-    if (value) setNotice(operation === 'cancel' ? 'Đã hủy lịch hẹn.' : 'Đã đánh dấu không đến.')
+    if (value) setNotice(operation === 'reschedule' ? 'Đã đổi lịch hẹn.' : operation === 'cancel' ? 'Đã hủy lịch hẹn.' : 'Đã đánh dấu không đến.')
     void state.retry()
   }
   return <>

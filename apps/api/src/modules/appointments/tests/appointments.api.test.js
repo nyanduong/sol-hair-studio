@@ -1848,7 +1848,7 @@ describe('Owner correction of accidental completion', () => {
   })
 })
 
-describe('customer reschedule option snapshots', () => {
+describe('Customer and Owner reschedule option snapshots', () => {
   beforeEach(async () => {
     await shift(stylist.staff._id)
     await shift(otherStylist.staff._id)
@@ -1890,7 +1890,7 @@ describe('customer reschedule option snapshots', () => {
     const mine = await appointment()
     await get(path(mine._id), otherClient).expect(404)
   })
-  it.each(['owner', 'stylist'])('rejects %s actors', async role => {
+  it.each(['stylist'])('rejects %s actors', async role => {
     const mine = await appointment()
     await get(path(mine._id), role === 'owner' ? owner : stylist).expect(403)
   })
@@ -1917,4 +1917,59 @@ describe('customer reschedule option snapshots', () => {
     await get(detailPath(mine._id) + '/reschedule-options?localDate=2026-11-01').expect(400)
     await get(detailPath('invalid') + '/reschedule-options?localDate=2026-10-20').expect(400)
   })
+  it('lets Owner read late appointments with snapshot slots at server-now and no Customer cutoff', async () => {
+    const mine = await appointment({ startAt: new Date(newStart(15)) })
+    const data = (await get(path(mine._id), owner).expect(200)).body.data
+    const slots = data.stylists.find(item => item.staffId === String(stylist.staff._id)).slots
+    expect(slots.some(slot => slot.startAt === NOW.toISOString())).toBe(true)
+    expect((await get(path(mine._id)).expect(409)).body.code).toBe('RESCHEDULE_CUTOFF')
+    expect(data.items).toEqual(mine.items.map(item => item.toObject()))
+    expect(JSON.stringify(data)).not.toContain('Private customer')
+    await assertUnchanged(mine._id)
+  })
+  it('checks the appointment Customer across Staff for Owner and excludes only itself', async () => {
+    const mine = await appointment()
+    await appointment({ staffId: otherStylist.staff._id, startAt: NOW })
+    const data = (await get(path(mine._id), owner).expect(200)).body.data
+    const slots = data.stylists.find(item => item.staffId === String(stylist.staff._id)).slots
+    expect(slots.some(slot => slot.startAt === NOW.toISOString())).toBe(false)
+    expect(slots.some(slot => slot.startAt === newStart(30))).toBe(true)
+    expect(slots.some(slot => slot.startAt === mine.startAt.toISOString())).toBe(true)
+  })
+  it('uses Owner precedence for mixed roles without a Customer profile for the Owner', async () => {
+    const mine = await appointment({ startAt: new Date(newStart(15)) })
+    await AccountModel.updateOne({ _id: owner.account._id }, { $set: { roles: ['customer', 'owner'] } })
+    await get(path(mine._id), owner).expect(200)
+  })
+  it.each(['in_progress', 'completed', 'cancelled', 'no_show'])('rejects Owner options for %s', async status => {
+    const mine = await appointment({ status })
+    expect((await get(path(mine._id), owner).expect(409)).body.code).toBe('APPOINTMENT_STATE_CONFLICT')
+  })
+  it('reads selected date through the partial eighth day within 168 hours, rejecting injected scope', async () => {
+    const mine = await appointment()
+    await shift(stylist.staff._id, '2026-10-27')
+    const data = (await get(detailPath(mine._id) + '/reschedule-options?localDate=2026-10-27', owner).expect(200)).body.data
+    expect(data.localDate).toBe('2026-10-27')
+    const slots = data.stylists.find(item => item.staffId === String(stylist.staff._id)).slots
+    expect(slots.some(slot => slot.startAt === newStart(168 * 60))).toBe(true)
+    expect(slots.every(slot => Date.parse(slot.startAt) <= NOW.getTime() + 168 * 60 * MINUTE)).toBe(true)
+    for (const field of ['customerId', 'serviceIds', 'excludeAppointmentId', 'durationMinutes']) {
+      await get(path(mine._id) + '&' + field + '=other', owner).expect(400)
+    }
+    await get(path(oid()), owner).expect(404)
+  })
+  it('can submit an Owner snapshot option without changing booked services', async () => {
+    const mine = await appointment({ startAt: new Date(newStart(15)) })
+    const data = (await get(path(mine._id), owner).expect(200)).body.data
+    const other = data.stylists.find(item => item.staffId === String(otherStylist.staff._id))
+    const selected = other.slots.find(slot => slot.startAt === NOW.toISOString())
+    expect(selected).toBeDefined()
+    const response = await command(mine._id, 'reschedule', owner, {
+      expectedRevision: data.revision, staffId: other.staffId, startAt: selected.startAt, reason: 'Customer agreed new time',
+    }).expect(200)
+    expect(response.body.data).toMatchObject({ revision: 1, startAt: NOW.toISOString(), staffId: other.staffId,
+      totalPriceVnd: mine.totalPriceVnd, totalDurationMinutes: mine.totalDurationMinutes })
+    expect(response.body.data.items).toEqual(mine.items.map(item => item.toObject()))
+  })
+
 })

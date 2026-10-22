@@ -79,6 +79,38 @@ Không mở cancelled/no_show; tạo lịch mới nếu khách tới sau no-show
 
 Owner reschedule: new startAt >= server-now (equality allowed on the scheduled 15-minute grid). Persisted data must satisfy lastRescheduledAt <= startAt. Validate against server-now in the service; the stored timestamp does not replace that check. Customer cutoff/lead-time and Owner late-change reason remain unchanged.
 
+
+### Owner đổi lịch sau khi thống nhất với khách — SOL-037
+
+**[Đã chốt cho Web — yêu cầu điều chỉnh SOL-037 trong phiên làm việc ngày 23/10/2026]**
+Owner chỉ đổi giờ/stylist sau khi đã trao đổi và thống nhất lịch mới với khách.
+Form Owner bắt buộc nhập lý do (không rỗng, tối đa 500 ký tự) cho mọi lần đổi
+lịch và tự tích xác nhận đã trao đổi, thống nhất ngày/giờ/stylist mới. Không tích
+sẵn; đổi lựa chọn lịch mới phải xác nhận lại. Đây là khai báo của Owner, không
+phải bằng chứng khách đã xác nhận trong hệ thống.
+
+Customer vẫn tự đổi lịch của mình theo cutoff giờ hẹn cũ ≥2 giờ và giờ mới
+trước ít nhất 30 phút. Owner không chịu hai giới hạn đó; giờ mới ≥server-now,
+có lý do và tuân grid/horizon, trạng thái confirmed, ca/nghỉ, năng lực,
+availability, snapshot và revision hiện có. Không sửa dịch vụ hoặc tự đổi
+lịch khác; không tự gửi thông báo hay mặc định khách đã đồng ý.
+
+**[Đã triển khai trong API / giới hạn hiện tại]**
+POST reschedule nhận reason và lưu vào appointment_events khi gửi; API chỉ
+bắt buộc reason khi Owner đổi sát giờ (<2 giờ theo giờ hẹn cũ, kể cả quá giờ).
+Web áp dụng yêu cầu lý do chặt hơn ở trên. API chưa nhận/lưu trường xác nhận
+đã trao đổi hoặc sự đồng ý của khách; checkbox chỉ được kiểm tra tại Web,
+không thêm vào payload và không được coi là audit xác nhận của khách.
+Kiểm tra quyền, availability, revision và ghi transaction ở Backend vẫn là
+nguồn xác thực cuối cùng cho các điều kiện API đã hỗ trợ.
+
+**[Chưa triển khai / cần quyết định trước khi đổi Backend]**
+Chưa có yêu cầu đổi lịch chờ khách duyệt, màn khách xác nhận, thông báo tự động
+hoặc dữ liệu xác nhận trao đổi có cấu trúc trong audit. Muốn lưu/kiểm tra xác
+nhận ở server hoặc bắt buộc lý do cho mọi Owner request ở API cần chốt contract
+riêng trước khi triển khai; đây chưa phải contract được duyệt. Không mở rộng MVP
+bằng các chức năng đó trong bước này.
+
 Giữ lastCommand(key,actorId,hash,resultRevision) trên appointment để retry lệnh gần nhất và CAS expectedRevision ngăn ghi đè. Không hứa replay mọi lệnh cũ; stale thì GET lại, không retry mù bằng revision mới. Key tạo 24 giờ là cơ chế riêng, không áp TTL cho lastCommand/audit.
 
 <a id="history"></a>
