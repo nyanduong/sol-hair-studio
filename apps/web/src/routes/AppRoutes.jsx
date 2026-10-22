@@ -1,3 +1,4 @@
+import OwnerAppointmentsPage from '../features/appointments/pages/OwnerAppointmentsPage.jsx'
 import CustomerAppointmentDetailPage from '../features/appointments/pages/CustomerAppointmentDetailPage.jsx'
 import CustomerAppointmentsPage from '../features/appointments/pages/CustomerAppointmentsPage.jsx'
 import { Route, Routes } from 'react-router-dom'
@@ -18,6 +19,8 @@ export default function AppRoutes() {
         <Route path="/booking" element={<BookingPage />} />
         <Route path="/lich-cua-toi" element={<CustomerAppointmentsPage />} />
         <Route path="/lich-cua-toi/:appointmentId" element={<CustomerAppointmentDetailPage />} />
+        <Route path="/quan-ly/lich-hen" element={<OwnerAppointmentsPage />} />
+        <Route path="/quan-ly/lich-hen/:appointmentId" element={<OwnerAppointmentsPage />} />
         <Route path="/quan-ly/nhan-su" element={<StaffRoute />} />
       </Route>
     </Routes>
