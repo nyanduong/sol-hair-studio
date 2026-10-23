@@ -22,6 +22,7 @@ import {
     insertAppointmentEvent,
     findAppointmentCommandResources,
     findAppointmentServiceHistory,
+    findAppointmentAuditEvents,
 } from "./appointments.repository.js"
 import { APPOINTMENT_STATUSES } from "./appointments.model.js"
 import { createHash } from 'node:crypto'
@@ -1168,5 +1169,53 @@ export async function getAppointmentRescheduleOptions(identity, appointmentId, q
             throw new AppointmentError(error.message, { code: error.code, status: error.status })
         }
         throw error
+    }
+}
+
+// Audit quản trị chỉ đọc; cursor giới hạn trong đúng appointment.
+export async function getAppointmentAudit(identity, appointmentId, query = {}) {
+    requireAppointmentRole(identity, 'owner')
+    if (typeof appointmentId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(appointmentId)) {
+        throw new AppointmentError('Invalid appointment ID.', { code: 'INVALID_APPOINTMENT_ID', status: 400 })
+    }
+    if (Object.keys(query).some(key => !['limit', 'cursor'].includes(key))) {
+        throw new AppointmentError('Unsupported audit query.', { code: 'INVALID_QUERY', status: 400 })
+    }
+    const { limit } = parseAppointmentListQuery(query.limit === undefined ? {} : { limit: query.limit }, ['limit'], 20, 50, false)
+    let revision
+    if (query.cursor !== undefined) {
+        try {
+            if (typeof query.cursor !== 'string' || query.cursor.length > 512 || !/^[A-Za-z0-9_-]+$/.test(query.cursor)) throw new Error()
+            const decoded = Buffer.from(query.cursor, 'base64url')
+            if (decoded.toString('base64url') !== query.cursor) throw new Error()
+            const value = JSON.parse(decoded.toString('utf8'))
+            if (!value || Array.isArray(value) || Object.keys(value).length !== 2 ||
+                value.appointmentId !== appointmentId.toLowerCase() || !Number.isSafeInteger(value.revision) || value.revision < 0) throw new Error()
+            revision = value.revision
+        } catch {
+            throw new AppointmentError('Invalid audit cursor.', { code: 'INVALID_CURSOR', status: 400 })
+        }
+    }
+    const rows = await findAppointmentAuditEvents(appointmentId, { limit, revision })
+    if (!rows) throw new AppointmentError('Appointment not found.', { code: 'APPOINTMENT_NOT_FOUND', status: 404 })
+    const hasNextPage = rows.length > limit
+    const page = rows.slice(0, limit)
+    const snapshot = value => {
+        const result = {}
+        for (const field of ['status', 'staffId', 'startAt', 'endAt', 'occupiedFrom', 'occupiedUntil', 'startedAt', 'completedAt', 'estimatedEndAt']) {
+            if (value?.[field] !== undefined) result[field] = value[field] instanceof Date ? value[field].toISOString() : String(value[field])
+        }
+        return result
+    }
+    return {
+        items: page.map(event => ({
+            id: String(event._id), appointmentId: String(event.appointmentId), actorId: String(event.actorId),
+            revision: event.revision, kind: event.kind, occurredAt: event.occurredAt.toISOString(),
+            before: snapshot(event.before), after: snapshot(event.after),
+            ...(event.reason !== undefined ? { reason: event.reason } : {}),
+        })),
+        pagination: { limit, hasNextPage, nextCursor: hasNextPage ? Buffer.from(JSON.stringify({
+            appointmentId: appointmentId.toLowerCase(), revision: page.at(-1).revision,
+        })).toString('base64url') : null },
     }
 }

@@ -11,6 +11,7 @@ Availability remains a separate shared API: [availability-api.md](availability-a
 | GET | /api/appointments | Customer own; Stylist assigned; Owner whole shop | Implemented SOL-035 |
 | GET | /api/appointments/:appointmentId | Same role-based object scope | Implemented SOL-035 |
 | GET | /api/appointments/:appointmentId/reschedule-options | Customer own or Owner; snapshot-based available slots | Implemented SOL-037 integration |
+| GET | /api/appointments/:appointmentId/audit | Owner only; read-only event history | Implemented SOL-037-13 (approved API addition) |
 | GET | /api/appointments/:appointmentId/service-history | Assigned Stylist or Owner; contextual completed history | Implemented SOL-035 |
 | POST | /api/appointments/:appointmentId/cancel | Customer own or Owner | Implemented SOL-035 |
 | POST | /api/appointments/:appointmentId/no-show | Owner only | Implemented SOL-035 |
@@ -663,3 +664,81 @@ reads. No automatic move/cancel/completion takes place.
 
 Tests use Web fetch fixtures and the existing isolated MongoDB replica-set API
 suite. Real browser/manual salon acceptance is a separate verification.
+
+## SOL-037-13 — Owner Web corrections and audit
+
+### Implemented Web scope
+
+Owner detail (both salon and personal contexts) offers a separate administrative
+"Sửa trạng thái bị nhầm" action only for in_progress/completed:
+
+- in_progress -> confirmed: POST correct-start, reason and serviceNotStarted:true.
+- completed -> in_progress: POST correct-complete, reason and
+  serviceNotCompleted:true; estimatedEndAt is required when endAt <= server-now,
+  optional otherwise. Any supplied ETA must be > server-now and > planned end.
+
+These are existing BR-05/06 transitions; no cancelled/no_show restore, arbitrary
+target status, payment or check-in field is added. Confirmation is explicit,
+not preselected, and resets after reason/ETA edits. Shift/time-off/appointment
+conflicts come from Backend CORRECTION_CONFLICT.details. The shared HTTP helper
+preserves details; the dialog renders an allowlist and never moves another
+appointment. Existing Start/Complete personal restrictions remain unchanged.
+
+The Web command manager rechecks active Owner permission, sends expectedRevision
+and Idempotency-Key, deduplicates submit and retains the exact body/key on an
+unknown outcome. Known 401/403/404/409 require a fresh read and user review.
+Correction responses do not include ETA impact; the refreshed detail computes
+it through GET. On success detail and audit reload, and list navigation performs
+a fresh read. Previous audit events are never edited/deleted.
+
+### Added read-only audit API (approved SOL-037-13 integration)
+
+GET /api/appointments/:appointmentId/audit
+Authorization: Bearer <active Owner session>
+Cache-Control: no-store
+
+This endpoint was added with explicit user approval because no administrative
+event reader existed. service-history remains the separate completed-service
+context API for Stylist/Owner; it is not audit.
+
+Query: limit (default 20, maximum 50), cursor (optional opaque base64url).
+Unknown keys, invalid limit/cursor and a cursor for a different appointment
+return 400 INVALID_QUERY / INVALID_LIMIT / INVALID_CURSOR. A malformed ID
+returns 400 INVALID_APPOINTMENT_ID. Missing appointment returns
+404 APPOINTMENT_NOT_FOUND; existing appointment with no recorded events returns
+an empty page. Owner may read any salon appointment, including final states.
+Customer/Stylist receive 403 and unauthenticated requests 401.
+
+200 data:
+- items: id, appointmentId, actorId, revision, kind, occurredAt, before, after,
+  and reason only when present.
+- pagination: limit, hasNextPage, nextCursor (null on the last page).
+
+Snapshots allow status/staffId/startAt/endAt/occupiedFrom/occupiedUntil/startedAt/
+completedAt/estimatedEndAt only. Events are ordered revision DESC (newest
+recorded operation first), using the existing unique appointmentId/revision
+index. Revision ordering preserves sequence for equal timestamps and avoids
+depending on server-clock corrections. Cursor contains the appointment boundary
+and last revision; the query always scopes the requested appointment. New events
+appear on a fresh read; load-more continues older revisions without inserting
+newer events into previously loaded pages.
+
+No account lookup, email/password, raw appointment/receipt/guard or arbitrary
+event fields are returned. Event storage has actorId but no historical actor
+name/role snapshot: Web displays the recorded ID, and does not infer role/name
+from current account data. Old events missing optional snapshots/fields remain
+visible as recorded. Audit reads never increment revision/guards or write events.
+
+### Owner audit UI and verification limits
+
+Owner detail renders a read-only timeline with timestamps in Vietnam time,
+action, actor ID, reason and available before/after fields. It has loading,
+empty, error/retry and load-more states, and uses the existing latest-request/
+identity reader for pagination and account/appointment changes. Correction
+success refreshes the timeline, retaining earlier started/completed events.
+Customer/Stylist pages do not mount administrative audit.
+
+Automated Web fixture tests and API tests on the isolated temporary MongoDB
+Replica Set cover the integration. Live browser/manual salon acceptance remains
+separate. No realtime dispatch, audit editing, Mobile correction or history
+backfill is implemented. A missing event is not fabricated from current status.

@@ -3,6 +3,7 @@ import {
     getAppointmentRescheduleOptions,
     listAppointments,
     getAppointmentDetail,
+    getAppointmentAudit,
     getAppointmentServiceHistory,
     cancelAppointment,
     markAppointmentNoShow,
@@ -121,6 +122,15 @@ export async function getAppointmentRescheduleOptionsController(req, res, next) 
     try {
         const data = await getAppointmentRescheduleOptions(req.identity, req.params.appointmentId, req.query)
         return res.status(200).json({ status: 'success', data })
+    } catch (error) {
+        return sendAppointmentError(error, res, next)
+    }
+}
+
+export async function getAppointmentAuditController(req, res, next) {
+    res.set('Cache-Control', 'no-store')
+    try {
+        return res.status(200).json({ status: 'success', data: await getAppointmentAudit(req.identity, req.params.appointmentId, req.query) })
     } catch (error) {
         return sendAppointmentError(error, res, next)
     }

@@ -1,3 +1,4 @@
+import { readOwnerAudit } from '../api/owner-audit.api.js'
 import { useEffect, useMemo, useSyncExternalStore } from 'react'
 import { apiBaseUrl } from '../../../config/env.js'
 import { createLatestRequest } from '../../../lib/latest-request.js'
@@ -70,7 +71,7 @@ export function useOwnerAppointmentRead(token, kind, params) {
   const reader = useMemo(() => {
     const query = JSON.parse(signature)
     return createOwnerAppointmentReader({
-      paginated: kind === 'list',
+      paginated: kind === 'list' || kind === 'audit',
       readProfile: signal => getMe(apiBaseUrl, token, { signal }),
       readData: (cursor, signal, profile) => readOwnerAppointmentScope({ baseUrl: apiBaseUrl, token, kind, query, cursor, signal, profile }),
     })
@@ -111,6 +112,7 @@ export async function readOwnerAppointmentScope({ baseUrl, token, kind, query, c
           if (mine?.staffId !== query.mineStaffId) throw Object.assign(new Error('Hồ sơ được giao đã thay đổi.'), { status: 403, code: 'APPOINTMENT_NOT_ASSIGNED' })
         }
         if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+        if (kind === 'audit') return readOwnerAudit(baseUrl, token, query.id, cursor, signal)
         if (kind === 'list') {
           const result = await listOwnerAppointments(baseUrl, token, query.mineStaffId ? { ...query, staffId: query.mineStaffId } : query, cursor, signal)
           if (query.mineStaffId) result.items.forEach(item => assertOwnerAssignedAppointment(item, query.mineStaffId))

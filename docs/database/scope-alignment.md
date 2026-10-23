@@ -87,3 +87,30 @@ dữ liệu ETA/cảnh báo. GET không ghi guard/revision/event hoặc tự x�
 
 **Giới hạn:** Cảnh báo cập nhật khi đọc/lưu, chưa đẩy realtime hoặc gửi thông báo. Mobile/correction/notification ngoài bước này. Không cập nhật
 Excel phân công vì checkout không có file; không tạo kế hoạch thay thế.
+
+## SOL-037-13 — Chủ sửa nhầm và xem audit trên Web
+
+**Nghiệp vụ đã chốt:** giữ BR-05/06: chỉ Owner sửa in_progress → confirmed khi
+chưa thực sự phục vụ, hoặc completed → in_progress khi thực tế vẫn phục vụ.
+Bắt buộc lý do/xác nhận; ETA trong cùng request nếu giờ kế hoạch đã hết. Backend
+kiểm revision, ca/nghỉ và lịch khác; xung đột thì không ghi. Event cũ được giữ.
+
+**Đã triển khai:** thao tác quản trị riêng ở chi tiết Owner cả salon/cá nhân,
+dialog lý do/xác nhận/ETA, lỗi và chi tiết xung đột theo API SOL-036. Revision,
+idempotency, retry cùng intent, refresh chi tiết/danh sách/audit dùng lại cơ chế
+hiện có. Không thêm quyền Customer/Stylist hoặc khôi phục cancelled/no_show.
+
+**Bổ sung API đã được duyệt trong phiên SOL-037-13:** GET
+/api/appointments/:appointmentId/audit, chỉ Owner, chỉ đọc appointment_events.
+Trước bước này chưa có API audit; service-history không thay thế audit. Dùng
+index appointmentId/revision có sẵn, trang 20 (tối đa 50), mới nhất trước theo
+revision, cursor ràng buộc lịch. Không đổi schema/index hoặc dữ liệu hiện có.
+
+**Audit Web đã triển khai:** timeline event thật, actorId, thời gian, hành động,
+before/after và reason khi có; loading/empty/error/retry/phân trang; refresh sau
+Correction, không bỏ event cũ. Chỉ mount trên Owner detail.
+
+**Giới hạn:** event chưa lưu snapshot tên/vai trò actor, nên không suy diễn từ
+tài khoản hiện tại. Không tạo event giả/backfill, chỉnh/xóa audit, realtime hoặc
+Mobile. Excel kế hoạch không có trong checkout, không tạo backlog thay thế.
+Kiểm thử tự động không thay thế nghiệm thu trình duyệt/dữ liệu salon thực tế.

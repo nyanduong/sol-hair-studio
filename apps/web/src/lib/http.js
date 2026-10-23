@@ -10,6 +10,7 @@ export class HttpError extends Error {
     this.name = 'HttpError'
     this.status = status
     this.code = typeof payload?.code === 'string' ? payload.code : undefined
+    if (payload?.details && typeof payload.details === 'object' && !Array.isArray(payload.details)) this.details = payload.details
     this.conflicts = Array.isArray(payload?.conflicts) ? payload.conflicts : []
   }
 }

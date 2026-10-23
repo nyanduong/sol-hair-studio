@@ -152,7 +152,12 @@ describe('Owner service UI and actual-time readiness', () => {
     expect(serving).toContain('>Hoàn tất phục vụ</button>')
     for (const text of ['>Bắt đầu phục vụ</button>', '>Hủy lịch</button>', '>Đổi lịch</button>', '>Đánh dấu không đến</button>']) expect(serving).not.toContain(text)
     for (const status of ['completed', 'cancelled', 'no_show']) {
-      expect(renderToStaticMarkup(<OwnerAppointmentManagement token="fixture" personalStaffId={item.staffId} appointment={{ ...item, status }} />)).toBe('')
+      const html = renderToStaticMarkup(<OwnerAppointmentManagement token="fixture" personalStaffId={item.staffId} appointment={{ ...item, status }} />)
+      if (status === 'completed') {
+        expect(html).toContain('Sửa trạng thái bị nhầm')
+        expect(html).not.toContain('>Bắt đầu phục vụ</button>')
+        expect(html).not.toContain('>Hoàn tất phục vụ</button>')
+      } else expect(html).toBe('')
     }
   })
   it.each(['start', 'complete'])('%s locks closing/checkbox during submit and permits same-intent retry after unknown result', operation => {

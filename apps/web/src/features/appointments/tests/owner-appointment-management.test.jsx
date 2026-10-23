@@ -215,6 +215,7 @@ describe('Owner command confirmation UI and refreshed data', () => {
     for (const text of ['>Hủy lịch</button>', '>Đổi lịch</button>', '>Đánh dấu không đến</button>', '>Bắt đầu phục vụ</button>']) expect(html).not.toContain(text)
     expect(html).not.toContain('>Hoàn tất phục vụ</button>')
     if (status === 'in_progress') expect(html).toContain('Cập nhật giờ dự kiến xong')
+    else if (status === 'completed') expect(html).toContain('Sửa trạng thái bị nhầm')
     else expect(html).toBe('')
   })
   it('locks fields and closing during submit, and only permits same-intent retry after network error', () => {

@@ -4,6 +4,7 @@ import {
     listAppointmentsController,
     getAppointmentRescheduleOptionsController,
     getAppointmentDetailController,
+    getAppointmentAuditController,
     getAppointmentServiceHistoryController,
     cancelAppointmentController,
     markAppointmentNoShowController,
@@ -33,3 +34,5 @@ appointmentsRouter.post('/appointments/:appointmentId/complete', requireAuth, re
 appointmentsRouter.post('/appointments/:appointmentId/eta', requireAuth, requireRoles('stylist', 'owner'), updateAppointmentEtaController)
 appointmentsRouter.post('/appointments/:appointmentId/correct-start', requireAuth, requireRoles('owner'), correctAppointmentStartController)
 appointmentsRouter.post('/appointments/:appointmentId/correct-complete', requireAuth, requireRoles('owner'), correctAppointmentCompletionController)
+
+appointmentsRouter.get('/appointments/:appointmentId/audit', requireAuth, requireRoles('owner'), getAppointmentAuditController)

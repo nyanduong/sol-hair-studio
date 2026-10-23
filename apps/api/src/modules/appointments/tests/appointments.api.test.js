@@ -2086,3 +2086,89 @@ describe('Customer and Owner reschedule option snapshots', () => {
   })
 
 })
+
+describe('Owner appointment audit API', () => {
+  const auditPath = id => detailPath(id) + '/audit'
+  async function event(mine, revision, patch = {}) {
+    return AppointmentEventModel.create({ appointmentId: mine._id, actorId: owner.account._id, revision,
+      kind: revision === 0 ? 'created' : 'started', occurredAt: NOW, before: {}, after: { status: 'confirmed' }, ...patch })
+  }
+  it('returns real event allowlists in reverse revision order even with duplicate timestamps', async () => {
+    const mine = await appointment({ revision: 2, lastCommand: { key: 'synthetic-audit-fixture-key', actorId: owner.account._id, hash: 'a'.repeat(64), resultRevision: 2 } })
+    const unrelated = await appointment()
+    await event(unrelated, 0)
+    const old = await event(mine, 0)
+    await event(mine, 1, { kind: 'completed', after: { status: 'completed', completedAt: NOW } })
+    const corrected = await event(mine, 2, { kind: 'corrected', reason: 'Synthetic correction',
+      before: { status: 'completed', completedAt: NOW }, after: { status: 'in_progress', estimatedEndAt: new Date(NOW.getTime() + 3600000) } })
+    const result = await get(auditPath(mine._id), owner).expect(200)
+    expect(result.headers['cache-control']).toBe('no-store')
+    expect(result.body.data.items.map(item => item.revision)).toEqual([2, 1, 0])
+    expect(result.body.data.items[0]).toMatchObject({ id: String(corrected._id), appointmentId: String(mine._id),
+      actorId: String(owner.account._id), reason: 'Synthetic correction', before: { status: 'completed' }, after: { status: 'in_progress' } })
+    expect(result.body.data.items.at(-1).id).toBe(String(old._id))
+    for (const item of result.body.data.items) {
+      expect(Object.keys(item).sort()).toEqual(['id', 'appointmentId', 'actorId', 'revision', 'kind', 'occurredAt', 'before', 'after', ...(item.reason ? ['reason'] : [])].sort())
+      for (const field of ['email', 'passwordHash', 'lastCommand', 'createdAt', 'actorRole', 'actorName']) expect(item).not.toHaveProperty(field)
+    }
+  })
+  it('paginates without duplicates and binds cursors to the requested appointment', async () => {
+    const mine = await appointment({ revision: 2, lastCommand: { key: 'synthetic-audit-fixture-key', actorId: owner.account._id, hash: 'a'.repeat(64), resultRevision: 2 } }), other = await appointment()
+    for (const revision of [0, 1, 2]) await event(mine, revision)
+    const first = (await get(auditPath(mine._id), owner).query({ limit: 1 }).expect(200)).body.data
+    const second = (await get(auditPath(mine._id), owner).query({ limit: 1, cursor: first.pagination.nextCursor }).expect(200)).body.data
+    const third = (await get(auditPath(mine._id), owner).query({ limit: 1, cursor: second.pagination.nextCursor }).expect(200)).body.data
+    expect([...first.items, ...second.items, ...third.items].map(item => item.revision)).toEqual([2, 1, 0])
+    expect(third.pagination).toEqual({ limit: 1, hasNextPage: false, nextCursor: null })
+    expect((await get(auditPath(other._id), owner).query({ cursor: first.pagination.nextCursor }).expect(400)).body.code).toBe('INVALID_CURSOR')
+  })
+  it.each(['customer', 'stylist', 'otherStylist'])('denies %s administrative audit access', async role => {
+    const mine = await appointment()
+    await event(mine, 0)
+    const result = await get(auditPath(mine._id), { customer: client, stylist, otherStylist }[role]).expect(403)
+    expect(result.body).not.toHaveProperty('data')
+  })
+  it('requires login and handles malformed/missing appointments', async () => {
+    await request(app).get(auditPath(oid())).expect(401)
+    await get(auditPath('bad'), owner).expect(400)
+    await get(auditPath(oid()), owner).expect(404)
+  })
+  it.each([{ limit: '0' }, { limit: '51' }, { limit: '1.5' }, { cursor: 'bad' }, { status: 'confirmed' },
+    { cursor: Buffer.from(JSON.stringify({ appointmentId: 'bad', revision: -1 })).toString('base64url') }])('rejects invalid query %j', async query => {
+    const mine = await appointment()
+    await get(auditPath(mine._id), owner).query(query).expect(400)
+  })
+  it('returns an empty event list instead of fabricating history, including cancelled appointments', async () => {
+    const mine = await appointment({ status: 'cancelled' })
+    const result = await get(auditPath(mine._id), owner).expect(200)
+    expect(result.body.data).toEqual({ items: [], pagination: { limit: 20, hasNextPage: false, nextCursor: null } })
+  })
+  it('reads without changing appointment, guard revisions or event documents', async () => {
+    const mine = await appointment()
+    await event(mine, 0)
+    const before = await AppointmentModel.findById(mine._id).lean()
+    const history = await AppointmentEventModel.find({ appointmentId: mine._id }).lean()
+    const guard = (await StaffModel.findById(stylist.staff._id)).bookingRevision
+    await get(auditPath(mine._id), owner).expect(200)
+    await get(auditPath(mine._id), owner).expect(200)
+    expect(await AppointmentModel.findById(mine._id).lean()).toEqual(before)
+    expect(await AppointmentEventModel.find({ appointmentId: mine._id }).lean()).toEqual(history)
+    expect((await StaffModel.findById(stylist.staff._id)).bookingRevision).toBe(guard)
+  })
+  it.each(['correct-start', 'correct-complete'])('preserves prior real service events and reads the new %s event', async operation => {
+    await shift(stylist.staff._id)
+    const mine = await appointment({ startAt: NOW })
+    await command(mine._id, 'start', owner, { expectedRevision: 0 }, 'audit-read-start-key-0001').expect(200)
+    if (operation === 'correct-complete') {
+      vi.setSystemTime(new Date(NOW.getTime() + 5 * MINUTE))
+      await command(mine._id, 'complete', owner, { expectedRevision: 1 }, 'audit-read-complete-key-0001').expect(200)
+    }
+    const before = (await get(auditPath(mine._id), owner).expect(200)).body.data.items
+    const expectedRevision = operation === 'correct-start' ? 1 : 2
+    await command(mine._id, operation, owner, { expectedRevision, reason: 'Actual service was misreported',
+      [operation === 'correct-start' ? 'serviceNotStarted' : 'serviceNotCompleted']: true }, 'audit-read-correction-key-0001').expect(200)
+    const after = (await get(auditPath(mine._id), owner).expect(200)).body.data.items
+    expect(after.slice(1)).toEqual(before)
+    expect(after[0]).toMatchObject({ kind: 'corrected', reason: 'Actual service was misreported', revision: expectedRevision + 1 })
+  })
+})

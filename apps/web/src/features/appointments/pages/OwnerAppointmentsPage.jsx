@@ -1,3 +1,4 @@
+import OwnerAppointmentAudit from '../components/OwnerAppointmentAudit.jsx'
 import { mergeAppointmentEta } from '../api/appointment-eta.api.js'
 import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
@@ -228,6 +229,7 @@ function OwnerFilters({ token, filters, onChange, personal = false }) {
 function OwnerResults({ token, appointmentId, filters, search, onLogin, mineStaffId }) {
   const [notice, setNotice] = useState('')
   const [serviceResult, setServiceResult] = useState(null)
+  const [auditVersion, setAuditVersion] = useState(0)
   const [etaResult, setEtaResult] = useState(null)
   const state = useOwnerAppointmentRead(
     token,
@@ -236,9 +238,11 @@ function OwnerResults({ token, appointmentId, filters, search, onLogin, mineStaf
   )
   const displayed = mergeAppointmentEta(mergeOwnerServiceResult(state, serviceResult), etaResult)
   function changed(value, operation) {
+    if (value) setAuditVersion(version => version + 1)
+    if (value && ['correct-start', 'correct-complete'].includes(operation)) { setServiceResult(value); setEtaResult(null) }
     if (value && operation === 'eta') setEtaResult(value)
     if (value && ['start', 'complete'].includes(operation)) setServiceResult(value)
-    if (value) setNotice(operation === 'eta' ? 'Đã cập nhật giờ dự kiến xong.' : operation === 'start' ? 'Đã bắt đầu phục vụ.' : operation === 'complete' ? 'Đã hoàn tất phục vụ.' : operation === 'reschedule' ? 'Đã đổi lịch hẹn.' : operation === 'cancel' ? 'Đã hủy lịch hẹn.' : 'Đã đánh dấu không đến.')
+    if (value) setNotice(['correct-start', 'correct-complete'].includes(operation) ? 'Đã sửa trạng thái bị nhầm. Lịch sử thao tác được giữ nguyên.' : operation === 'eta' ? 'Đã cập nhật giờ dự kiến xong.' : operation === 'start' ? 'Đã bắt đầu phục vụ.' : operation === 'complete' ? 'Đã hoàn tất phục vụ.' : operation === 'reschedule' ? 'Đã đổi lịch hẹn.' : operation === 'cancel' ? 'Đã hủy lịch hẹn.' : 'Đã đánh dấu không đến.')
     void state.retry()
   }
   return <>
@@ -248,6 +252,7 @@ function OwnerResults({ token, appointmentId, filters, search, onLogin, mineStaf
         <OwnerAppointmentManagement key={displayed.value.id + ':' + displayed.value.revision}
           token={token} appointment={displayed.value} personalStaffId={mineStaffId} onChanged={changed} />
       ) : null} />
+    {appointmentId && displayed.kind === 'success' && <OwnerAppointmentAudit key={appointmentId + ':' + auditVersion} token={token} appointmentId={appointmentId} />}
   </>
 }
 

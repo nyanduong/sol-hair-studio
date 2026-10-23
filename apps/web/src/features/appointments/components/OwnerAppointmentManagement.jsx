@@ -1,3 +1,4 @@
+import OwnerAppointmentCorrection from './OwnerAppointmentCorrection.jsx'
 import AppointmentEta from './AppointmentEta.jsx'
 import { useEffect, useRef, useState } from 'react'
 import OwnerAppointmentReschedule from './OwnerAppointmentReschedule.jsx'
@@ -17,7 +18,8 @@ export default function OwnerAppointmentManagement({ token, appointment, onChang
   const canStart = assigned && actions.cancel && appointment.revision < Number.MAX_SAFE_INTEGER
   const canComplete = assigned && appointment.status === 'in_progress' && Number.isSafeInteger(appointment.revision) && appointment.revision >= 0 && appointment.revision < Number.MAX_SAFE_INTEGER
   const canEta = appointment.status === 'in_progress' && Number.isSafeInteger(appointment.revision) && appointment.revision >= 0 && appointment.revision < Number.MAX_SAFE_INTEGER
-  if (!actions.cancel && !canComplete && !canEta) return null
+  const canCorrect = ['in_progress', 'completed'].includes(appointment.status) && Number.isSafeInteger(appointment.revision) && appointment.revision >= 0 && appointment.revision < Number.MAX_SAFE_INTEGER
+  if (!actions.cancel && !canComplete && !canEta && !canCorrect) return null
   return (
     <div className="border-t border-[#f3eee6] bg-[#faf6f0]/50 px-6 py-5 sm:px-8">
       <div className="flex flex-wrap justify-end gap-3">
@@ -30,13 +32,17 @@ export default function OwnerAppointmentManagement({ token, appointment, onChang
           <button className={primary} disabled={!actions.noShow} onClick={() => setOperation('no-show')}>Đánh dấu không đến</button>
         </>}
       </div>
+      {canCorrect && <div className="mt-4 border-t border-border pt-4"><p className="mb-2 text-xs text-muted">Thao tác quản trị — chỉ dùng khi bấm nhầm trạng thái.</p>
+        <button className={secondary} onClick={() => setOperation('correction')}>Sửa trạng thái bị nhầm</button>
+      </div>}
+      {operation === 'correction' && <OwnerAppointmentCorrection token={token} appointment={appointment} onClose={() => setOperation(null)} onChanged={onChanged} />}
       {actions.cancel && !actions.noShow && <p className="mt-2 text-right text-xs text-muted">Không đến: chỉ ghi nhận từ 15 phút sau giờ hẹn, khi đã liên hệ và khách chưa đến.</p>}
       {['start', 'complete'].includes(operation) && <OwnerAppointmentService key={operation} token={token} appointment={appointment}
         operation={operation} personalStaffId={personalStaffId} onClose={() => setOperation(null)} onChanged={onChanged} />}
       {operation === 'eta' && <AppointmentEta token={token} appointment={appointment} onClose={() => setOperation(null)} onChanged={onChanged} />}
       {operation === 'reschedule' && <OwnerAppointmentReschedule token={token} appointment={appointment} now={now}
         onClose={() => setOperation(null)} onChanged={onChanged} />}
-      {operation && !['reschedule', 'start', 'complete', 'eta'].includes(operation) && <OwnerCommandDialog key={operation} token={token} appointment={appointment}
+      {operation && !['reschedule', 'start', 'complete', 'eta', 'correction'].includes(operation) && <OwnerCommandDialog key={operation} token={token} appointment={appointment}
         operation={operation} now={now} onClose={() => setOperation(null)} onChanged={onChanged} />}
     </div>
   )

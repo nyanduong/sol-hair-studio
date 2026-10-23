@@ -478,3 +478,14 @@ export function persistCorrectedStartAppointment(appointment, options) {
 export function persistCorrectedCompleteAppointment(appointment, options) {
     return persistLifecycleAppointment(appointment, options, 'correct_complete')
 }
+
+// Dùng index appointmentId/revision có sẵn; không ghi hoặc bổ sung index.
+export async function findAppointmentAuditEvents(appointmentId, { limit, revision } = {}) {
+    assertObjectId(appointmentId, 'appointmentId')
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50 ||
+        (revision !== undefined && (!Number.isSafeInteger(revision) || revision < 0))) throw new TypeError('Invalid audit pagination')
+    if (!await AppointmentModel.exists({ _id: appointmentId })) return null
+    return AppointmentEventModel.find({ appointmentId, ...(revision !== undefined ? { revision: { $lt: revision } } : {}) })
+        .select('_id appointmentId actorId revision kind occurredAt before after reason')
+        .sort({ revision: -1 }).limit(limit + 1).lean()
+}
