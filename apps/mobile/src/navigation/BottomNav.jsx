@@ -9,7 +9,7 @@ const items = [
   { route: 'Home', icon: 'home', label: 'Trang chủ' },
   { route: 'Services', icon: 'grid', label: 'Dịch vụ' },
   { route: 'Booking', icon: 'calendar', label: 'Đặt lịch', booking: true },
-  { route: 'StylistShifts', icon: 'clock', label: 'Lịch hẹn' },
+  { route: 'StylistAppointments', icon: 'clock', label: 'Lịch hẹn' },
   { route: 'Profile', icon: 'user', label: 'Tài khoản' },
 ]
 
@@ -67,7 +67,7 @@ export default function BottomNav({ navigation, active }) {
   return (
     <View style={styles.bar} accessibilityLabel="Điều hướng chính">
       {items.map((item) => {
-        const selected = active === item.route || (item.label === 'Lịch hẹn' && active === 'CustomerAppointments')
+        const selected = active === item.route || (item.label === 'Lịch hẹn' && ['CustomerAppointments', 'StylistAppointments', 'StylistShifts'].includes(active))
         return (
           <Pressable
             key={item.label}

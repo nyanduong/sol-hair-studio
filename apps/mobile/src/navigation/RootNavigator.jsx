@@ -1,3 +1,5 @@
+import StylistAppointmentsScreen from '../features/appointments/screens/StylistAppointmentsScreen.jsx'
+import StylistAppointmentDetailScreen from '../features/appointments/screens/StylistAppointmentDetailScreen.jsx'
 import CustomerAppointmentRescheduleScreen from '../features/appointments/screens/CustomerAppointmentRescheduleScreen.jsx'
 import CustomerAppointmentDetailScreen from '../features/appointments/screens/CustomerAppointmentDetailScreen.jsx'
 import CustomerAppointmentsScreen from '../features/appointments/screens/CustomerAppointmentsScreen.jsx'
@@ -26,6 +28,8 @@ export default function RootNavigator() {
       <Stack.Screen name="CustomerAppointmentDetail" component={CustomerAppointmentDetailScreen} getId={({ params }) => params?.appointmentId} />
       <Stack.Screen name="CustomerAppointmentReschedule" component={CustomerAppointmentRescheduleScreen} getId={({ params }) => params?.appointmentId} />
       <Stack.Screen name="Booking" component={BookingScreen} />
+      <Stack.Screen name="StylistAppointments" component={StylistAppointmentsScreen} />
+      <Stack.Screen name="StylistAppointmentDetail" component={StylistAppointmentDetailScreen} getId={({ params }) => params?.appointmentId} />
       <Stack.Screen name="StylistShifts" component={StylistShiftsScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />

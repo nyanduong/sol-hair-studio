@@ -14,11 +14,11 @@ export async function listCustomerAppointments(baseUrl, token, cursor, signal) {
       (data.pagination.hasNextPage ? typeof data.pagination.nextCursor !== 'string' || !data.pagination.nextCursor : data.pagination.nextCursor !== null)) {
     throw new Error('Không đọc được phân trang lịch hẹn.')
   }
-  const items = data.items.map(customerAppointmentItem)
+  const items = data.items.map(appointmentBaseDto)
   return { items, pagination: { hasNextPage: data.pagination.hasNextPage, nextCursor: data.pagination.nextCursor } }
 }
 
-function customerAppointmentItem(item) {
+export function appointmentBaseDto(item) {
     if (!item || !validId(item.id) || !validId(item.staffId) ||
         ['customerId', 'customerSnapshot', 'actorId', 'affectedAppointments', 'lastCommand', 'email'].some(field => field in item) ||
         !['confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'].includes(item.status) ||
@@ -45,7 +45,7 @@ export async function getCustomerAppointment(baseUrl, token, appointmentId, sign
     baseUrl, signal, headers: { Authorization: 'Bearer ' + token },
   })
   const data = response.data
-  const item = customerAppointmentItem(data)
+  const item = appointmentBaseDto(data)
   if (item.id.toLowerCase() !== appointmentId.toLowerCase() ||
       !Number.isSafeInteger(data.revision) || data.revision < 0 ||
       !validTime(data.confirmedAt) || data.timeZone !== 'Asia/Ho_Chi_Minh' ||
@@ -75,7 +75,7 @@ export async function cancelCustomerAppointment(baseUrl, token, appointmentId, p
     // HTTP 200 với DTO hỏng vẫn là kết quả chưa rõ, phải giữ lại intent/key.
     throw new Error('Chưa xác định được kết quả hủy lịch. Hãy kiểm tra và thử lại cùng yêu cầu.')
   }
-  return { ...customerAppointmentItem(data), revision: data.revision, cancelledAt: data.cancelledAt }
+  return { ...appointmentBaseDto(data), revision: data.revision, cancelledAt: data.cancelledAt }
 }
 
 export async function getCustomerRescheduleOptions(baseUrl, token, appointmentId, localDate, signal) {
@@ -122,5 +122,5 @@ export async function rescheduleCustomerAppointment(baseUrl, token, appointmentI
       data.startAt !== payload.startAt || !validTime(data.lastRescheduledAt)) {
     throw new Error('Chưa xác định được kết quả đổi lịch. Hãy kiểm tra và thử lại cùng yêu cầu.')
   }
-  return { ...customerAppointmentItem(data), revision: data.revision, lastRescheduledAt: data.lastRescheduledAt }
+  return { ...appointmentBaseDto(data), revision: data.revision, lastRescheduledAt: data.lastRescheduledAt }
 }

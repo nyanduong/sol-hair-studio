@@ -229,3 +229,44 @@ Không sửa Backend/database/business rules hoặc thêm dependency. Tests ki�
 adapter/selection/controller/lifecycle, native stack router và reader refresh
 bằng fixtures. Export Android/iOS không thay thế nghiệm thu UI/Android Back,
 kết nối thiết bị hoặc thao tác với API thật. Chưa triển khai Stylist Mobile.
+
+## SOL-038 — Bước 5: Stylist Mobile Appointment List & Detail
+
+**Đã triển khai:** StylistAppointments (“Lịch hẹn được giao”), ngày mặc định
+theo Việt Nam; có ngày trước/sau, nhập YYYY-MM-DD và Hôm nay. Danh sách ASC
+startAt/id, cursor 50, pull-to-refresh, loading/empty/error/retry. Card mở
+StylistAppointmentDetail theo ID, không tạo nhiều bản cùng lịch khi nhấn nhanh.
+
+GET /api/appointments chỉ gửi localDate/limit/cursor bằng Bearer Stylist;
+Backend scope theo Staff của identity, chỉ confirmed/in_progress/completed.
+GET /api/appointments/:appointmentId kiểm assignment và trả 404 cho ID
+ngoài phạm vi. Trước mỗi trang/detail, Mobile đọc lại auth/me và GET /api/staff
+hiện có để xác nhận đúng một hồ sơ Staff gắn với account. Response có Staff ID
+khác bị từ chối toàn bộ, không tải toàn salon rồi lọc UI. Staff link thay đổi
+giữa trang xóa dữ liệu cũ trước khi đọc lại. Không tự cấm đọc lịch sử chỉ vì
+Staff isActive=false: quyền đọc vẫn theo active account và scope Backend.
+
+DTO Mobile chỉ giữ dữ liệu được phép: snapshot dịch vụ/giá/thời lượng, tên
+Stylist, giờ hẹn Việt Nam, trạng thái, customerSnapshot displayName/phone.
+Detail giữ revision/confirmedAt, actual timestamps và estimatedEndAt nếu API
+trả phù hợp trạng thái. Không giữ email/account Customer, receipt, audit hoặc
+ETA impact của các lịch khác. Không có field ghi chú phục vụ trong contract
+hiện tại nên không tự thêm. ETA, planned end và actual completion hiển thị riêng;
+completed không được mô tả là đã thanh toán.
+
+BottomNav “Lịch hẹn” nay mở StylistAppointments cho Stylist active không có
+Owner role; Customer giữ luồng riêng. Ca làm của tôi từ SOL-027 vẫn ở
+StylistShifts, không thay thế implementation: hai màn có nút truy cập qua lại.
+Đăng nhập qua mục lịch hẹn trả đúng màn theo role. Owner Mobile không được
+bổ sung. Booking/Profile giữ route hiện có.
+
+Tái sử dụng DTO nền và reader pagination/detail/lifecycle với policy theo role;
+Customer giữ wrapper và thứ tự DESC cũ. Đổi ngày/ID/token/account tạo reader mới;
+blur/background hủy request và xóa dữ liệu; focus/foreground tải lại. Không reuse
+cursor của ngày cũ, dedup item/request và chặn cursor lặp.
+
+Chỉ đọc List/Detail: chưa có Start/Complete, cập nhật ETA, Service History,
+Owner Corrections hoặc Audit trên Stylist Mobile. Không sửa Backend/database
+hoặc thêm dependency. Tests kiểm API adapter/allowlist, reader/isolation/race/
+pagination/lifecycle và native stack router bằng fixtures; chưa thay thế smoke
+test thiết bị, render thực tế, Android Back hoặc API live.

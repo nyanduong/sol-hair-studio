@@ -5,8 +5,7 @@ export function isAppointmentCustomer(account) {
 }
 
 export function appointmentListDestination(account) {
-  // Giữ đường dẫn ca làm Stylist hiện có; Owner Mobile ngoài SOL-038.
-  if (account?.roles?.includes('stylist')) return 'StylistShifts'
+  if (isAppointmentStylist(account)) return 'StylistAppointments'
   return isAppointmentCustomer(account) ? 'CustomerAppointments' : null
 }
 
@@ -103,4 +102,17 @@ export function appointmentCardText(item) {
   return { date: date.format(new Date(item.startAt)), time: time.format(new Date(item.startAt)) + ' – ' + time.format(new Date(item.endAt)),
     services: item.items.map(service => service.name).join(' · '), stylist: item.staffNameSnapshot,
     duration: item.totalDurationMinutes + ' phút', price: price.format(item.totalPriceVnd), status: appointmentStatuses[item.status] }
+}
+
+export function isAppointmentStylist(account) {
+  return account?.status === 'active' && Array.isArray(account.roles) && account.roles.includes('stylist') && !account.roles.includes('owner')
+}
+
+export function validAppointmentDate(value) {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value
+}
+
+export function moveAppointmentDay(localDate, days) {
+  if (!validAppointmentDate(localDate)) return null
+  return new Date(Date.parse(localDate + 'T00:00:00.000Z') + days * 86400000).toISOString().slice(0, 10)
 }

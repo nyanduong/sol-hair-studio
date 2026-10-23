@@ -2,7 +2,7 @@ import { createLatestRequest } from '../../../lib/latest-request.js'
 import { isAppointmentCustomer } from '../appointment-presentation.js'
 
 // Mỗi reader chỉ thuộc một token/account; không lưu danh sách vào storage.
-export function createCustomerAppointmentsReader({ accountId, readProfile, readPage }) {
+export function createAppointmentListReader({ accountId, readProfile, readPage, authorize, compareAppointments }) {
   const latest = createLatestRequest()
   const listeners = new Set(), consumed = new Set()
   const initial = { kind: 'loading', items: [], hasNextPage: false, nextCursor: null, refreshing: false }
@@ -23,7 +23,7 @@ export function createCustomerAppointmentsReader({ accountId, readProfile, readP
     job = latest.run(async signal => {
       const profile = await readProfile(signal)
       const account = profile?.account ?? profile
-      if (!isAppointmentCustomer(account) || typeof accountId !== 'string' ||
+      if (!authorize(account) || typeof accountId !== 'string' ||
           (account?.accountId ?? account?.id) !== accountId) {
         throw Object.assign(new Error('Phiên khách hàng đã thay đổi. Vui lòng đăng nhập lại.'), { status: 403 })
       }
@@ -48,7 +48,7 @@ export function createCustomerAppointmentsReader({ accountId, readProfile, readP
       if (more) consumed.add(cursor)
       const combined = new Map((more ? previous.items : []).map(item => [item.id, item]))
       for (const item of items) combined.set(item.id, item)
-      const sorted = [...combined.values()].sort((a, b) => Date.parse(b.startAt) - Date.parse(a.startAt) || b.id.localeCompare(a.id))
+      const sorted = [...combined.values()].sort(compareAppointments)
       publish({ kind: 'success', items: sorted, ...pagination, refreshing: false })
     })
     return job
@@ -77,4 +77,9 @@ export function bindAppointmentLifecycle(reader, appState) {
     previous = next
   })
   return () => { subscription.remove(); reader.cancel() }
+}
+
+export function createCustomerAppointmentsReader(options) {
+  return createAppointmentListReader({ ...options, authorize: isAppointmentCustomer,
+    compareAppointments: (a, b) => Date.parse(b.startAt) - Date.parse(a.startAt) || b.id.localeCompare(a.id) })
 }

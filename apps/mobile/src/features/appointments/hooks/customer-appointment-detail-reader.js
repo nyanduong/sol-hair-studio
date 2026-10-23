@@ -1,7 +1,7 @@
 import { createLatestRequest } from '../../../lib/latest-request.js'
 import { isAppointmentCustomer } from '../appointment-presentation.js'
 
-export function createCustomerAppointmentDetailReader({ accountId, appointmentId, readProfile, readDetail }) {
+export function createAppointmentDetailReader({ accountId, appointmentId, readProfile, readDetail, authorize }) {
   const latest = createLatestRequest(), listeners = new Set()
   const initial = { kind: 'loading', appointment: null }
   let state = initial, generation = 0, job, busy = false
@@ -17,7 +17,7 @@ export function createCustomerAppointmentDetailReader({ accountId, appointmentId
       }
       const profile = await readProfile(signal)
       const account = profile?.account ?? profile
-      if (!isAppointmentCustomer(account) || typeof accountId !== 'string' ||
+      if (!authorize(account) || typeof accountId !== 'string' ||
           (account?.accountId ?? account?.id) !== accountId) {
         throw Object.assign(new Error('Phiên khách hàng đã thay đổi.'), { status: 403 })
       }
@@ -40,4 +40,8 @@ export function createCustomerAppointmentDetailReader({ accountId, appointmentId
     load: () => load(), retry: () => load(), refresh: () => load(true),
     cancel() { generation += 1; latest.cancel(); busy = false; publish(initial) },
   }
+}
+
+export function createCustomerAppointmentDetailReader(options) {
+  return createAppointmentDetailReader({ ...options, authorize: isAppointmentCustomer })
 }

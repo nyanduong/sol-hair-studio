@@ -221,11 +221,11 @@ describe('Upcoming/History, presentation and navigation policy', () => {
     expect(text.price).toContain('300.000')
     expect(JSON.stringify(text)).not.toContain('Thanh toán')
   })
-  it('routes Customer to the new screen and keeps Stylist Shifts separate', () => {
+  it('routes each role to its appointment list while Shifts remains a separate route', () => {
     expect(isAppointmentCustomer(customer)).toBe(true)
     expect(appointmentListDestination(customer)).toBe('CustomerAppointments')
-    expect(appointmentListDestination({ ...customer, roles: ['stylist'] })).toBe('StylistShifts')
-    expect(appointmentListDestination({ ...customer, roles: ['customer', 'stylist'] })).toBe('StylistShifts')
+    expect(appointmentListDestination({ ...customer, roles: ['stylist'] })).toBe('StylistAppointments')
+    expect(appointmentListDestination({ ...customer, roles: ['customer', 'stylist'] })).toBe('StylistAppointments')
     expect(appointmentListDestination({ ...customer, roles: ['owner'] })).toBeNull()
     expect(appointmentListDestination({ ...customer, roles: ['customer', 'owner'] })).toBeNull()
     expect(appointmentListDestination({ ...customer, status: 'disabled' })).toBeNull()
