@@ -605,6 +605,61 @@ are Web declarations, not extra check-in/payment fields. Detail/list refreshes
 discard stale responses across dates/accounts and after commands.
 
 Current limitations: status filtering and service notes have no Stylist API
-contract; no Web UI is fabricated for them. This extension does not implement
-ETA, correction, cancellation/rescheduling/no-show or Mobile changes and does
+contract; no Web UI is fabricated for them. The initial Stylist Web extension did not implement ETA (added in Step 9 below),
+correction, cancellation/rescheduling/no-show or Mobile changes and does
 not alter existing Customer/Owner/Stylist business permissions.
+
+### SOL-037 Step 9 — Owner/Stylist Web ETA
+
+**Implemented Web scope:** in-progress detail offers "Cập nhật giờ dự kiến xong".
+Owner may use it in both salon and personal contexts; assigned Stylist uses their
+own detail. Customer has no ETA UI or permission. Start/Complete restrictions in
+the personal context remain unchanged. Owner correction and Mobile are outside
+this step.
+
+The shared dialog shows customer, Staff, service snapshots, original planned
+start/end and current persisted ETA when present. New datetime-local input is
+interpreted in Asia/Ho_Chi_Minh and converted to canonical UTC ISO. Explicit
+confirmation is required and is reset when the estimate changes. Client checks
+in_progress, safe revision, ETA > current time and ETA > planned end; the server
+is authoritative. There is no booking-grid/lead-time/horizon restriction on ETA.
+
+Web uses the existing POST /api/appointments/:appointmentId/eta with exactly
+expectedRevision and estimatedEndAt, Bearer authorization and Idempotency-Key.
+It retains the original body/key after unknown outcomes, prevents double-submit
+and rechecks current role (and assigned Stylist detail scope) before sending.
+Known revision/state/permission conflicts require a fresh read and user review.
+No planned time, assignment, item, price or duration is changed by the form.
+
+**Approved read-contract addition for this Web step:** GET detail now returns
+estimatedEndAt only when stored on an in_progress appointment and the reader is
+Owner or the assigned Stylist. Missing ETA is omitted. Customer DTO and list
+contracts remain unchanged. This uses a projection/allowlist change only; it
+does not write DB data or modify the ETA/availability algorithms.
+
+The shared detail displays persisted ETA after reload, distinct from planned
+end and actual completion. Successful POST refreshes detail; returning to the
+list reloads its data. The confirmed POST response is scoped to the current
+session/appointment/revision while the fresh read catches up; a newer revision,
+state or permission failure prevents reusing stale warning data.
+
+**Official warnings:** POST ETA and GET detail return affectedAppointments and
+ownerReviewRequired for an in_progress appointment with stored ETA. Staff busy time includes ten-minute cleanup; customer-overlap
+reasons come from Backend. A Stylist can receive an empty visible warning list
+with ownerReviewRequired=true when other-Staff details are hidden. No hidden
+count/contact data, fabricated warning rows or notification claims are added.
+GET recomputes warnings from the current server time and calendar on each read,
+using the same impact calculator as POST. Appointment, Staff scope and candidates
+are read in one read-only primary/snapshot transaction; no guard/revision/event
+is written. Repository-only customerId/occupiedFrom used for calculation are
+not exposed in the Stylist DTO. Customer receives no ETA/impact fields.
+
+Web preserves validated warnings after F5 or reopening detail. A successful GET
+takes priority over older POST warnings even at the same appointment revision:
+resolving another appointment can change impact without editing this one.
+Missing/malformed warning data with ETA is an error, never an invented safe list.
+Warnings describe the calendar at read time; they are not pushed live between
+reads. No automatic move/cancel/completion takes place.
+
+Tests use Web fetch fixtures and the existing isolated MongoDB replica-set API
+suite. Real browser/manual salon acceptance is a separate verification.

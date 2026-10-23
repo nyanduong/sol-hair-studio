@@ -214,7 +214,8 @@ describe('Owner command confirmation UI and refreshed data', () => {
     const html = renderToStaticMarkup(<OwnerAppointmentManagement token="fixture" appointment={{ ...item, status }} />)
     for (const text of ['>Hủy lịch</button>', '>Đổi lịch</button>', '>Đánh dấu không đến</button>', '>Bắt đầu phục vụ</button>']) expect(html).not.toContain(text)
     expect(html).not.toContain('>Hoàn tất phục vụ</button>')
-    expect(html).toBe('')
+    if (status === 'in_progress') expect(html).toContain('Cập nhật giờ dự kiến xong')
+    else expect(html).toBe('')
   })
   it('locks fields and closing during submit, and only permits same-intent retry after network error', () => {
     const pending = { payload: payload('cancel') }

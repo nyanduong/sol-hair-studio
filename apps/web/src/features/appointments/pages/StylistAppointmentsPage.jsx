@@ -1,3 +1,5 @@
+import AppointmentEta from '../components/AppointmentEta.jsx'
+import { mergeAppointmentEta } from '../api/appointment-eta.api.js'
 import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { salonDate } from '../../../../../../shared/booking.js'
@@ -12,9 +14,12 @@ function StylistWorkspace({ token, appointmentId, localDate, onLogin }) {
   const state = useStylistAppointments(token, appointmentId, localDate)
   const [operation, setOperation] = useState(null)
   const [notice, setNotice] = useState('')
-  const current = state.kind === 'success' ? state.value : null
+  const [etaResult, setEtaResult] = useState(null)
+  const displayed = mergeAppointmentEta(state, etaResult)
+  const current = displayed.kind === 'success' ? displayed.value : null
   function changed(value, action) {
-    if (value) setNotice(action === 'start' ? 'Đã bắt đầu phục vụ.' : 'Đã hoàn tất phục vụ.')
+    if (value && action === 'eta') setEtaResult(value)
+    if (value) setNotice(action === 'eta' ? 'Đã cập nhật giờ dự kiến xong.' : action === 'start' ? 'Đã bắt đầu phục vụ.' : 'Đã hoàn tất phục vụ.')
     setOperation(null)
     void state.retry()
   }
@@ -22,15 +27,18 @@ function StylistWorkspace({ token, appointmentId, localDate, onLogin }) {
     Number.isSafeInteger(current.revision) && current.revision >= 0 && current.revision < Number.MAX_SAFE_INTEGER
   return <>
     {notice && <p role="status" className="mt-4 text-sm text-terracotta">{notice}</p>}
-    <OwnerAppointmentsView state={state} detailed={Boolean(appointmentId)} audience="stylist" basePath="/nhan-vien/lich-hen"
+    <OwnerAppointmentsView state={displayed} detailed={Boolean(appointmentId)} audience="stylist" basePath="/nhan-vien/lich-hen"
       search={'?' + new URLSearchParams({ localDate })} onLogin={onLogin}
-      actions={canServe ? <div className="flex justify-end border-t border-border px-6 py-5 sm:px-8">
-        <button className="min-h-11 rounded-full bg-terracotta px-5 py-2 text-sm font-semibold text-white"
+      actions={canServe ? <div className="flex flex-wrap justify-end gap-3 border-t border-[#f3eee6] bg-[#faf6f0]/50 px-6 py-5 sm:px-8">
+        <button className="min-h-11 rounded-full bg-terracotta hover:bg-terracotta-dark px-5 py-2 text-sm font-semibold text-white shadow-2xs hover:shadow transition-all"
           onClick={() => setOperation(current.status === 'confirmed' ? 'start' : 'complete')}>
           {current.status === 'confirmed' ? 'Bắt đầu phục vụ' : 'Hoàn tất phục vụ'}
         </button>
+        {current.status === 'in_progress' && <button className="min-h-11 rounded-full border border-border bg-white hover:bg-soft-surface px-5 py-2 text-sm font-semibold text-ink transition-colors" onClick={() => setOperation('eta')}>Cập nhật giờ dự kiến xong</button>}
       </div> : null} />
-    {current && operation && <OwnerAppointmentService key={current.id + ':' + current.revision + ':' + operation}
+    {current && operation === 'eta' && <AppointmentEta actor="stylist" token={token} appointment={current}
+      onClose={() => setOperation(null)} onChanged={changed} />}
+    {current && ['start', 'complete'].includes(operation) && <OwnerAppointmentService key={current.id + ':' + current.revision + ':' + operation}
       actor="stylist" token={token} appointment={current} operation={operation}
       onClose={() => setOperation(null)} onChanged={changed} />}
   </>

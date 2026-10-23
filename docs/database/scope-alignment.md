@@ -57,7 +57,33 @@ Stylist không có quyền quản lý toàn salon, đổi/hủy/no-show hoặc s
 
 **Giới hạn:** API danh sách Stylist chưa hỗ trợ filter status; DTO chưa có ghi chú
 phục vụ. Web không dựng các trường đó và không lọc status từ một trang dữ liệu.
-ETA, contextual history UI, correction và notifications không nằm trong lần bổ
-sung này. Không tạo API hoặc sửa schema/DB cho Web.
+ETA được bổ sung riêng ở Bước 9 bên dưới; contextual history UI, correction
+và notifications không nằm trong lần bổ sung Stylist Web ban đầu. Không tạo API hoặc sửa schema/DB cho Web.
 File Excel kế hoạch tổng không có trong checkout tại thời điểm triển khai; chưa
 cập nhật hàng phân công và không tạo một file kế hoạch thay thế.
+
+## Owner/Stylist Web ETA — SOL-037 Bước 9
+
+**Quy tắc đã chốt:** BR-02/04 và API SOL-036 ETA: Owner hoặc Stylist được giao
+cập nhật lịch in_progress; ETA > giờ server và > endAt, cộng 10 phút dọn cho
+khoảng giữ stylist. Không đổi giờ hẹn/snapshot, không tự dời/hủy lịch khác hoặc
+tự hoàn tất. Không mở rộng quyền nghiệp vụ.
+
+**Web đã triển khai:** dialog ETA dùng chung ở chi tiết Owner (cả phạm vi toàn
+salon/cá nhân) và Stylist; xác nhận, revision/idempotency/retry, refresh và cảnh
+báo theo response Backend. Customer không có thao tác ETA. Start/Complete cá
+nhân và các luồng đổi/hủy giữ nguyên.
+
+**API thực tế / bổ sung được duyệt:** POST ETA trả ETA và danh sách bị ảnh hưởng
+đúng role; GET chi tiết được bổ sung estimatedEndAt cho Owner/Stylist trên lịch
+in_progress để đọc lại ETA sau reload. Không thêm API, sửa thuật toán hoặc DB.
+
+**Đọc lại cảnh báo đã triển khai:** GET chi tiết Owner/Stylist tính lại danh sách
+bị ảnh hưởng khi lịch in_progress có ETA, dùng cùng calculator với POST và đọc
+cùng snapshot. F5/mở lại trang vẫn có cảnh báo hiện tại; cảnh báo mới từ GET
+thay kết quả POST cũ ngay cả khi revision lịch không đổi. Stylist chỉ thấy lịch
+cùng Staff; xung đột ngoài phạm vi chỉ có cờ cần Owner xử lý. Customer không có
+dữ liệu ETA/cảnh báo. GET không ghi guard/revision/event hoặc tự xử lý lịch.
+
+**Giới hạn:** Cảnh báo cập nhật khi đọc/lưu, chưa đẩy realtime hoặc gửi thông báo. Mobile/correction/notification ngoài bước này. Không cập nhật
+Excel phân công vì checkout không có file; không tạo kế hoạch thay thế.

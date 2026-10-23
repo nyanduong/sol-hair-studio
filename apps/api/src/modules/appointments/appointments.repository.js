@@ -134,7 +134,7 @@ export function findOwnerAppointments({ localDate, staffId, status, limit = 50, 
 }
 
 // Đọc chi tiết lịch trong phạm vi được phép của từng vai trò.
-export function findAppointmentDetail(appointmentId, {role, customerId, staffId} = {}) {
+export function findAppointmentDetail(appointmentId, {role, customerId, staffId} = {}, { session } = {}) {
     assertObjectId(appointmentId, 'appointmentId')
     const filter = { _id: appointmentId }
     const fields = {
@@ -151,15 +151,16 @@ export function findAppointmentDetail(appointmentId, {role, customerId, staffId}
         assertObjectId(staffId, 'staffId')
         filter.staffId = staffId
         filter.status = {$in: ['confirmed', 'in_progress', 'completed']}
-        Object.assign(fields, APPOINTMENT_CONTACT_FIELDS)
+        Object.assign(fields, APPOINTMENT_CONTACT_FIELDS, { estimatedEndAt: 1, customerId: 1, occupiedFrom: 1 })
     } else if(role === 'owner') {
         Object.assign(fields, APPOINTMENT_CONTACT_FIELDS, {
-            customerId: 1,
+            customerId: 1, estimatedEndAt: 1, occupiedFrom: 1,
         })
     } else {
         throw new TypeError('A supported appointment role is required')
     }
     return AppointmentModel.findOne(filter)
+    .session(session ?? null)
     .select(fields)
     .lean()
 }

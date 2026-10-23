@@ -7,7 +7,7 @@ const ownerAppointment = data => appointmentStaffDto(data, 'owner')
 export function appointmentStaffDto(data, role = 'owner') {
   if (!data || typeof data.id !== 'string' || (role === 'owner' ? typeof data.customerId !== 'string' : 'customerId' in data) ||
       typeof data.customerSnapshot?.displayName !== 'string' || typeof data.customerSnapshot?.phone !== 'string' ||
-      ['startedAt', 'completedAt'].some(field => data[field] !== undefined && !validActualTime(data[field])) ||
+      ['startedAt', 'completedAt', 'estimatedEndAt'].some(field => data[field] !== undefined && !validActualTime(data[field])) ||
       !Array.isArray(data.items) || !data.items.length ||
       !(role === 'owner' ? ['confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'] : ['confirmed', 'in_progress', 'completed']).includes(data.status) ||
       ![data.startAt, data.endAt].every(value => typeof value === 'string' && Number.isFinite(Date.parse(value))) ||
@@ -20,7 +20,8 @@ export function appointmentStaffDto(data, role = 'owner') {
   // Chỉ giữ DTO cần hiển thị; không giữ account/email, guard, receipt hoặc audit.
   return {
     ...(Number.isSafeInteger(data.revision) && data.revision >= 0 ? { revision: data.revision } : {}),
-    ...Object.fromEntries(['startedAt', 'completedAt'].filter(field => data[field] !== undefined).map(field => [field, data[field]])),
+    ...Object.fromEntries(['startedAt', 'completedAt', ...(data.status === 'in_progress' ? ['estimatedEndAt'] : [])].filter(field => data[field] !== undefined).map(field => [field, data[field]])),
+    ...(data.status === 'in_progress' && data.estimatedEndAt !== undefined ? appointmentEtaImpact(data, role) : {}),
     id: data.id, ...(role === 'owner' ? { customerId: data.customerId } : {}),
     customerSnapshot: { displayName: data.customerSnapshot.displayName, phone: data.customerSnapshot.phone },
     staffId: data.staffId, staffNameSnapshot: data.staffNameSnapshot,
@@ -81,4 +82,27 @@ export async function sendOwnerAppointmentCommand(baseUrl, token, id, operation,
     throw new Error('Chưa xác định được kết quả. Hãy thử lại cùng yêu cầu.')
   }
   return { ...ownerAppointment(data), revision: data.revision }
+}
+
+// Dùng chung allowlist cảnh báo cho GET chi tiết và POST ETA.
+function appointmentEtaImpact(data, role) {
+  if (typeof data.ownerReviewRequired !== 'boolean' || !Array.isArray(data.affectedAppointments)) {
+    throw new Error('Không đọc được cảnh báo ETA. Vui lòng tải lại lịch.')
+  }
+  const canonicalTime = validActualTime
+  const seen = new Set()
+  const affectedAppointments = data.affectedAppointments.map(item => {
+    if (!item || !/^[a-fA-F0-9]{24}$/.test(item.id ?? '') || seen.has(item.id) || item.id === data.id ||
+        !/^[a-fA-F0-9]{24}$/.test(item.staffId ?? '') ||
+        (role === 'stylist' && item.staffId !== data.staffId) ||
+        !['confirmed', 'in_progress'].includes(item.status) || !canonicalTime(item.startAt) || !canonicalTime(item.endAt) ||
+        Date.parse(item.endAt) <= Date.parse(item.startAt) || !Array.isArray(item.reasons) || !item.reasons.length ||
+        item.reasons.some(reason => !['staff_overlap', 'customer_overlap'].includes(reason))) {
+      throw new Error('Không đọc được cảnh báo ETA. Hãy thử lại cùng yêu cầu.')
+    }
+    seen.add(item.id)
+    return { id: item.id, staffId: item.staffId, status: item.status, startAt: item.startAt, endAt: item.endAt, reasons: [...item.reasons] }
+  })
+  if (affectedAppointments.length && !data.ownerReviewRequired) throw new Error('Cảnh báo ETA không hợp lệ.')
+  return { affectedAppointments, ownerReviewRequired: data.ownerReviewRequired }
 }

@@ -213,6 +213,28 @@ describe('appointment lists and details', () => {
     await get(detailPath(mine._id), otherClient).expect(404)
     await get(detailPath(mine._id), otherStylist).expect(404)
   })
+  it.each(['owner', 'stylist', 'customer'])('scopes persisted ETA on repeated GET detail for %s', async role => {
+    const estimatedEndAt = new Date(NOW.getTime() + 5 * 60 * MINUTE)
+    const mine = await appointment({ status: 'in_progress', estimatedEndAt,
+      occupiedUntil: new Date(estimatedEndAt.getTime() + 10 * MINUTE) })
+    const acting = { owner, stylist, customer: client }[role]
+    for (let reload = 0; reload < 2; reload++) {
+      const data = (await get(detailPath(mine._id), acting).expect(200)).body.data
+      if (role === 'customer') expect(data).not.toHaveProperty('estimatedEndAt')
+      else expect(data.estimatedEndAt).toBe(estimatedEndAt.toISOString())
+      expect(data.startAt).toBe(mine.startAt.toISOString())
+      expect(data.endAt).toBe(mine.endAt.toISOString())
+      for (const field of ['lastCommand', 'occupiedUntil', 'email']) expect(data).not.toHaveProperty(field)
+    }
+    await get(detailPath(mine._id), otherStylist).expect(404)
+    await get(detailPath(mine._id), otherClient).expect(404)
+  })
+  it.each(['confirmed', 'in_progress', 'completed'])('does not invent missing ETA for %s on GET detail', async status => {
+    const mine = await appointment({ status })
+    for (const acting of [owner, stylist]) {
+      expect((await get(detailPath(mine._id), acting).expect(200)).body.data).not.toHaveProperty('estimatedEndAt')
+    }
+  })
   it('handles malformed/nonexistent IDs and missing profiles', async () => {
     await get(detailPath('bad')).expect(400)
     await get(detailPath(oid())).expect(404)
@@ -1164,6 +1186,81 @@ describe('transactional ETA and scoped impact warnings', () => {
     const mine = await serving()
     expect((await update(mine._id, stylist, { expectedRevision: 1, estimatedEndAt: etaAt(45) }).expect(409)).body.code).toBe('APPOINTMENT_REVISION_CONFLICT')
     await unchanged(mine)
+  })
+
+
+  it.each(['owner', 'stylist'])('reloads current ETA impact for %s without writing and clears a resolved conflict', async role => {
+    const mine = await serving()
+    const next = await appointment({ customerId: otherClient.customer._id, startAt: new Date(etaAt(30)) })
+    await update(mine._id).expect(200)
+    const before = await AppointmentModel.findById(mine._id).lean()
+    const guards = [(await CustomerModel.findById(client.customer._id)).bookingRevision, (await StaffModel.findById(stylist.staff._id)).bookingRevision]
+    const events = await AppointmentEventModel.countDocuments({ appointmentId: mine._id })
+    for (let reload = 0; reload < 2; reload++) {
+      const result = await get(detailPath(mine._id), role === 'owner' ? owner : stylist).expect(200)
+      expect(result.headers['cache-control']).toBe('no-store')
+      expect(result.body.data).toMatchObject({ revision: 1, estimatedEndAt: etaAt(45), ownerReviewRequired: true,
+        affectedAppointments: [{ id: String(next._id), staffId: String(stylist.staff._id), reasons: ['staff_overlap'] }] })
+      expect(Object.keys(result.body.data.affectedAppointments[0]).sort()).toEqual(['id', 'staffId', 'status', 'startAt', 'endAt', 'reasons'].sort())
+      expect(result.body.data).not.toHaveProperty('occupiedFrom')
+      if (role === 'stylist') expect(result.body.data).not.toHaveProperty('customerId')
+    }
+    expect(await AppointmentModel.findById(mine._id).lean()).toEqual(before)
+    expect(await AppointmentEventModel.countDocuments({ appointmentId: mine._id })).toBe(events)
+    expect([(await CustomerModel.findById(client.customer._id)).bookingRevision, (await StaffModel.findById(stylist.staff._id)).bookingRevision]).toEqual(guards)
+    await command(next._id, 'cancel', owner, { expectedRevision: 0, reason: 'Synthetic conflict resolution' }, 'eta-read-resolve-command').expect(200)
+    const fresh = (await get(detailPath(mine._id), role === 'owner' ? owner : stylist).expect(200)).body.data
+    expect(fresh).toMatchObject({ revision: 1, estimatedEndAt: etaAt(45), affectedAppointments: [], ownerReviewRequired: false })
+    expect(await AppointmentEventModel.countDocuments({ appointmentId: mine._id })).toBe(events)
+  })
+
+  it('GET keeps cross-Staff conflicts Owner-only and exposes no impact to Customer or foreign Stylist', async () => {
+    const mine = await serving()
+    const next = await appointment({ staffId: otherStylist.staff._id, startAt: new Date(etaAt(30)) })
+    await update(mine._id).expect(200)
+    const staffRead = (await get(detailPath(mine._id), stylist).expect(200)).body
+    expect(staffRead.data).toMatchObject({ affectedAppointments: [], ownerReviewRequired: true })
+    expect(JSON.stringify(staffRead)).not.toContain(String(next._id))
+    expect(staffRead.data).not.toHaveProperty('customerId')
+    const ownerRead = (await get(detailPath(mine._id), owner).expect(200)).body.data
+    expect(ownerRead.affectedAppointments).toEqual([{ id: String(next._id), staffId: String(otherStylist.staff._id), status: 'confirmed',
+      startAt: next.startAt.toISOString(), endAt: next.endAt.toISOString(), reasons: ['customer_overlap'] }])
+    const customerRead = (await get(detailPath(mine._id), client).expect(200)).body.data
+    for (const field of ['estimatedEndAt', 'affectedAppointments', 'ownerReviewRequired']) expect(customerRead).not.toHaveProperty(field)
+    await get(detailPath(mine._id), otherStylist).expect(404)
+    await get(detailPath(mine._id), otherClient).expect(404)
+  })
+
+  it('GET uses current server time for an expired ETA rather than stale saved warnings', async () => {
+    const mine = await serving()
+    await appointment({ customerId: otherClient.customer._id, startAt: new Date(etaAt(90)) })
+    await update(mine._id).expect(200)
+    expect((await get(detailPath(mine._id), owner).expect(200)).body.data.affectedAppointments).toEqual([])
+    vi.setSystemTime(new Date(etaAt(46)))
+    const read = (await get(detailPath(mine._id), owner).expect(200)).body.data
+    expect(read.affectedAppointments).toHaveLength(1)
+    expect(read.ownerReviewRequired).toBe(true)
+    expect(read.revision).toBe(1)
+  })
+
+  it('GET respects cleanup adjacency without changing appointment history', async () => {
+    const mine = await serving()
+    await appointment({ customerId: otherClient.customer._id, startAt: new Date(etaAt(55)) })
+    await update(mine._id).expect(200)
+    const read = (await get(detailPath(mine._id), stylist).expect(200)).body.data
+    expect(read).toMatchObject({ affectedAppointments: [], ownerReviewRequired: false })
+    expect(read.endAt).toBe(mine.endAt.toISOString())
+  })
+
+  it('fails GET when warning reads fail instead of claiming no conflicts', async () => {
+    const mine = await serving()
+    await update(mine._id).expect(200)
+    const before = await AppointmentModel.findById(mine._id).lean()
+    vi.spyOn(appointmentRepository, 'findAppointmentConflictCandidates').mockRejectedValueOnce(new Error('synthetic read impact failure'))
+    const result = await get(detailPath(mine._id), owner).expect(500)
+    expect(result.body).not.toHaveProperty('data')
+    expect(await AppointmentModel.findById(mine._id).lean()).toEqual(before)
+    expect(await AppointmentEventModel.countDocuments({ appointmentId: mine._id, kind: 'eta_updated' })).toBe(1)
   })
 
   it('records staff overlap and returns the affected assigned appointment without PII', async () => {

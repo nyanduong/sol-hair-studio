@@ -360,41 +360,53 @@ export async function getAppointmentDetail(identity, appointmentId) {
             status: 400,
         })
     }
-    const scope = { role }
+    // Đọc lịch và cảnh báo cùng snapshot; không ghi guard, revision hoặc event.
+    const readDetail = async session => {
+        const scope = { role }
 
-    if(role === 'customer') {
-        if(identity.customerId === undefined) {
-            throw new AppointmentError('Customer not found', {
+        if(role === 'customer') {
+            if(identity.customerId === undefined) {
+                throw new AppointmentError('Customer not found', {
+                    code: 'APPOINTMENT_NOT_FOUND',
+                    status: 404,
+                })
+            }
+            scope.customerId = identity.customerId
+        } else if(role === 'stylist') {
+            const staff = await findAppointmentStaffByAccountId(identity.accountId, { session })
+            if(!staff) {
+                throw new AppointmentError('Staff not found', {
+                    code: 'STAFF_NOT_FOUND',
+                    status: 404,
+                })
+            }
+            scope.staffId = String(staff._id)
+        }
+        const appointment = await findAppointmentDetail(appointmentId, scope, { session })
+
+        if(!appointment) {
+            throw new AppointmentError('Appointment not found', {
                 code: 'APPOINTMENT_NOT_FOUND',
                 status: 404,
             })
         }
-        scope.customerId = identity.customerId
-    } else if(role === 'stylist') {
-        const staff = await findAppointmentStaffByAccountId(identity.accountId)
-        if(!staff) {
-            throw new AppointmentError('Staff not found', {
-                code: 'STAFF_NOT_FOUND',
-                status: 404,
-            })
+        const impact = role !== 'customer' && appointment.status === 'in_progress' && appointment.estimatedEndAt
+            ? await buildAppointmentEtaImpact(appointment, role, session, new Date()) : {}
+        return {
+            ...impact,
+            ...toAppointmentListItem(appointment, role),
+            revision: appointment.revision,
+            confirmedAt: appointment.confirmedAt.toISOString(),
+            ...(['owner', 'stylist'].includes(role) && appointment.status === 'in_progress' && appointment.estimatedEndAt ? { estimatedEndAt: appointment.estimatedEndAt.toISOString() } : {}),
+            ...(['in_progress', 'completed'].includes(appointment.status) && appointment.startedAt ? { startedAt: appointment.startedAt.toISOString() } : {}),
+            ...(appointment.status === 'completed' && appointment.completedAt ? { completedAt: appointment.completedAt.toISOString() } : {}),
         }
-        scope.staffId = String(staff._id)
     }
-    const appointment = await findAppointmentDetail(appointmentId, scope)
-
-    if(!appointment) {
-        throw new AppointmentError('Appointment not found', {
-            code: 'APPOINTMENT_NOT_FOUND',
-            status: 404,
-        })
-    }
-    return {
-        ...toAppointmentListItem(appointment, role),
-        revision: appointment.revision,
-        confirmedAt: appointment.confirmedAt.toISOString(),
-        ...(['in_progress', 'completed'].includes(appointment.status) && appointment.startedAt ? { startedAt: appointment.startedAt.toISOString() } : {}),
-        ...(appointment.status === 'completed' && appointment.completedAt ? { completedAt: appointment.completedAt.toISOString() } : {}),
-    }
+    if (role === 'customer') return readDetail()
+    return mongoose.connection.transaction(readDetail, {
+        readPreference: 'primary', readConcern: { level: 'snapshot' },
+        writeConcern: { w: 'majority' }, maxCommitTimeMS: 5000, timeoutMS: 15000,
+    })
 }
 
 // Kiểm tra dữ liệu yêu cầu hủy lịch.
@@ -450,7 +462,7 @@ function assertCustomerOwnerAppointmentAccess(identity, appointment) {
         })
     }
     const roles = Array.isArray(identity.roles) ? identity.roles : []
-    
+
     if (roles.includes('owner')) {
         return 'owner'
     }

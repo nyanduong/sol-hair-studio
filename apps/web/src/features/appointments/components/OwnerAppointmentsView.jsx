@@ -1,3 +1,4 @@
+import { AppointmentEtaSummary } from './AppointmentEta.jsx'
 import { Link } from 'react-router-dom'
 import { ownerAppointmentStatuses } from '../hooks/useOwnerAppointments.js'
 
@@ -131,10 +132,10 @@ function DetailedAppointmentView({ appointment, actions }) {
   return (
     <article className="overflow-hidden rounded-3xl border border-[#efe6db] bg-white shadow-sm">
       {/* ── Detail Header ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#f3eee6] px-6 py-4 sm:px-8">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#f3eee6] bg-[#faf6f0]/50 px-6 py-4 sm:px-8">
         <div className="flex items-center gap-3">
           <span className="text-xs font-bold uppercase tracking-wider text-muted">Chi tiết lịch hẹn:</span>
-          <span className="font-mono text-sm font-semibold text-ink">
+          <span className="rounded-md border border-[#efe6db] bg-white px-2.5 py-1 font-mono text-xs sm:text-sm font-semibold text-ink shadow-2xs">
             Mã lịch: {appointment.id}
           </span>
         </div>
@@ -144,66 +145,115 @@ function DetailedAppointmentView({ appointment, actions }) {
       {/* ── Detail Body 2 Columns Layout ── */}
       <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-12">
         {/* Cột trái: Thời gian & Nhân sự / Khách hàng */}
-        <div className="space-y-4 lg:col-span-5">
+        <div className="space-y-4 lg:col-span-6">
           {/* Card Thời gian hẹn */}
-          <section aria-label="Thời gian hẹn" className="rounded-2xl border border-[#efe6db] bg-[#faf6f0] p-5 shadow-2xs">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-[#8c827a]">Thời gian hẹn</p>
+          <section aria-label="Thời gian hẹn" className="rounded-2xl border border-[#efe6db] bg-[#faf6f0] p-5 shadow-2xs transition-all hover:border-[#a14f3d]/30">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#8c827a]">Thời gian hẹn</p>
+              <span className="inline-flex items-center gap-1 rounded-full border border-[#efe6db] bg-white px-2.5 py-0.5 text-xs font-semibold text-ink shadow-2xs">
+                <svg className="size-3 text-terracotta" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                {appointment.totalDurationMinutes} phút
+              </span>
+            </div>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="font-display text-3xl font-bold text-ink">
+              <span className="font-display text-3xl font-bold text-ink sm:text-4xl">
                 <time dateTime={appointment.startAt}>{time.format(start)}</time>
-                {' – '}
+                <span className="font-sans font-light text-muted"> – </span>
                 <time dateTime={appointment.endAt}>{time.format(end)}</time>
               </span>
             </div>
-            <p className="mt-1 text-xs text-muted">
+            <p className="mt-2 text-xs font-medium text-muted">
               {date.format(start)} · Giờ Việt Nam
             </p>
-            <p className="mt-2 text-xs text-muted">
+            <p className="mt-1 text-xs text-muted">
               Thời lượng dịch vụ: <span className="font-semibold text-ink">{appointment.totalDurationMinutes} phút</span>
             </p>
           </section>
 
+          {/* Thời gian phục vụ thực tế (nếu có) */}
           {['in_progress', 'completed'].includes(appointment.status) && (
             <section aria-label="Thời gian phục vụ thực tế" className="rounded-2xl border border-[#efe6db] bg-[#faf6f0] p-5 shadow-2xs">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[#8c827a]">Thời gian phục vụ thực tế</p>
-              <p className="mt-2 text-xs text-muted">Bắt đầu thực tế: <span className="font-semibold text-ink">{appointment.startedAt ? date.format(new Date(appointment.startedAt)) + ' ' + time.format(new Date(appointment.startedAt)) : 'Chưa có thông tin.'}</span></p>
-              {appointment.status === 'completed' && <p className="mt-2 text-xs text-muted">Hoàn tất thực tế: <span className="font-semibold text-ink">{appointment.completedAt ? date.format(new Date(appointment.completedAt)) + ' ' + time.format(new Date(appointment.completedAt)) : 'Chưa có thông tin.'}</span></p>}
+              <div className="flex items-center gap-2">
+                <span className={`size-2 rounded-full ${appointment.status === 'in_progress' ? 'bg-blue-500 animate-pulse' : 'bg-emerald-500'}`} aria-hidden="true" />
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#8c827a]">Thời gian phục vụ thực tế</p>
+              </div>
+              <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                <div className="rounded-xl border border-[#efe6db] bg-white p-3 shadow-2xs">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Bắt đầu</p>
+                  <p className="mt-0.5 text-xs text-muted">Bắt đầu thực tế: <span className="font-semibold text-ink">{appointment.startedAt ? date.format(new Date(appointment.startedAt)) + ' ' + time.format(new Date(appointment.startedAt)) : 'Chưa có thông tin.'}</span></p>
+                </div>
+                {appointment.status === 'completed' && (
+                  <div className="rounded-xl border border-[#efe6db] bg-white p-3 shadow-2xs">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted">Hoàn tất</p>
+                    <p className="mt-0.5 text-xs text-muted">Hoàn tất thực tế: <span className="font-semibold text-ink">{appointment.completedAt ? date.format(new Date(appointment.completedAt)) + ' ' + time.format(new Date(appointment.completedAt)) : 'Chưa có thông tin.'}</span></p>
+                  </div>
+                )}
+              </div>
             </section>
           )}
 
-          {/* Card Khách hàng */}
-          <section aria-label="Khách hàng" className="rounded-2xl border border-[#efe6db] bg-[#faf6f0] p-5 shadow-2xs">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-[#8c827a]">Khách hàng</p>
-            <p className="mt-2 text-base font-bold text-ink">{appointment.customerSnapshot.displayName}</p>
-            <p className="mt-0.5 text-xs text-muted">{appointment.customerSnapshot.phone}</p>
-          </section>
+          {/* Grid Khách hàng & Stylist */}
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+            {/* Card Khách hàng */}
+            <section aria-label="Khách hàng" className="rounded-2xl border border-[#efe6db] bg-[#faf6f0] p-4 sm:p-5 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#8c827a]">Khách hàng</p>
+                <span className="flex size-6 items-center justify-center rounded-full border border-[#efe6db] bg-white text-muted shadow-2xs">
+                  <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </span>
+              </div>
+              <p className="mt-2 text-base font-bold text-ink truncate">{appointment.customerSnapshot.displayName}</p>
+              <p className="mt-0.5 text-xs text-muted font-medium">{appointment.customerSnapshot.phone}</p>
+            </section>
 
-          {/* Card Stylist */}
-          <section aria-label="Stylist" className="rounded-2xl border border-[#efe6db] bg-[#faf6f0] p-5 shadow-2xs">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-[#8c827a]">Stylist phụ trách</p>
-            <p className="mt-2 text-base font-bold text-ink">{appointment.staffNameSnapshot}</p>
-          </section>
+            {/* Card Stylist */}
+            <section aria-label="Stylist" className="rounded-2xl border border-[#efe6db] bg-[#faf6f0] p-4 sm:p-5 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#8c827a]">Stylist phụ trách</p>
+                <span className="flex size-6 items-center justify-center rounded-full border border-[#efe6db] bg-white text-muted shadow-2xs">
+                  <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242L10.757 10.757M5 19l4-4" />
+                  </svg>
+                </span>
+              </div>
+              <p className="mt-2 text-base font-bold text-ink truncate">{appointment.staffNameSnapshot}</p>
+            </section>
+          </div>
         </div>
 
-        {/* Cột phải: Dịch vụ & Giá */}
-        <div className="space-y-4 lg:col-span-7">
+        {/* Cột phải: Dịch vụ & Giá + Giờ dự kiến xong (ETA) */}
+        <div className="space-y-4 lg:col-span-6">
+          {/* Card Dịch vụ đã đặt */}
           <section aria-label="Dịch vụ đã đặt" className="rounded-2xl border border-[#efe6db] bg-[#faf6f0] p-5 sm:p-6 shadow-2xs">
             <div className="flex items-center justify-between border-b border-[#efe6db] pb-3">
               <h2 className="text-xs font-bold uppercase tracking-wider text-terracotta">
                 Dịch vụ đã đặt
               </h2>
-              <span className="text-xs text-muted">{appointment.items.length} dịch vụ</span>
+              <span className="inline-flex items-center rounded-full border border-[#efe6db] bg-white px-2.5 py-0.5 text-xs font-semibold text-ink shadow-2xs">
+                {appointment.items.length} dịch vụ
+              </span>
             </div>
 
             <ul className="mt-4 space-y-3">
               {appointment.items.map(item => (
                 <li
                   key={item.serviceId}
-                  className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-[#efe6db] bg-white p-3.5 shadow-2xs"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#efe6db] bg-white p-3.5 shadow-2xs transition-all hover:border-[#a14f3d]/30"
                 >
                   <div className="min-w-0">
                     <p className="font-semibold text-ink text-sm sm:text-base">{item.name}</p>
-                    <p className="mt-0.5 text-xs text-muted">{item.durationMinutes} phút</p>
+                    <p className="mt-0.5 text-xs text-muted flex items-center gap-1">
+                      <svg className="size-3 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                      </svg>
+                      {item.durationMinutes} phút
+                    </p>
                   </div>
                   <p className="font-sans text-sm sm:text-base font-bold text-terracotta">
                     {money.format(item.priceVnd)}
@@ -220,6 +270,9 @@ function DetailedAppointmentView({ appointment, actions }) {
               </span>
             </div>
           </section>
+
+          {/* Giờ dự kiến xong (ETA) - Chuyển sang bên phải */}
+          {appointment.status === 'in_progress' && <AppointmentEtaSummary appointment={appointment} />}
         </div>
       </div>
       {actions}
