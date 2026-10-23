@@ -3,6 +3,8 @@ import { createBookingSubmission } from '../../../../../../shared/booking.js'
 import { apiBaseUrl } from '../../../config/env.js'
 import { getMe } from '../../auth/api/auth.api.js'
 import { sendOwnerAppointmentCommand } from '../api/owner-appointments.api.js'
+import { isStylistAccount } from './useStylistAppointments.js'
+import { readStylistAppointment, sendStylistServiceCommand } from '../api/stylist-appointments.api.js'
 import { isOwnerAccount, readOwnerAppointmentScope } from './useOwnerAppointments.js'
 import { rescheduleSelectionPayload } from './useAppointmentCommand.js'
 
@@ -45,11 +47,11 @@ export function ownerAppointmentPayload(appointment, operation, fields, now = Da
 }
 
 // Tái sử dụng cơ chế deduplicate và giữ nguyên intent/key khi kết quả chưa rõ.
-export function createOwnerAppointmentCommand({ readProfile, send, verify }, newKey) {
+export function createOwnerAppointmentCommand({ readProfile, send, verify, authorize = isOwnerAccount }, newKey) {
   return createBookingSubmission(async (body, key, signal) => {
     const profile = await readProfile(signal)
-    if (!isOwnerAccount(profile?.account ?? profile)) {
-      throw Object.assign(new Error('Chỉ Owner đang hoạt động được thực hiện.'), { status: 403 })
+    if (!authorize(profile?.account ?? profile)) {
+      throw Object.assign(new Error('Tài khoản không có quyền thực hiện thao tác này.'), { status: 403 })
     }
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
     if (verify) await verify(profile?.account ?? profile, signal)
@@ -58,16 +60,18 @@ export function createOwnerAppointmentCommand({ readProfile, send, verify }, new
   }, newKey)
 }
 
-export function useOwnerAppointmentCommand(token, id, operation, personalStaffId) {
+export function useOwnerAppointmentCommand(token, id, operation, personalStaffId, actor = 'owner') {
   const active = useRef(null)
   const manager = useMemo(() => createOwnerAppointmentCommand({
     readProfile: signal => getMe(apiBaseUrl, token, { signal }),
+    authorize: actor === 'stylist' ? isStylistAccount : isOwnerAccount,
     verify: ['start', 'complete'].includes(operation) ? async (profile, signal) => {
+      if (actor === 'stylist') { await readStylistAppointment(apiBaseUrl, token, id, signal); return }
       if (!personalStaffId) throw Object.assign(new Error('Personal scope required'), { status: 403 })
       await readOwnerAppointmentScope({ baseUrl: apiBaseUrl, token, kind: 'detail', query: { id, mineStaffId: personalStaffId }, signal, profile })
     } : undefined,
-    send: (body, key, signal) => sendOwnerAppointmentCommand(apiBaseUrl, token, id, operation, body, key, signal),
-  }, () => crypto.randomUUID()), [token, id, operation, personalStaffId])
+    send: (body, key, signal) => actor === 'stylist' ? sendStylistServiceCommand(apiBaseUrl, token, id, operation, body, key, signal) : sendOwnerAppointmentCommand(apiBaseUrl, token, id, operation, body, key, signal),
+  }, () => crypto.randomUUID()), [token, id, operation, personalStaffId, actor])
   const [result, setResult] = useState({ kind: 'idle' })
   useEffect(() => {
     const scope = { manager, controller: new AbortController() }

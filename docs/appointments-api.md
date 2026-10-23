@@ -583,3 +583,28 @@ GET detail now returns persisted startedAt/completedAt according to appointment 
 and its scoped allowlist, so actual timestamps survive full reloads. Missing values
 are not fabricated. Web may still retain a newer confirmed command response while refreshing.
 Personal-tab UX keeps existing business permissions. The detail read projection/DTO was extended only for persisted actual timestamps; no DB data or schema change is required.
+
+### Stylist Web — SOL-037 platform extension
+
+Implemented routes: /nhan-vien/lich-hen and /nhan-vien/lich-hen/:appointmentId.
+Active Stylist sessions, including Customer+Stylist, use Backend Stylist priority;
+Owner accounts continue using the existing Owner routes even if they also have
+Stylist role. The header shows Stylist navigation on desktop and mobile browser.
+
+Web uses GET appointments with only localDate/limit/cursor. The server resolves
+the assigned Staff from identity; no staffId/customerId/status is sent to broaden
+scope. Only assigned confirmed/in_progress/completed are readable. The feature
+reuses appointment cards/details/status UI and service confirmation dialogs while
+using the contact-only Stylist DTO: no customerId/email/account/audit/receipt data.
+
+Start and Complete use the existing SOL-036 endpoints with expectedRevision and
+Idempotency-Key. Fresh role and scoped GET detail are rechecked before commands
+and retries; the transaction remains authoritative for assignment, state, shifts,
+conflicts and revisions. Unknown outcomes retain original body/key. Confirmations
+are Web declarations, not extra check-in/payment fields. Detail/list refreshes
+discard stale responses across dates/accounts and after commands.
+
+Current limitations: status filtering and service notes have no Stylist API
+contract; no Web UI is fabricated for them. This extension does not implement
+ETA, correction, cancellation/rescheduling/no-show or Mobile changes and does
+not alter existing Customer/Owner/Stylist business permissions.

@@ -42,3 +42,22 @@ M4/M5 dùng một bộ reservation/transaction trong module lịch hẹn, phân 
 Không payment/cọc/điểm thưởng, chi nhánh/lễ tân/payroll, AI/hold slot hoặc tự thông báo khách. Email OTP thuộc MVP; nhắc lịch và yêu cầu nghỉ/đổi ca là sau MVP. Không đếm/phạt/hạn chế khách bỏ hẹn nhiều lần. Không BR riêng cho đổi stylist khi dịch vụ ẩn: người mới đủ năng lực/giờ trống, giữ snapshot.
 
 Giới hạn ảnh/gallery/pagination và thuật toán password hashing cụ thể là đặc tả kỹ thuật cần review, không giả là BR mới. Môi trường DB/FCV/SMTP/Cloudinary và hiệu năng chưa kiểm chứng; đây không phải lệnh migration hay tuyên bố đạt rubric.
+
+## Bổ sung nền tảng Stylist Web — SOL-037
+
+**Đã được yêu cầu trong phiên SOL-037 ngày 23/10/2026:** ngoài Mobile là nền tảng
+chính theo kế hoạch ban đầu, Stylist được hỗ trợ Web tại /nhan-vien/lich-hen và
+trang chi tiết tương ứng. Đây là mở rộng nền tảng, không thêm quyền nghiệp vụ.
+
+**Phạm vi đã triển khai:** xem lịch được giao theo ngày salon, cursor pagination,
+chi tiết/contact/snapshot/thời gian thực tế theo allowlist và Start/Complete bằng
+API SOL-035/036 hiện có. Backend tự scope theo hồ sơ Staff của tài khoản, không
+lấy toàn salon rồi lọc ở trình duyệt. Owner vẫn dùng hai tab quản lý/cá nhân riêng;
+Stylist không có quyền quản lý toàn salon, đổi/hủy/no-show hoặc sửa nhầm.
+
+**Giới hạn:** API danh sách Stylist chưa hỗ trợ filter status; DTO chưa có ghi chú
+phục vụ. Web không dựng các trường đó và không lọc status từ một trang dữ liệu.
+ETA, contextual history UI, correction và notifications không nằm trong lần bổ
+sung này. Không tạo API hoặc sửa schema/DB cho Web.
+File Excel kế hoạch tổng không có trong checkout tại thời điểm triển khai; chưa
+cập nhật hàng phân công và không tạo một file kế hoạch thay thế.

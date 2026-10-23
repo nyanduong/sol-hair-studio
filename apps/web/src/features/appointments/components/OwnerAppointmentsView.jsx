@@ -48,7 +48,7 @@ function StatusBadge({ status }) {
   )
 }
 
-function CompactAppointmentCard({ appointment, search }) {
+function CompactAppointmentCard({ appointment, search, basePath }) {
   const start = new Date(appointment.startAt)
   const end = new Date(appointment.endAt)
 
@@ -114,7 +114,7 @@ function CompactAppointmentCard({ appointment, search }) {
           {date.format(start)} · Giờ Việt Nam
         </span>
         <Link
-          to={'/quan-ly/lich-hen/' + appointment.id + search}
+          to={basePath + '/' + appointment.id + search}
           className="inline-flex items-center gap-1 text-xs font-semibold text-terracotta hover:underline"
         >
           Xem chi tiết →
@@ -227,16 +227,16 @@ function DetailedAppointmentView({ appointment, actions }) {
   )
 }
 
-export default function OwnerAppointmentsView({ state, detailed = false, search = '', onLogin, actions }) {
+export default function OwnerAppointmentsView({ state, detailed = false, search = '', onLogin, actions, basePath = '/quan-ly/lich-hen', audience = 'owner' }) {
   if (state.kind === 'denied' || state.kind === 'notFound') {
     return (
       <section role="alert" className="mt-6 rounded-2xl border border-border bg-white p-6 text-sm">
         <p>
-          {state.error?.code === 'APPOINTMENT_NOT_ASSIGNED' ? 'Lịch này không được phân công cho bạn. Quay về Lịch toàn salon để quản lý.' : state.kind === 'notFound'
+          {state.error?.code === 'APPOINTMENT_NOT_ASSIGNED' ? (audience === 'stylist' ? 'Lịch này không được phân công cho bạn.' : 'Lịch này không được phân công cho bạn. Quay về Lịch toàn salon để quản lý.') : state.kind === 'notFound'
             ? 'Không tìm thấy lịch hẹn hoặc bạn không có quyền xem.'
             : state.error?.status === 401
               ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
-              : 'Tài khoản không có quyền truy cập dữ liệu Owner.'}
+              : (audience === 'stylist' ? 'Tài khoản không có quyền xem lịch được giao.' : 'Tài khoản không có quyền truy cập dữ liệu Owner.')}
         </p>
         {state.error?.status === 401 && (
           <button className={button + ' mt-4'} onClick={onLogin}>
@@ -250,7 +250,7 @@ export default function OwnerAppointmentsView({ state, detailed = false, search 
   return (
     <section
       className="mt-6"
-      aria-label={detailed ? 'Chi tiết lịch hẹn Owner' : 'Danh sách lịch hẹn trong ngày'}
+      aria-label={detailed ? (audience === 'stylist' ? 'Chi tiết lịch hẹn Stylist' : 'Chi tiết lịch hẹn Owner') : 'Danh sách lịch hẹn trong ngày'}
       aria-busy={['loading', 'loadingMore'].includes(state.kind)}
     >
       {state.kind === 'loading' && (
@@ -275,7 +275,7 @@ export default function OwnerAppointmentsView({ state, detailed = false, search 
           <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {state.items.map(appointment => (
               <li key={appointment.id}>
-                <CompactAppointmentCard appointment={appointment} search={search} />
+                <CompactAppointmentCard appointment={appointment} search={search} basePath={basePath} />
               </li>
             ))}
           </ul>

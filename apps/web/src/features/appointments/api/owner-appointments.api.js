@@ -2,12 +2,14 @@ import { requestJson } from '../../../lib/http.js'
 
 const validActualTime = value => typeof value === 'string' && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value
 
-function ownerAppointment(data) {
-  if (!data || typeof data.id !== 'string' || typeof data.customerId !== 'string' ||
+const ownerAppointment = data => appointmentStaffDto(data, 'owner')
+
+export function appointmentStaffDto(data, role = 'owner') {
+  if (!data || typeof data.id !== 'string' || (role === 'owner' ? typeof data.customerId !== 'string' : 'customerId' in data) ||
       typeof data.customerSnapshot?.displayName !== 'string' || typeof data.customerSnapshot?.phone !== 'string' ||
       ['startedAt', 'completedAt'].some(field => data[field] !== undefined && !validActualTime(data[field])) ||
       !Array.isArray(data.items) || !data.items.length ||
-      !['confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'].includes(data.status) ||
+      !(role === 'owner' ? ['confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'] : ['confirmed', 'in_progress', 'completed']).includes(data.status) ||
       ![data.startAt, data.endAt].every(value => typeof value === 'string' && Number.isFinite(Date.parse(value))) ||
       typeof data.staffNameSnapshot !== 'string' ||
       !Number.isSafeInteger(data.totalDurationMinutes) || !Number.isSafeInteger(data.totalPriceVnd) ||
@@ -19,7 +21,7 @@ function ownerAppointment(data) {
   return {
     ...(Number.isSafeInteger(data.revision) && data.revision >= 0 ? { revision: data.revision } : {}),
     ...Object.fromEntries(['startedAt', 'completedAt'].filter(field => data[field] !== undefined).map(field => [field, data[field]])),
-    id: data.id, customerId: data.customerId,
+    id: data.id, ...(role === 'owner' ? { customerId: data.customerId } : {}),
     customerSnapshot: { displayName: data.customerSnapshot.displayName, phone: data.customerSnapshot.phone },
     staffId: data.staffId, staffNameSnapshot: data.staffNameSnapshot,
     items: data.items.map(({ serviceId, name, priceVnd, durationMinutes }) => ({ serviceId, name, priceVnd, durationMinutes })),

@@ -10,7 +10,7 @@ export function isOwnerAccount(account) {
 }
 
 // Bộ đọc riêng từng phiên/filter. Mọi request mới đều xác minh Owner thật.
-export function createOwnerAppointmentReader({ readProfile, readData, paginated = false }) {
+export function createOwnerAppointmentReader({ readProfile, readData, paginated = false, authorize = isOwnerAccount }) {
   const latest = createLatestRequest()
   const listeners = new Set()
   const initial = { kind: 'loading', items: [], hasNextPage: false, nextCursor: null }
@@ -28,7 +28,7 @@ export function createOwnerAppointmentReader({ readProfile, readData, paginated 
     publish(more ? { ...state, kind: 'loadingMore', error: null } : initial)
     const result = await latest.run(async signal => {
       const profile = await readProfile(signal)
-      if (!isOwnerAccount(profile?.account ?? profile)) {
+      if (!authorize(profile?.account ?? profile)) {
         throw Object.assign(new Error('Chỉ chủ tiệm được truy cập.'), { status: 403 })
       }
       if (signal.aborted) throw new DOMException('Aborted', 'AbortError')

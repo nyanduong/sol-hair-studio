@@ -4,9 +4,9 @@ import { ownerServicePayload, useOwnerAppointmentCommand } from '../hooks/useOwn
 const button = 'min-h-11 rounded-full px-5 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50'
 const date = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' })
 
-export default function OwnerAppointmentService({ token, appointment, operation, onChanged, onClose, personalStaffId }) {
+export default function OwnerAppointmentService({ token, appointment, operation, onChanged, onClose, personalStaffId, actor = 'owner' }) {
   const dialog = useRef(null)
-  const command = useOwnerAppointmentCommand(token, appointment.id, operation, personalStaffId)
+  const command = useOwnerAppointmentCommand(token, appointment.id, operation, personalStaffId, actor)
   const [confirmed, setConfirmed] = useState(false)
   const [localError, setLocalError] = useState('')
   useEffect(() => {
@@ -47,7 +47,7 @@ export function OwnerServiceDialog({ dialogRef, appointment, operation, command,
   const message = localError || (error && (ambiguous
     ? 'Chưa xác định được kết quả. Hãy thử lại cùng yêu cầu; không tạo thao tác khác.'
     : [401, 403, 404].includes(error.status)
-      ? 'Phiên hoặc quyền Owner đã thay đổi, hoặc lịch không còn tồn tại. Hãy tải lại lịch.'
+      ? 'Phiên hoặc quyền truy cập đã thay đổi, hoặc lịch không còn tồn tại. Hãy tải lại lịch.'
       : messages[error.code] ?? (error.status === 409 ? 'Lịch đã thay đổi. Hãy tải lại lịch.'
         : 'Không thực hiện được yêu cầu. Vui lòng thử lại.')))
   return (
