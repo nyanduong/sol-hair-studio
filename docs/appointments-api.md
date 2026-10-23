@@ -10,6 +10,8 @@ Availability remains a separate shared API: [availability-api.md](availability-a
 | --- | --- | --- | --- |
 | GET | /api/appointments | Customer own; Stylist assigned; Owner whole shop | Implemented SOL-035 |
 | GET | /api/appointments/:appointmentId | Same role-based object scope | Implemented SOL-035 |
+| GET | /api/appointments/:appointmentId/reschedule-options | Customer own or Owner; snapshot-based available slots | Implemented SOL-037 integration |
+| GET | /api/appointments/:appointmentId/audit | Owner only; read-only event history | Implemented SOL-037-13 (approved API addition) |
 | GET | /api/appointments/:appointmentId/service-history | Assigned Stylist or Owner; contextual completed history | Implemented SOL-035 |
 | POST | /api/appointments/:appointmentId/cancel | Customer own or Owner | Implemented SOL-035 |
 | POST | /api/appointments/:appointmentId/no-show | Owner only | Implemented SOL-035 |
@@ -52,7 +54,7 @@ Response data: {items:[appointment DTO],pagination:{limit,hasNextPage,nextCursor
 
 No request body. Returns 200 with role-scoped appointment DTO plus revision and confirmedAt. Stylist detail access is restricted to assigned confirmed/in_progress/completed appointments. Invalid ID returns 400; missing/out-of-scope returns 404.
 DTO allowlist: id, staffId, staffNameSnapshot, items (serviceId/name/priceVnd/durationMinutes), totalPriceVnd, totalDurationMinutes, startAt, endAt, timeZone, localDate, status. Stylist/Owner additionally receive customerSnapshot (displayName/phone); only Owner receives customerId. Account/email, guards, receipts and raw audit documents are not exposed.
-The current detail DTO does not expose every lifecycle timestamp merely because it exists in the model; Start returns startedAt in its command response.
+Detail additionally allowlists persisted startedAt for in_progress/completed and completedAt for completed, when present. Missing values are omitted, never synthesized. The same object/role scope applies; lists are unchanged.
 
 ### Contextual history: GET /api/appointments/:appointmentId/service-history
 
@@ -119,6 +121,34 @@ Body example:
 - Only confirmed with no startedAt. Other states cannot be reopened by this operation.
 - New start <= now + 168 hours, inclusive. Both time-only and Staff-only changes are checked.
 - All limits use the actor/time reread during the transaction, not bookingMode or client clock.
+
+
+### Owner agreement workflow — SOL-037 Web
+
+**Confirmed for Web by the SOL-037 user requirement on 2026-10-23:** Owner reschedules only
+after discussing and agreeing the new date/time/Stylist with the customer.
+The Owner form requires a nonblank reason (maximum 500 characters) for every
+reschedule and an explicit, initially unchecked attestation that the discussion
+and agreement took place. Changing the selected date/time/Stylist clears that
+attestation. Customer Reschedule and its cutoff/lead-time remain unchanged.
+
+**Implemented API contract stays unchanged:** reason is already supported and
+stored on the rescheduled event when supplied. The API requires it only for late
+Owner changes; Web always supplies it under the workflow above. Only
+expectedRevision/startAt/staffId/reason are sent by Owner Web. No confirmation
+flag, customer-approval status or additional payload field is sent.
+
+The checkbox is an Owner declaration checked on Web; the API does not persist
+or independently enforce it. It is not an authenticated Customer acceptance.
+Backend still rechecks identity, confirmed state, revision, capabilities,
+shifts/time off, Staff/Customer conflicts and snapshot-based availability in its
+existing transaction. No other appointment is automatically changed.
+
+**Not implemented / requires a separate decision:** server-side structured
+attestation audit, compulsory reason for all Owner API requests, customer
+approval requests/screens and automatic notifications. These are not approved
+API fields or new MVP features. Do not infer customer agreement from a successful
+API response.
 
 ### Snapshot and availability
 
@@ -490,3 +520,225 @@ Any CAS/audit/calendar error aborts the full transaction. No partial restoration
 
 Tests run only on the existing temporary MongoDB replica set with synthetic data. They cover the full Start/Complete/Correct lifecycle, original actual-time and event retention, ETA-required/equality/invalid cases, authorization, state/revision, shift/time-off/Staff/Customer/cleanup conflicts, real SOL-031 booking after false completion, cancellation resolving a conflict, booking-vs-correction races, rollback and duplicate requests, and availability after restoration.
 API tests do not claim live database, Postman, browser/native UI or deployed GitHub Actions acceptance.
+
+## Customer and Owner reschedule options — SOL-037 integration
+
+`GET /api/appointments/:appointmentId/reschedule-options?localDate=YYYY-MM-DD`
+requires an active Customer-only or Owner session and a confirmed appointment.
+Customer: own appointment, old start at least two hours from server-now (equality
+allowed), new slots at least 30 minutes ahead. Owner: any shop appointment,
+no Customer cutoff or lead-time; new scheduled slots are at/after server-now.
+Owner role takes priority for mixed-role accounts; Stylist without Owner is denied.
+Inaccessible IDs return the same 404 as appointment detail.
+
+Only `localDate` is accepted. No customerId, serviceIds, duration or exclusion ID
+may be supplied by the client. The server uses the appointment's service IDs and
+duration snapshot, the appointment's Customer profile (also for Owner), current
+staff capabilities/shifts/time-off and the existing
+SOL-030 slot calculator, excluding exactly the scoped appointment itself.
+Hidden or changed catalog services do not replace the snapshot. No algorithm,
+guard or write path in SOL-030 is changed.
+
+200 data: `{appointmentId,revision,generatedAt,localDate,timeZone,stylists:
+[{staffId,displayName,slots:[{startAt,endAt,occupiedUntil}]}]}`.
+Empty staff/slots is a valid result. `Cache-Control: no-store`.
+400: invalid ID/date/query or date outside booking horizon; 401/403: session/role;
+404: missing/out-of-scope; 409: APPOINTMENT_STATE_CONFLICT or RESCHEDULE_CUTOFF.
+
+This read does not reserve time. Existing POST reschedule is the final authority,
+revalidating cutoff, availability, expectedRevision and guards in its transaction.
+Customer Web sends only expectedRevision/staffId/startAt for reschedule and
+expectedRevision for cancellation. Ambiguous retries preserve body, revision and
+Idempotency-Key; confirmed 409 rejection requires refreshing and user confirmation.
+
+Owner Web reuses the Customer reschedule form and sends expectedRevision/staffId/startAt
+plus a required reason. The agreement attestation is checked only on Web and
+is never sent as an API field. Snapshot services are read-only. Both roles keep the
+original intent/key after uncertain outcomes, refresh detail after confirmed success,
+and reload the filtered list when returning. No Booking creation API is used.
+
+### Owner Web: salon scope and personal service scope — SOL-037
+
+The Web route /quan-ly/lich-hen has salon and personal tabs; view=mine is a Web
+routing parameter, never an appointments API query field. Salon management keeps
+the existing day/Staff/status filters and management commands. Personal scope
+keeps day/status filters and locks staffId to the authenticated Owner's Staff
+profile. The existing GET /api/staff Owner DTO supplies staffId/accountId; Web
+matches accountId with the fresh /api/auth/me profile, not name/email or roles
+alone. An Owner-linked Staff profile does not require an extra stylist role.
+
+Personal pages use the existing Owner GET appointments contract with staffId,
+localDate/status and cursor. Each page/detail refresh verifies the Staff link;
+a detail assigned to a different Staff is not shown as a personal appointment.
+No Staff profile means a dedicated missing-profile state, not an unfiltered API
+request. Profile lookup failure is an error, not an empty appointment list.
+
+Only personal detail of the matching Staff exposes Start/Complete; status remains
+confirmed/in_progress respectively. Before each command/retry, Web rechecks Owner,
+Staff linkage and current assignment using existing read APIs. Server checks and
+Idempotency-Key/expectedRevision semantics stay unchanged. This Web UX does not
+revoke the existing API right for Owner to support any shop appointment; a separate
+management-support UI has not been implemented.
+
+GET detail now returns persisted startedAt/completedAt according to appointment state
+and its scoped allowlist, so actual timestamps survive full reloads. Missing values
+are not fabricated. Web may still retain a newer confirmed command response while refreshing.
+Personal-tab UX keeps existing business permissions. The detail read projection/DTO was extended only for persisted actual timestamps; no DB data or schema change is required.
+
+### Stylist Web — SOL-037 platform extension
+
+Implemented routes: /nhan-vien/lich-hen and /nhan-vien/lich-hen/:appointmentId.
+Active Stylist sessions, including Customer+Stylist, use Backend Stylist priority;
+Owner accounts continue using the existing Owner routes even if they also have
+Stylist role. The header shows Stylist navigation on desktop and mobile browser.
+
+Web uses GET appointments with only localDate/limit/cursor. The server resolves
+the assigned Staff from identity; no staffId/customerId/status is sent to broaden
+scope. Only assigned confirmed/in_progress/completed are readable. The feature
+reuses appointment cards/details/status UI and service confirmation dialogs while
+using the contact-only Stylist DTO: no customerId/email/account/audit/receipt data.
+
+Start and Complete use the existing SOL-036 endpoints with expectedRevision and
+Idempotency-Key. Fresh role and scoped GET detail are rechecked before commands
+and retries; the transaction remains authoritative for assignment, state, shifts,
+conflicts and revisions. Unknown outcomes retain original body/key. Confirmations
+are Web declarations, not extra check-in/payment fields. Detail/list refreshes
+discard stale responses across dates/accounts and after commands.
+
+Current limitations: status filtering and service notes have no Stylist API
+contract; no Web UI is fabricated for them. The initial Stylist Web extension did not implement ETA (added in Step 9 below),
+correction, cancellation/rescheduling/no-show or Mobile changes and does
+not alter existing Customer/Owner/Stylist business permissions.
+
+### SOL-037 Step 9 — Owner/Stylist Web ETA
+
+**Implemented Web scope:** in-progress detail offers "Cập nhật giờ dự kiến xong".
+Owner may use it in both salon and personal contexts; assigned Stylist uses their
+own detail. Customer has no ETA UI or permission. Start/Complete restrictions in
+the personal context remain unchanged. Owner correction and Mobile are outside
+this step.
+
+The shared dialog shows customer, Staff, service snapshots, original planned
+start/end and current persisted ETA when present. New datetime-local input is
+interpreted in Asia/Ho_Chi_Minh and converted to canonical UTC ISO. Explicit
+confirmation is required and is reset when the estimate changes. Client checks
+in_progress, safe revision, ETA > current time and ETA > planned end; the server
+is authoritative. There is no booking-grid/lead-time/horizon restriction on ETA.
+
+Web uses the existing POST /api/appointments/:appointmentId/eta with exactly
+expectedRevision and estimatedEndAt, Bearer authorization and Idempotency-Key.
+It retains the original body/key after unknown outcomes, prevents double-submit
+and rechecks current role (and assigned Stylist detail scope) before sending.
+Known revision/state/permission conflicts require a fresh read and user review.
+No planned time, assignment, item, price or duration is changed by the form.
+
+**Approved read-contract addition for this Web step:** GET detail now returns
+estimatedEndAt only when stored on an in_progress appointment and the reader is
+Owner or the assigned Stylist. Missing ETA is omitted. Customer DTO and list
+contracts remain unchanged. This uses a projection/allowlist change only; it
+does not write DB data or modify the ETA/availability algorithms.
+
+The shared detail displays persisted ETA after reload, distinct from planned
+end and actual completion. Successful POST refreshes detail; returning to the
+list reloads its data. The confirmed POST response is scoped to the current
+session/appointment/revision while the fresh read catches up; a newer revision,
+state or permission failure prevents reusing stale warning data.
+
+**Official warnings:** POST ETA and GET detail return affectedAppointments and
+ownerReviewRequired for an in_progress appointment with stored ETA. Staff busy time includes ten-minute cleanup; customer-overlap
+reasons come from Backend. A Stylist can receive an empty visible warning list
+with ownerReviewRequired=true when other-Staff details are hidden. No hidden
+count/contact data, fabricated warning rows or notification claims are added.
+GET recomputes warnings from the current server time and calendar on each read,
+using the same impact calculator as POST. Appointment, Staff scope and candidates
+are read in one read-only primary/snapshot transaction; no guard/revision/event
+is written. Repository-only customerId/occupiedFrom used for calculation are
+not exposed in the Stylist DTO. Customer receives no ETA/impact fields.
+
+Web preserves validated warnings after F5 or reopening detail. A successful GET
+takes priority over older POST warnings even at the same appointment revision:
+resolving another appointment can change impact without editing this one.
+Missing/malformed warning data with ETA is an error, never an invented safe list.
+Warnings describe the calendar at read time; they are not pushed live between
+reads. No automatic move/cancel/completion takes place.
+
+Tests use Web fetch fixtures and the existing isolated MongoDB replica-set API
+suite. Real browser/manual salon acceptance is a separate verification.
+
+## SOL-037-13 — Owner Web corrections and audit
+
+### Implemented Web scope
+
+Owner detail (both salon and personal contexts) offers a separate administrative
+"Sửa trạng thái bị nhầm" action only for in_progress/completed:
+
+- in_progress -> confirmed: POST correct-start, reason and serviceNotStarted:true.
+- completed -> in_progress: POST correct-complete, reason and
+  serviceNotCompleted:true; estimatedEndAt is required when endAt <= server-now,
+  optional otherwise. Any supplied ETA must be > server-now and > planned end.
+
+These are existing BR-05/06 transitions; no cancelled/no_show restore, arbitrary
+target status, payment or check-in field is added. Confirmation is explicit,
+not preselected, and resets after reason/ETA edits. Shift/time-off/appointment
+conflicts come from Backend CORRECTION_CONFLICT.details. The shared HTTP helper
+preserves details; the dialog renders an allowlist and never moves another
+appointment. Existing Start/Complete personal restrictions remain unchanged.
+
+The Web command manager rechecks active Owner permission, sends expectedRevision
+and Idempotency-Key, deduplicates submit and retains the exact body/key on an
+unknown outcome. Known 401/403/404/409 require a fresh read and user review.
+Correction responses do not include ETA impact; the refreshed detail computes
+it through GET. On success detail and audit reload, and list navigation performs
+a fresh read. Previous audit events are never edited/deleted.
+
+### Added read-only audit API (approved SOL-037-13 integration)
+
+GET /api/appointments/:appointmentId/audit
+Authorization: Bearer <active Owner session>
+Cache-Control: no-store
+
+This endpoint was added with explicit user approval because no administrative
+event reader existed. service-history remains the separate completed-service
+context API for Stylist/Owner; it is not audit.
+
+Query: limit (default 20, maximum 50), cursor (optional opaque base64url).
+Unknown keys, invalid limit/cursor and a cursor for a different appointment
+return 400 INVALID_QUERY / INVALID_LIMIT / INVALID_CURSOR. A malformed ID
+returns 400 INVALID_APPOINTMENT_ID. Missing appointment returns
+404 APPOINTMENT_NOT_FOUND; existing appointment with no recorded events returns
+an empty page. Owner may read any salon appointment, including final states.
+Customer/Stylist receive 403 and unauthenticated requests 401.
+
+200 data:
+- items: id, appointmentId, actorId, revision, kind, occurredAt, before, after,
+  and reason only when present.
+- pagination: limit, hasNextPage, nextCursor (null on the last page).
+
+Snapshots allow status/staffId/startAt/endAt/occupiedFrom/occupiedUntil/startedAt/
+completedAt/estimatedEndAt only. Events are ordered revision DESC (newest
+recorded operation first), using the existing unique appointmentId/revision
+index. Revision ordering preserves sequence for equal timestamps and avoids
+depending on server-clock corrections. Cursor contains the appointment boundary
+and last revision; the query always scopes the requested appointment. New events
+appear on a fresh read; load-more continues older revisions without inserting
+newer events into previously loaded pages.
+
+No account lookup, email/password, raw appointment/receipt/guard or arbitrary
+event fields are returned. Event storage has actorId but no historical actor
+name/role snapshot: Web displays the recorded ID, and does not infer role/name
+from current account data. Old events missing optional snapshots/fields remain
+visible as recorded. Audit reads never increment revision/guards or write events.
+
+### Owner audit UI and verification limits
+
+Owner detail renders a read-only timeline with timestamps in Vietnam time,
+action, actor ID, reason and available before/after fields. It has loading,
+empty, error/retry and load-more states, and uses the existing latest-request/
+identity reader for pagination and account/appointment changes. Correction
+success refreshes the timeline, retaining earlier started/completed events.
+Customer/Stylist pages do not mount administrative audit.
+
+Automated Web fixture tests and API tests on the isolated temporary MongoDB
+Replica Set cover the integration. Live browser/manual salon acceptance remains
+separate. No realtime dispatch, audit editing, Mobile correction or history
+backfill is implemented. A missing event is not fabricated from current status.

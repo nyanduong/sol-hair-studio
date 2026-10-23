@@ -79,12 +79,61 @@ Không mở cancelled/no_show; tạo lịch mới nếu khách tới sau no-show
 
 Owner reschedule: new startAt >= server-now (equality allowed on the scheduled 15-minute grid). Persisted data must satisfy lastRescheduledAt <= startAt. Validate against server-now in the service; the stored timestamp does not replace that check. Customer cutoff/lead-time and Owner late-change reason remain unchanged.
 
+
+### Owner đổi lịch sau khi thống nhất với khách — SOL-037
+
+**[Đã chốt cho Web — yêu cầu điều chỉnh SOL-037 trong phiên làm việc ngày 23/10/2026]**
+Owner chỉ đổi giờ/stylist sau khi đã trao đổi và thống nhất lịch mới với khách.
+Form Owner bắt buộc nhập lý do (không rỗng, tối đa 500 ký tự) cho mọi lần đổi
+lịch và tự tích xác nhận đã trao đổi, thống nhất ngày/giờ/stylist mới. Không tích
+sẵn; đổi lựa chọn lịch mới phải xác nhận lại. Đây là khai báo của Owner, không
+phải bằng chứng khách đã xác nhận trong hệ thống.
+
+Customer vẫn tự đổi lịch của mình theo cutoff giờ hẹn cũ ≥2 giờ và giờ mới
+trước ít nhất 30 phút. Owner không chịu hai giới hạn đó; giờ mới ≥server-now,
+có lý do và tuân grid/horizon, trạng thái confirmed, ca/nghỉ, năng lực,
+availability, snapshot và revision hiện có. Không sửa dịch vụ hoặc tự đổi
+lịch khác; không tự gửi thông báo hay mặc định khách đã đồng ý.
+
+**[Đã triển khai trong API / giới hạn hiện tại]**
+POST reschedule nhận reason và lưu vào appointment_events khi gửi; API chỉ
+bắt buộc reason khi Owner đổi sát giờ (<2 giờ theo giờ hẹn cũ, kể cả quá giờ).
+Web áp dụng yêu cầu lý do chặt hơn ở trên. API chưa nhận/lưu trường xác nhận
+đã trao đổi hoặc sự đồng ý của khách; checkbox chỉ được kiểm tra tại Web,
+không thêm vào payload và không được coi là audit xác nhận của khách.
+Kiểm tra quyền, availability, revision và ghi transaction ở Backend vẫn là
+nguồn xác thực cuối cùng cho các điều kiện API đã hỗ trợ.
+
+**[Chưa triển khai / cần quyết định trước khi đổi Backend]**
+Chưa có yêu cầu đổi lịch chờ khách duyệt, màn khách xác nhận, thông báo tự động
+hoặc dữ liệu xác nhận trao đổi có cấu trúc trong audit. Muốn lưu/kiểm tra xác
+nhận ở server hoặc bắt buộc lý do cho mọi Owner request ở API cần chốt contract
+riêng trước khi triển khai; đây chưa phải contract được duyệt. Không mở rộng MVP
+bằng các chức năng đó trong bước này.
+
 Giữ lastCommand(key,actorId,hash,resultRevision) trên appointment để retry lệnh gần nhất và CAS expectedRevision ngăn ghi đè. Không hứa replay mọi lệnh cũ; stale thì GET lại, không retry mù bằng revision mới. Key tạo 24 giờ là cơ chế riêng, không áp TTL cho lastCommand/audit.
 
 <a id="history"></a>
 ## BR-07/08. Lịch sử và quyền đọc
 
 Customer chỉ lịch mình; owner toàn tiệm; stylist lịch được giao, tên/phone/thông tin cần phục vụ và lịch sử **dịch vụ đã hoàn tất** của khách đó. Không email khách, lịch hủy/no-show hoặc duyệt mọi khách. API kiểm quyền/field allowlist, không chỉ UI. Stylist chỉ đọc lịch sử khách trong ngữ cảnh lịch được giao. Không tự liên kết hồ sơ vãng lai với account mới theo số phone.
+
+
+### Owner xem toàn salon và lịch trực tiếp phục vụ — SOL-037
+
+**[Yêu cầu UX đã chốt trong phiên SOL-037 ngày 23/10/2026]**
+Web Owner tách "Lịch toàn salon" (quản lý) và "Lịch của tôi" (trực tiếp phục vụ).
+Lịch cá nhân phải khớp staffId của hồ sơ staff có accountId bằng accountId của
+Owner đang đăng nhập; không đối chiếu tên/email, không yêu cầu thêm role stylist
+cho Owner đã có hồ sơ staff. Chưa có hồ sơ liên kết thì không hiển thị lịch cá
+nhân và không fallback về toàn salon. Có hồ sơ nhưng không có lịch thì danh sách rỗng.
+
+Start/Complete cá nhân chỉ hiển thị ở tab "Lịch của tôi", khi lịch được giao đúng
+hồ sơ và trạng thái lần lượt confirmed/in_progress. Tab toàn salon giữ quản lý
+đổi/hủy/no-show, không bổ sung thao tác hỗ trợ Start/Complete thay stylist.
+Đây là phân tách UX, không thu hẹp quyền Owner của API SOL-036. Backend vẫn quyết
+định quyền, trạng thái, revision, ca/nghỉ và xung đột. Không có chức năng hỗ trợ
+phục vụ thay stylist riêng được triển khai trong bước này.
 
 Ẩn service không hủy/đổi lịch cũ; snapshot name/price/duration không cập nhật theo catalog. Ngừng staff chặn nếu còn lịch chưa kết thúc; xử lý trước, giữ lịch sử. Lịch completed không đồng nghĩa đã thanh toán; không trạng thái paid. Không giới hạn tái phạm/đếm no-show để khóa khách.
 

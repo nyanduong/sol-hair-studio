@@ -1,4 +1,6 @@
+import { isStylistAccount } from '../../appointments/hooks/useStylistAppointments.js'
 import { useEffect, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import UserNav from '../../auth/components/UserNav.jsx'
 import { useAuth } from '../../auth/hooks/useAuth.js'
 
@@ -10,7 +12,12 @@ const links = [
 ]
 
 export default function SiteHeader() {
-  const { isAuthenticated, openLoginModal } = useAuth()
+  const { isAuthenticated, account, openLoginModal } = useAuth()
+  const showAppointments = isAuthenticated && account?.status === 'active' &&
+    Array.isArray(account.roles) && account.roles.includes('customer') &&
+    !account.roles.some(role => ['owner', 'stylist'].includes(role))
+  const showStylistAppointments = isAuthenticated && isStylistAccount(account)
+  const showOwnerAppointments = isAuthenticated && account?.status === 'active' && account.roles?.includes('owner')
   const menuRef = useRef(null)
   const summaryRef = useRef(null)
   const closeMenu = () => { if (menuRef.current) menuRef.current.open = false }
@@ -64,6 +71,11 @@ export default function SiteHeader() {
         </a>
         <nav aria-label="Điều hướng chính" className="hidden items-center gap-5 lg:flex">
           {links.map(({ href, label }) => <a key={href} href={href} className="inline-flex min-h-11 items-center text-xs text-muted transition-colors hover:text-terracotta">{label}</a>)}
+          {showStylistAppointments && <Link to="/nhan-vien/lich-hen" className="inline-flex min-h-11 items-center whitespace-nowrap text-xs text-muted transition-colors hover:text-terracotta">Lịch của tôi</Link>}
+          {showOwnerAppointments && <Link to="/quan-ly/lich-hen" className="inline-flex min-h-11 items-center whitespace-nowrap text-xs text-muted transition-colors hover:text-terracotta">Lịch salon</Link>}
+          {showAppointments && (
+            <Link to="/lich-cua-toi" className="inline-flex min-h-11 items-center whitespace-nowrap text-xs text-muted transition-colors hover:text-terracotta">Lịch của tôi</Link>
+          )}
           <a
             href="/booking"
             onClick={handleBookingClick}
@@ -80,6 +92,11 @@ export default function SiteHeader() {
           </summary>
           <nav aria-label="Điều hướng chính trên điện thoại" className="absolute right-0 top-14 grid w-60 max-w-[calc(100vw-2rem)] gap-1 rounded-2xl border border-border bg-canvas p-2 shadow-lg">
             {links.map(({ href, label }) => <a key={href} href={href} onClick={navigate} className="flex min-h-11 items-center rounded-xl px-4 text-sm hover:bg-soft-surface">{label}</a>)}
+            {showStylistAppointments && <Link to="/nhan-vien/lich-hen" onClick={closeMenu} className="flex min-h-11 items-center rounded-xl px-4 text-sm hover:bg-soft-surface">Lịch của tôi</Link>}
+            {showOwnerAppointments && <Link to="/quan-ly/lich-hen" onClick={closeMenu} className="flex min-h-11 items-center rounded-xl px-4 text-sm hover:bg-soft-surface">Lịch salon</Link>}
+            {showAppointments && (
+              <Link to="/lich-cua-toi" onClick={closeMenu} className="flex min-h-11 items-center rounded-xl px-4 text-sm hover:bg-soft-surface">Lịch của tôi</Link>
+            )}
             <a
               href="/booking"
               onClick={handleBookingClick}

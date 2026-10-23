@@ -42,3 +42,75 @@ M4/M5 dùng một bộ reservation/transaction trong module lịch hẹn, phân 
 Không payment/cọc/điểm thưởng, chi nhánh/lễ tân/payroll, AI/hold slot hoặc tự thông báo khách. Email OTP thuộc MVP; nhắc lịch và yêu cầu nghỉ/đổi ca là sau MVP. Không đếm/phạt/hạn chế khách bỏ hẹn nhiều lần. Không BR riêng cho đổi stylist khi dịch vụ ẩn: người mới đủ năng lực/giờ trống, giữ snapshot.
 
 Giới hạn ảnh/gallery/pagination và thuật toán password hashing cụ thể là đặc tả kỹ thuật cần review, không giả là BR mới. Môi trường DB/FCV/SMTP/Cloudinary và hiệu năng chưa kiểm chứng; đây không phải lệnh migration hay tuyên bố đạt rubric.
+
+## Bổ sung nền tảng Stylist Web — SOL-037
+
+**Đã được yêu cầu trong phiên SOL-037 ngày 23/10/2026:** ngoài Mobile là nền tảng
+chính theo kế hoạch ban đầu, Stylist được hỗ trợ Web tại /nhan-vien/lich-hen và
+trang chi tiết tương ứng. Đây là mở rộng nền tảng, không thêm quyền nghiệp vụ.
+
+**Phạm vi đã triển khai:** xem lịch được giao theo ngày salon, cursor pagination,
+chi tiết/contact/snapshot/thời gian thực tế theo allowlist và Start/Complete bằng
+API SOL-035/036 hiện có. Backend tự scope theo hồ sơ Staff của tài khoản, không
+lấy toàn salon rồi lọc ở trình duyệt. Owner vẫn dùng hai tab quản lý/cá nhân riêng;
+Stylist không có quyền quản lý toàn salon, đổi/hủy/no-show hoặc sửa nhầm.
+
+**Giới hạn:** API danh sách Stylist chưa hỗ trợ filter status; DTO chưa có ghi chú
+phục vụ. Web không dựng các trường đó và không lọc status từ một trang dữ liệu.
+ETA được bổ sung riêng ở Bước 9 bên dưới; contextual history UI, correction
+và notifications không nằm trong lần bổ sung Stylist Web ban đầu. Không tạo API hoặc sửa schema/DB cho Web.
+File Excel kế hoạch tổng không có trong checkout tại thời điểm triển khai; chưa
+cập nhật hàng phân công và không tạo một file kế hoạch thay thế.
+
+## Owner/Stylist Web ETA — SOL-037 Bước 9
+
+**Quy tắc đã chốt:** BR-02/04 và API SOL-036 ETA: Owner hoặc Stylist được giao
+cập nhật lịch in_progress; ETA > giờ server và > endAt, cộng 10 phút dọn cho
+khoảng giữ stylist. Không đổi giờ hẹn/snapshot, không tự dời/hủy lịch khác hoặc
+tự hoàn tất. Không mở rộng quyền nghiệp vụ.
+
+**Web đã triển khai:** dialog ETA dùng chung ở chi tiết Owner (cả phạm vi toàn
+salon/cá nhân) và Stylist; xác nhận, revision/idempotency/retry, refresh và cảnh
+báo theo response Backend. Customer không có thao tác ETA. Start/Complete cá
+nhân và các luồng đổi/hủy giữ nguyên.
+
+**API thực tế / bổ sung được duyệt:** POST ETA trả ETA và danh sách bị ảnh hưởng
+đúng role; GET chi tiết được bổ sung estimatedEndAt cho Owner/Stylist trên lịch
+in_progress để đọc lại ETA sau reload. Không thêm API, sửa thuật toán hoặc DB.
+
+**Đọc lại cảnh báo đã triển khai:** GET chi tiết Owner/Stylist tính lại danh sách
+bị ảnh hưởng khi lịch in_progress có ETA, dùng cùng calculator với POST và đọc
+cùng snapshot. F5/mở lại trang vẫn có cảnh báo hiện tại; cảnh báo mới từ GET
+thay kết quả POST cũ ngay cả khi revision lịch không đổi. Stylist chỉ thấy lịch
+cùng Staff; xung đột ngoài phạm vi chỉ có cờ cần Owner xử lý. Customer không có
+dữ liệu ETA/cảnh báo. GET không ghi guard/revision/event hoặc tự xử lý lịch.
+
+**Giới hạn:** Cảnh báo cập nhật khi đọc/lưu, chưa đẩy realtime hoặc gửi thông báo. Mobile/correction/notification ngoài bước này. Không cập nhật
+Excel phân công vì checkout không có file; không tạo kế hoạch thay thế.
+
+## SOL-037-13 — Chủ sửa nhầm và xem audit trên Web
+
+**Nghiệp vụ đã chốt:** giữ BR-05/06: chỉ Owner sửa in_progress → confirmed khi
+chưa thực sự phục vụ, hoặc completed → in_progress khi thực tế vẫn phục vụ.
+Bắt buộc lý do/xác nhận; ETA trong cùng request nếu giờ kế hoạch đã hết. Backend
+kiểm revision, ca/nghỉ và lịch khác; xung đột thì không ghi. Event cũ được giữ.
+
+**Đã triển khai:** thao tác quản trị riêng ở chi tiết Owner cả salon/cá nhân,
+dialog lý do/xác nhận/ETA, lỗi và chi tiết xung đột theo API SOL-036. Revision,
+idempotency, retry cùng intent, refresh chi tiết/danh sách/audit dùng lại cơ chế
+hiện có. Không thêm quyền Customer/Stylist hoặc khôi phục cancelled/no_show.
+
+**Bổ sung API đã được duyệt trong phiên SOL-037-13:** GET
+/api/appointments/:appointmentId/audit, chỉ Owner, chỉ đọc appointment_events.
+Trước bước này chưa có API audit; service-history không thay thế audit. Dùng
+index appointmentId/revision có sẵn, trang 20 (tối đa 50), mới nhất trước theo
+revision, cursor ràng buộc lịch. Không đổi schema/index hoặc dữ liệu hiện có.
+
+**Audit Web đã triển khai:** timeline event thật, actorId, thời gian, hành động,
+before/after và reason khi có; loading/empty/error/retry/phân trang; refresh sau
+Correction, không bỏ event cũ. Chỉ mount trên Owner detail.
+
+**Giới hạn:** event chưa lưu snapshot tên/vai trò actor, nên không suy diễn từ
+tài khoản hiện tại. Không tạo event giả/backfill, chỉnh/xóa audit, realtime hoặc
+Mobile. Excel kế hoạch không có trong checkout, không tạo backlog thay thế.
+Kiểm thử tự động không thay thế nghiệm thu trình duyệt/dữ liệu salon thực tế.

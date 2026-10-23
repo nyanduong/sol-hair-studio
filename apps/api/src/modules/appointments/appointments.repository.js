@@ -134,13 +134,15 @@ export function findOwnerAppointments({ localDate, staffId, status, limit = 50, 
 }
 
 // Đọc chi tiết lịch trong phạm vi được phép của từng vai trò.
-export function findAppointmentDetail(appointmentId, {role, customerId, staffId} = {}) {
+export function findAppointmentDetail(appointmentId, {role, customerId, staffId} = {}, { session } = {}) {
     assertObjectId(appointmentId, 'appointmentId')
     const filter = { _id: appointmentId }
     const fields = {
         ...APPOINTMENT_LIST_FIELDS,
         revision: 1,
         confirmedAt: 1,
+        startedAt: 1,
+        completedAt: 1,
     }
     if(role === 'customer') {
         assertObjectId(customerId, 'customerId')
@@ -149,15 +151,16 @@ export function findAppointmentDetail(appointmentId, {role, customerId, staffId}
         assertObjectId(staffId, 'staffId')
         filter.staffId = staffId
         filter.status = {$in: ['confirmed', 'in_progress', 'completed']}
-        Object.assign(fields, APPOINTMENT_CONTACT_FIELDS)
+        Object.assign(fields, APPOINTMENT_CONTACT_FIELDS, { estimatedEndAt: 1, customerId: 1, occupiedFrom: 1 })
     } else if(role === 'owner') {
         Object.assign(fields, APPOINTMENT_CONTACT_FIELDS, {
-            customerId: 1,
+            customerId: 1, estimatedEndAt: 1, occupiedFrom: 1,
         })
     } else {
         throw new TypeError('A supported appointment role is required')
     }
     return AppointmentModel.findOne(filter)
+    .session(session ?? null)
     .select(fields)
     .lean()
 }
@@ -474,4 +477,15 @@ export function persistCorrectedStartAppointment(appointment, options) {
 // Lưu sửa nhầm hoàn tất, giữ giờ bắt đầu cũ và xóa completedAt.
 export function persistCorrectedCompleteAppointment(appointment, options) {
     return persistLifecycleAppointment(appointment, options, 'correct_complete')
+}
+
+// Dùng index appointmentId/revision có sẵn; không ghi hoặc bổ sung index.
+export async function findAppointmentAuditEvents(appointmentId, { limit, revision } = {}) {
+    assertObjectId(appointmentId, 'appointmentId')
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50 ||
+        (revision !== undefined && (!Number.isSafeInteger(revision) || revision < 0))) throw new TypeError('Invalid audit pagination')
+    if (!await AppointmentModel.exists({ _id: appointmentId })) return null
+    return AppointmentEventModel.find({ appointmentId, ...(revision !== undefined ? { revision: { $lt: revision } } : {}) })
+        .select('_id appointmentId actorId revision kind occurredAt before after reason')
+        .sort({ revision: -1 }).limit(limit + 1).lean()
 }

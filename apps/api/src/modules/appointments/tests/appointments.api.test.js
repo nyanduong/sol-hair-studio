@@ -197,6 +197,44 @@ describe('appointment lists and details', () => {
     await get(detailPath(mine._id), otherStylist).expect(404)
     await get(detailPath(mine._id) + '?customerId=' + client.customer._id, otherClient).expect(404)
   })
+
+  it.each(['confirmed', 'in_progress', 'completed'])('returns persisted actual times on repeated scoped GET for %s', async status => {
+    const mine = await appointment({ status })
+    for (const acting of [client, stylist, owner]) {
+      for (let reload = 0; reload < 2; reload++) {
+        const data = (await get(detailPath(mine._id), acting).expect(200)).body.data
+        if (status !== 'confirmed') expect(data.startedAt).toBe(mine.startedAt.toISOString())
+        else expect(data).not.toHaveProperty('startedAt')
+        if (status === 'completed') expect(data.completedAt).toBe(mine.completedAt.toISOString())
+        else expect(data).not.toHaveProperty('completedAt')
+        for (const field of ['lastCommand', 'bookingRevision', 'createdByAccountId', 'email']) expect(data).not.toHaveProperty(field)
+      }
+    }
+    await get(detailPath(mine._id), otherClient).expect(404)
+    await get(detailPath(mine._id), otherStylist).expect(404)
+  })
+  it.each(['owner', 'stylist', 'customer'])('scopes persisted ETA on repeated GET detail for %s', async role => {
+    const estimatedEndAt = new Date(NOW.getTime() + 5 * 60 * MINUTE)
+    const mine = await appointment({ status: 'in_progress', estimatedEndAt,
+      occupiedUntil: new Date(estimatedEndAt.getTime() + 10 * MINUTE) })
+    const acting = { owner, stylist, customer: client }[role]
+    for (let reload = 0; reload < 2; reload++) {
+      const data = (await get(detailPath(mine._id), acting).expect(200)).body.data
+      if (role === 'customer') expect(data).not.toHaveProperty('estimatedEndAt')
+      else expect(data.estimatedEndAt).toBe(estimatedEndAt.toISOString())
+      expect(data.startAt).toBe(mine.startAt.toISOString())
+      expect(data.endAt).toBe(mine.endAt.toISOString())
+      for (const field of ['lastCommand', 'occupiedUntil', 'email']) expect(data).not.toHaveProperty(field)
+    }
+    await get(detailPath(mine._id), otherStylist).expect(404)
+    await get(detailPath(mine._id), otherClient).expect(404)
+  })
+  it.each(['confirmed', 'in_progress', 'completed'])('does not invent missing ETA for %s on GET detail', async status => {
+    const mine = await appointment({ status })
+    for (const acting of [owner, stylist]) {
+      expect((await get(detailPath(mine._id), acting).expect(200)).body.data).not.toHaveProperty('estimatedEndAt')
+    }
+  })
   it('handles malformed/nonexistent IDs and missing profiles', async () => {
     await get(detailPath('bad')).expect(400)
     await get(detailPath(oid())).expect(404)
@@ -1150,6 +1188,81 @@ describe('transactional ETA and scoped impact warnings', () => {
     await unchanged(mine)
   })
 
+
+  it.each(['owner', 'stylist'])('reloads current ETA impact for %s without writing and clears a resolved conflict', async role => {
+    const mine = await serving()
+    const next = await appointment({ customerId: otherClient.customer._id, startAt: new Date(etaAt(30)) })
+    await update(mine._id).expect(200)
+    const before = await AppointmentModel.findById(mine._id).lean()
+    const guards = [(await CustomerModel.findById(client.customer._id)).bookingRevision, (await StaffModel.findById(stylist.staff._id)).bookingRevision]
+    const events = await AppointmentEventModel.countDocuments({ appointmentId: mine._id })
+    for (let reload = 0; reload < 2; reload++) {
+      const result = await get(detailPath(mine._id), role === 'owner' ? owner : stylist).expect(200)
+      expect(result.headers['cache-control']).toBe('no-store')
+      expect(result.body.data).toMatchObject({ revision: 1, estimatedEndAt: etaAt(45), ownerReviewRequired: true,
+        affectedAppointments: [{ id: String(next._id), staffId: String(stylist.staff._id), reasons: ['staff_overlap'] }] })
+      expect(Object.keys(result.body.data.affectedAppointments[0]).sort()).toEqual(['id', 'staffId', 'status', 'startAt', 'endAt', 'reasons'].sort())
+      expect(result.body.data).not.toHaveProperty('occupiedFrom')
+      if (role === 'stylist') expect(result.body.data).not.toHaveProperty('customerId')
+    }
+    expect(await AppointmentModel.findById(mine._id).lean()).toEqual(before)
+    expect(await AppointmentEventModel.countDocuments({ appointmentId: mine._id })).toBe(events)
+    expect([(await CustomerModel.findById(client.customer._id)).bookingRevision, (await StaffModel.findById(stylist.staff._id)).bookingRevision]).toEqual(guards)
+    await command(next._id, 'cancel', owner, { expectedRevision: 0, reason: 'Synthetic conflict resolution' }, 'eta-read-resolve-command').expect(200)
+    const fresh = (await get(detailPath(mine._id), role === 'owner' ? owner : stylist).expect(200)).body.data
+    expect(fresh).toMatchObject({ revision: 1, estimatedEndAt: etaAt(45), affectedAppointments: [], ownerReviewRequired: false })
+    expect(await AppointmentEventModel.countDocuments({ appointmentId: mine._id })).toBe(events)
+  })
+
+  it('GET keeps cross-Staff conflicts Owner-only and exposes no impact to Customer or foreign Stylist', async () => {
+    const mine = await serving()
+    const next = await appointment({ staffId: otherStylist.staff._id, startAt: new Date(etaAt(30)) })
+    await update(mine._id).expect(200)
+    const staffRead = (await get(detailPath(mine._id), stylist).expect(200)).body
+    expect(staffRead.data).toMatchObject({ affectedAppointments: [], ownerReviewRequired: true })
+    expect(JSON.stringify(staffRead)).not.toContain(String(next._id))
+    expect(staffRead.data).not.toHaveProperty('customerId')
+    const ownerRead = (await get(detailPath(mine._id), owner).expect(200)).body.data
+    expect(ownerRead.affectedAppointments).toEqual([{ id: String(next._id), staffId: String(otherStylist.staff._id), status: 'confirmed',
+      startAt: next.startAt.toISOString(), endAt: next.endAt.toISOString(), reasons: ['customer_overlap'] }])
+    const customerRead = (await get(detailPath(mine._id), client).expect(200)).body.data
+    for (const field of ['estimatedEndAt', 'affectedAppointments', 'ownerReviewRequired']) expect(customerRead).not.toHaveProperty(field)
+    await get(detailPath(mine._id), otherStylist).expect(404)
+    await get(detailPath(mine._id), otherClient).expect(404)
+  })
+
+  it('GET uses current server time for an expired ETA rather than stale saved warnings', async () => {
+    const mine = await serving()
+    await appointment({ customerId: otherClient.customer._id, startAt: new Date(etaAt(90)) })
+    await update(mine._id).expect(200)
+    expect((await get(detailPath(mine._id), owner).expect(200)).body.data.affectedAppointments).toEqual([])
+    vi.setSystemTime(new Date(etaAt(46)))
+    const read = (await get(detailPath(mine._id), owner).expect(200)).body.data
+    expect(read.affectedAppointments).toHaveLength(1)
+    expect(read.ownerReviewRequired).toBe(true)
+    expect(read.revision).toBe(1)
+  })
+
+  it('GET respects cleanup adjacency without changing appointment history', async () => {
+    const mine = await serving()
+    await appointment({ customerId: otherClient.customer._id, startAt: new Date(etaAt(55)) })
+    await update(mine._id).expect(200)
+    const read = (await get(detailPath(mine._id), stylist).expect(200)).body.data
+    expect(read).toMatchObject({ affectedAppointments: [], ownerReviewRequired: false })
+    expect(read.endAt).toBe(mine.endAt.toISOString())
+  })
+
+  it('fails GET when warning reads fail instead of claiming no conflicts', async () => {
+    const mine = await serving()
+    await update(mine._id).expect(200)
+    const before = await AppointmentModel.findById(mine._id).lean()
+    vi.spyOn(appointmentRepository, 'findAppointmentConflictCandidates').mockRejectedValueOnce(new Error('synthetic read impact failure'))
+    const result = await get(detailPath(mine._id), owner).expect(500)
+    expect(result.body).not.toHaveProperty('data')
+    expect(await AppointmentModel.findById(mine._id).lean()).toEqual(before)
+    expect(await AppointmentEventModel.countDocuments({ appointmentId: mine._id, kind: 'eta_updated' })).toBe(1)
+  })
+
   it('records staff overlap and returns the affected assigned appointment without PII', async () => {
     const mine = await serving()
     const next = await appointment({ customerId: otherClient.customer._id, startAt: new Date(etaAt(30)) })
@@ -1845,5 +1958,217 @@ describe('Owner correction of accidental completion', () => {
     vi.spyOn(appointmentRepository, 'findAppointmentCommandActor').mockResolvedValueOnce({ accountId: String(owner.account._id), roles: ['stylist'], authRevision: owner.account.authRevision })
     await correct(mine._id).expect(403)
     await unchanged(mine)
+  })
+})
+
+describe('Customer and Owner reschedule option snapshots', () => {
+  beforeEach(async () => {
+    await shift(stylist.staff._id)
+    await shift(otherStylist.staff._id)
+  })
+  const path = id => detailPath(id) + '/reschedule-options?localDate=2026-10-20'
+
+  it('uses the existing snapshot, excludes itself and works without active catalog services', async () => {
+    const mine = await appointment()
+    const response = await get(path(mine._id)).expect(200)
+    expect(response.headers['cache-control']).toBe('no-store')
+    expect(response.body.data).toMatchObject({ appointmentId: String(mine._id), revision: 0 })
+    const staff = response.body.data.stylists.find(item => item.staffId === String(stylist.staff._id))
+    expect(staff.slots.some(slot => slot.startAt === mine.startAt.toISOString())).toBe(true)
+    expect(staff.slots.find(slot => slot.startAt === mine.startAt.toISOString()).endAt).toBe(mine.endAt.toISOString())
+    expect(JSON.stringify(response.body)).not.toContain('Private customer')
+    expect(JSON.stringify(response.body)).not.toContain('+849')
+    await assertUnchanged(mine._id)
+  })
+  it('reflects another appointment, cleanup and unchanged snapshot duration', async () => {
+    const mine = await appointment()
+    await appointment({ customerId: otherClient.customer._id, startAt: new Date(newStart(240)),
+      endAt: new Date(newStart(270)), occupiedFrom: new Date(newStart(240)), occupiedUntil: new Date(newStart(280)) })
+    const data = (await get(path(mine._id)).expect(200)).body.data
+    const slots = data.stylists.find(item => item.staffId === String(stylist.staff._id)).slots
+    expect(slots.some(slot => slot.startAt === newStart(225))).toBe(false)
+    expect(slots.some(slot => slot.startAt === newStart(270))).toBe(false)
+    expect(slots.some(slot => slot.startAt === newStart(285))).toBe(true)
+  })
+  it('uses current staff capabilities and assigned shifts', async () => {
+    const mine = await appointment()
+    await StaffModel.updateOne({ _id: otherStylist.staff._id }, { $set: { serviceIds: [] } })
+    const data = (await get(path(mine._id)).expect(200)).body.data
+    expect(data.stylists.map(item => item.staffId)).not.toContain(String(otherStylist.staff._id))
+    await StaffShiftModel.deleteMany({ staffId: stylist.staff._id })
+    const noShift = (await get(path(mine._id)).expect(200)).body.data
+    expect(noShift.stylists.find(item => item.staffId === String(stylist.staff._id)).slots).toEqual([])
+  })
+  it('does not expose another Customer appointment (IDOR)', async () => {
+    const mine = await appointment()
+    await get(path(mine._id), otherClient).expect(404)
+  })
+  it.each(['stylist'])('rejects %s actors', async role => {
+    const mine = await appointment()
+    await get(path(mine._id), role === 'owner' ? owner : stylist).expect(403)
+  })
+  it('requires an active session', async () => {
+    await request(app).get(path(oid())).expect(401)
+  })
+  it.each(['in_progress', 'completed', 'cancelled', 'no_show'])('rejects %s appointments', async status => {
+    const mine = await appointment({ status })
+    expect((await get(path(mine._id)).expect(409)).body.code).toBe('APPOINTMENT_STATE_CONFLICT')
+  })
+  it('allows exact two-hour cutoff and rejects one millisecond later', async () => {
+    const mine = await appointment({ startAt: new Date(newStart(120)), endAt: new Date(newStart(150)),
+      occupiedFrom: new Date(newStart(120)), occupiedUntil: new Date(newStart(160)) })
+    await get(path(mine._id)).expect(200)
+    vi.setSystemTime(new Date(NOW.getTime() + 1))
+    expect((await get(path(mine._id)).expect(409)).body.code).toBe('RESCHEDULE_CUTOFF')
+  })
+  it('rejects client-supplied snapshot, scope, exclusion and invalid dates', async () => {
+    const mine = await appointment()
+    for (const field of ['customerId', 'serviceIds', 'excludeAppointmentId', 'durationMinutes']) {
+      await get(path(mine._id) + '&' + field + '=other').expect(400)
+    }
+    await get(detailPath(mine._id) + '/reschedule-options?localDate=bad').expect(400)
+    await get(detailPath(mine._id) + '/reschedule-options?localDate=2026-11-01').expect(400)
+    await get(detailPath('invalid') + '/reschedule-options?localDate=2026-10-20').expect(400)
+  })
+  it('lets Owner read late appointments with snapshot slots at server-now and no Customer cutoff', async () => {
+    const mine = await appointment({ startAt: new Date(newStart(15)) })
+    const data = (await get(path(mine._id), owner).expect(200)).body.data
+    const slots = data.stylists.find(item => item.staffId === String(stylist.staff._id)).slots
+    expect(slots.some(slot => slot.startAt === NOW.toISOString())).toBe(true)
+    expect((await get(path(mine._id)).expect(409)).body.code).toBe('RESCHEDULE_CUTOFF')
+    expect(data.items).toEqual(mine.items.map(item => item.toObject()))
+    expect(JSON.stringify(data)).not.toContain('Private customer')
+    await assertUnchanged(mine._id)
+  })
+  it('checks the appointment Customer across Staff for Owner and excludes only itself', async () => {
+    const mine = await appointment()
+    await appointment({ staffId: otherStylist.staff._id, startAt: NOW })
+    const data = (await get(path(mine._id), owner).expect(200)).body.data
+    const slots = data.stylists.find(item => item.staffId === String(stylist.staff._id)).slots
+    expect(slots.some(slot => slot.startAt === NOW.toISOString())).toBe(false)
+    expect(slots.some(slot => slot.startAt === newStart(30))).toBe(true)
+    expect(slots.some(slot => slot.startAt === mine.startAt.toISOString())).toBe(true)
+  })
+  it('uses Owner precedence for mixed roles without a Customer profile for the Owner', async () => {
+    const mine = await appointment({ startAt: new Date(newStart(15)) })
+    await AccountModel.updateOne({ _id: owner.account._id }, { $set: { roles: ['customer', 'owner'] } })
+    await get(path(mine._id), owner).expect(200)
+  })
+  it.each(['in_progress', 'completed', 'cancelled', 'no_show'])('rejects Owner options for %s', async status => {
+    const mine = await appointment({ status })
+    expect((await get(path(mine._id), owner).expect(409)).body.code).toBe('APPOINTMENT_STATE_CONFLICT')
+  })
+  it('reads selected date through the partial eighth day within 168 hours, rejecting injected scope', async () => {
+    const mine = await appointment()
+    await shift(stylist.staff._id, '2026-10-27')
+    const data = (await get(detailPath(mine._id) + '/reschedule-options?localDate=2026-10-27', owner).expect(200)).body.data
+    expect(data.localDate).toBe('2026-10-27')
+    const slots = data.stylists.find(item => item.staffId === String(stylist.staff._id)).slots
+    expect(slots.some(slot => slot.startAt === newStart(168 * 60))).toBe(true)
+    expect(slots.every(slot => Date.parse(slot.startAt) <= NOW.getTime() + 168 * 60 * MINUTE)).toBe(true)
+    for (const field of ['customerId', 'serviceIds', 'excludeAppointmentId', 'durationMinutes']) {
+      await get(path(mine._id) + '&' + field + '=other', owner).expect(400)
+    }
+    await get(path(oid()), owner).expect(404)
+  })
+  it('can submit an Owner snapshot option without changing booked services', async () => {
+    const mine = await appointment({ startAt: new Date(newStart(15)) })
+    const data = (await get(path(mine._id), owner).expect(200)).body.data
+    const other = data.stylists.find(item => item.staffId === String(otherStylist.staff._id))
+    const selected = other.slots.find(slot => slot.startAt === NOW.toISOString())
+    expect(selected).toBeDefined()
+    const response = await command(mine._id, 'reschedule', owner, {
+      expectedRevision: data.revision, staffId: other.staffId, startAt: selected.startAt, reason: 'Customer agreed new time',
+    }).expect(200)
+    expect(response.body.data).toMatchObject({ revision: 1, startAt: NOW.toISOString(), staffId: other.staffId,
+      totalPriceVnd: mine.totalPriceVnd, totalDurationMinutes: mine.totalDurationMinutes })
+    expect(response.body.data.items).toEqual(mine.items.map(item => item.toObject()))
+  })
+
+})
+
+describe('Owner appointment audit API', () => {
+  const auditPath = id => detailPath(id) + '/audit'
+  async function event(mine, revision, patch = {}) {
+    return AppointmentEventModel.create({ appointmentId: mine._id, actorId: owner.account._id, revision,
+      kind: revision === 0 ? 'created' : 'started', occurredAt: NOW, before: {}, after: { status: 'confirmed' }, ...patch })
+  }
+  it('returns real event allowlists in reverse revision order even with duplicate timestamps', async () => {
+    const mine = await appointment({ revision: 2, lastCommand: { key: 'synthetic-audit-fixture-key', actorId: owner.account._id, hash: 'a'.repeat(64), resultRevision: 2 } })
+    const unrelated = await appointment()
+    await event(unrelated, 0)
+    const old = await event(mine, 0)
+    await event(mine, 1, { kind: 'completed', after: { status: 'completed', completedAt: NOW } })
+    const corrected = await event(mine, 2, { kind: 'corrected', reason: 'Synthetic correction',
+      before: { status: 'completed', completedAt: NOW }, after: { status: 'in_progress', estimatedEndAt: new Date(NOW.getTime() + 3600000) } })
+    const result = await get(auditPath(mine._id), owner).expect(200)
+    expect(result.headers['cache-control']).toBe('no-store')
+    expect(result.body.data.items.map(item => item.revision)).toEqual([2, 1, 0])
+    expect(result.body.data.items[0]).toMatchObject({ id: String(corrected._id), appointmentId: String(mine._id),
+      actorId: String(owner.account._id), reason: 'Synthetic correction', before: { status: 'completed' }, after: { status: 'in_progress' } })
+    expect(result.body.data.items.at(-1).id).toBe(String(old._id))
+    for (const item of result.body.data.items) {
+      expect(Object.keys(item).sort()).toEqual(['id', 'appointmentId', 'actorId', 'revision', 'kind', 'occurredAt', 'before', 'after', ...(item.reason ? ['reason'] : [])].sort())
+      for (const field of ['email', 'passwordHash', 'lastCommand', 'createdAt', 'actorRole', 'actorName']) expect(item).not.toHaveProperty(field)
+    }
+  })
+  it('paginates without duplicates and binds cursors to the requested appointment', async () => {
+    const mine = await appointment({ revision: 2, lastCommand: { key: 'synthetic-audit-fixture-key', actorId: owner.account._id, hash: 'a'.repeat(64), resultRevision: 2 } }), other = await appointment()
+    for (const revision of [0, 1, 2]) await event(mine, revision)
+    const first = (await get(auditPath(mine._id), owner).query({ limit: 1 }).expect(200)).body.data
+    const second = (await get(auditPath(mine._id), owner).query({ limit: 1, cursor: first.pagination.nextCursor }).expect(200)).body.data
+    const third = (await get(auditPath(mine._id), owner).query({ limit: 1, cursor: second.pagination.nextCursor }).expect(200)).body.data
+    expect([...first.items, ...second.items, ...third.items].map(item => item.revision)).toEqual([2, 1, 0])
+    expect(third.pagination).toEqual({ limit: 1, hasNextPage: false, nextCursor: null })
+    expect((await get(auditPath(other._id), owner).query({ cursor: first.pagination.nextCursor }).expect(400)).body.code).toBe('INVALID_CURSOR')
+  })
+  it.each(['customer', 'stylist', 'otherStylist'])('denies %s administrative audit access', async role => {
+    const mine = await appointment()
+    await event(mine, 0)
+    const result = await get(auditPath(mine._id), { customer: client, stylist, otherStylist }[role]).expect(403)
+    expect(result.body).not.toHaveProperty('data')
+  })
+  it('requires login and handles malformed/missing appointments', async () => {
+    await request(app).get(auditPath(oid())).expect(401)
+    await get(auditPath('bad'), owner).expect(400)
+    await get(auditPath(oid()), owner).expect(404)
+  })
+  it.each([{ limit: '0' }, { limit: '51' }, { limit: '1.5' }, { cursor: 'bad' }, { status: 'confirmed' },
+    { cursor: Buffer.from(JSON.stringify({ appointmentId: 'bad', revision: -1 })).toString('base64url') }])('rejects invalid query %j', async query => {
+    const mine = await appointment()
+    await get(auditPath(mine._id), owner).query(query).expect(400)
+  })
+  it('returns an empty event list instead of fabricating history, including cancelled appointments', async () => {
+    const mine = await appointment({ status: 'cancelled' })
+    const result = await get(auditPath(mine._id), owner).expect(200)
+    expect(result.body.data).toEqual({ items: [], pagination: { limit: 20, hasNextPage: false, nextCursor: null } })
+  })
+  it('reads without changing appointment, guard revisions or event documents', async () => {
+    const mine = await appointment()
+    await event(mine, 0)
+    const before = await AppointmentModel.findById(mine._id).lean()
+    const history = await AppointmentEventModel.find({ appointmentId: mine._id }).lean()
+    const guard = (await StaffModel.findById(stylist.staff._id)).bookingRevision
+    await get(auditPath(mine._id), owner).expect(200)
+    await get(auditPath(mine._id), owner).expect(200)
+    expect(await AppointmentModel.findById(mine._id).lean()).toEqual(before)
+    expect(await AppointmentEventModel.find({ appointmentId: mine._id }).lean()).toEqual(history)
+    expect((await StaffModel.findById(stylist.staff._id)).bookingRevision).toBe(guard)
+  })
+  it.each(['correct-start', 'correct-complete'])('preserves prior real service events and reads the new %s event', async operation => {
+    await shift(stylist.staff._id)
+    const mine = await appointment({ startAt: NOW })
+    await command(mine._id, 'start', owner, { expectedRevision: 0 }, 'audit-read-start-key-0001').expect(200)
+    if (operation === 'correct-complete') {
+      vi.setSystemTime(new Date(NOW.getTime() + 5 * MINUTE))
+      await command(mine._id, 'complete', owner, { expectedRevision: 1 }, 'audit-read-complete-key-0001').expect(200)
+    }
+    const before = (await get(auditPath(mine._id), owner).expect(200)).body.data.items
+    const expectedRevision = operation === 'correct-start' ? 1 : 2
+    await command(mine._id, operation, owner, { expectedRevision, reason: 'Actual service was misreported',
+      [operation === 'correct-start' ? 'serviceNotStarted' : 'serviceNotCompleted']: true }, 'audit-read-correction-key-0001').expect(200)
+    const after = (await get(auditPath(mine._id), owner).expect(200)).body.data.items
+    expect(after.slice(1)).toEqual(before)
+    expect(after[0]).toMatchObject({ kind: 'corrected', reason: 'Actual service was misreported', revision: expectedRevision + 1 })
   })
 })

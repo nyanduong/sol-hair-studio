@@ -1,5 +1,5 @@
-import { findAvailabilityCalendar } from '../availability/availability.repository.js'
-import { AvailabilityError, assertAppointmentSlotAvailable, appointmentInterval } from '../availability/availability.service.js'
+import { findAvailabilityCalendar, findEligibleStaff } from '../availability/availability.repository.js'
+import { AvailabilityError, assertAppointmentSlotAvailable, appointmentInterval, parseAvailabilityQuery, calculateStaffSlots } from '../availability/availability.service.js'
 import { toHoChiMinhDate } from '../staff/staff-shifts.model.js'
 import {
     findCustomerAppointments,
@@ -22,6 +22,7 @@ import {
     insertAppointmentEvent,
     findAppointmentCommandResources,
     findAppointmentServiceHistory,
+    findAppointmentAuditEvents,
 } from "./appointments.repository.js"
 import { APPOINTMENT_STATUSES } from "./appointments.model.js"
 import { createHash } from 'node:crypto'
@@ -360,39 +361,53 @@ export async function getAppointmentDetail(identity, appointmentId) {
             status: 400,
         })
     }
-    const scope = { role }
+    // Đọc lịch và cảnh báo cùng snapshot; không ghi guard, revision hoặc event.
+    const readDetail = async session => {
+        const scope = { role }
 
-    if(role === 'customer') {
-        if(identity.customerId === undefined) {
-            throw new AppointmentError('Customer not found', {
+        if(role === 'customer') {
+            if(identity.customerId === undefined) {
+                throw new AppointmentError('Customer not found', {
+                    code: 'APPOINTMENT_NOT_FOUND',
+                    status: 404,
+                })
+            }
+            scope.customerId = identity.customerId
+        } else if(role === 'stylist') {
+            const staff = await findAppointmentStaffByAccountId(identity.accountId, { session })
+            if(!staff) {
+                throw new AppointmentError('Staff not found', {
+                    code: 'STAFF_NOT_FOUND',
+                    status: 404,
+                })
+            }
+            scope.staffId = String(staff._id)
+        }
+        const appointment = await findAppointmentDetail(appointmentId, scope, { session })
+
+        if(!appointment) {
+            throw new AppointmentError('Appointment not found', {
                 code: 'APPOINTMENT_NOT_FOUND',
                 status: 404,
             })
         }
-        scope.customerId = identity.customerId
-    } else if(role === 'stylist') {
-        const staff = await findAppointmentStaffByAccountId(identity.accountId)
-        if(!staff) {
-            throw new AppointmentError('Staff not found', {
-                code: 'STAFF_NOT_FOUND',
-                status: 404,
-            })
+        const impact = role !== 'customer' && appointment.status === 'in_progress' && appointment.estimatedEndAt
+            ? await buildAppointmentEtaImpact(appointment, role, session, new Date()) : {}
+        return {
+            ...impact,
+            ...toAppointmentListItem(appointment, role),
+            revision: appointment.revision,
+            confirmedAt: appointment.confirmedAt.toISOString(),
+            ...(['owner', 'stylist'].includes(role) && appointment.status === 'in_progress' && appointment.estimatedEndAt ? { estimatedEndAt: appointment.estimatedEndAt.toISOString() } : {}),
+            ...(['in_progress', 'completed'].includes(appointment.status) && appointment.startedAt ? { startedAt: appointment.startedAt.toISOString() } : {}),
+            ...(appointment.status === 'completed' && appointment.completedAt ? { completedAt: appointment.completedAt.toISOString() } : {}),
         }
-        scope.staffId = String(staff._id)
     }
-    const appointment = await findAppointmentDetail(appointmentId, scope)
-
-    if(!appointment) {
-        throw new AppointmentError('Appointment not found', {
-            code: 'APPOINTMENT_NOT_FOUND',
-            status: 404,
-        })
-    }
-    return {
-        ...toAppointmentListItem(appointment, role),
-        revision: appointment.revision,
-        confirmedAt: appointment.confirmedAt.toISOString(),
-    }
+    if (role === 'customer') return readDetail()
+    return mongoose.connection.transaction(readDetail, {
+        readPreference: 'primary', readConcern: { level: 'snapshot' },
+        writeConcern: { w: 'majority' }, maxCommitTimeMS: 5000, timeoutMS: 15000,
+    })
 }
 
 // Kiểm tra dữ liệu yêu cầu hủy lịch.
@@ -448,7 +463,7 @@ function assertCustomerOwnerAppointmentAccess(identity, appointment) {
         })
     }
     const roles = Array.isArray(identity.roles) ? identity.roles : []
-    
+
     if (roles.includes('owner')) {
         return 'owner'
     }
@@ -1104,4 +1119,103 @@ async function assertCorrectionCanRestoreInterval(appointment, session, now) {
 // Owner sửa nhầm hoàn tất, đưa lịch về in_progress.
 export function correctAppointmentCompletion(identity, appointmentId, body, commandKey) {
     return runAppointmentCommand('correct_complete', identity, appointmentId, body, commandKey)
+}
+
+export async function getAppointmentRescheduleOptions(identity, appointmentId, query = {}, now = new Date()) {
+    const owner = identity?.roles?.includes('owner')
+    requireAppointmentRole(identity, owner ? 'owner' : 'customer')
+    if (!owner && identity.roles.includes('stylist')) {
+        throw new AppointmentError('Customer or Owner session required.', { code: 'FORBIDDEN', status: 403 })
+    }
+    const appointment = await getAppointmentDetail(identity, appointmentId)
+    if (appointment.status !== 'confirmed') {
+        throw new AppointmentError('Appointment is not confirmed.', { code: 'APPOINTMENT_STATE_CONFLICT', status: 409 })
+    }
+    if (!owner && new Date(appointment.startAt).getTime() - now.getTime() < 7_200_000) {
+        throw new AppointmentError('Rescheduling cutoff reached.', { code: 'RESCHEDULE_CUTOFF', status: 409 })
+    }
+    if (Object.keys(query).some(key => key !== 'localDate')) {
+        throw new AppointmentError('Unsupported reschedule options query.', { code: 'INVALID_QUERY', status: 400 })
+    }
+    try {
+        const options = parseAvailabilityQuery({
+            localDate: query.localDate, serviceIds: appointment.items.map(item => item.serviceId).join(','),
+            ...(owner ? { customerId: appointment.customerId } : {}),
+        }, identity, now)
+        const staff = await findEligibleStaff(options.serviceIds)
+        const calendar = staff.length ? await findAvailabilityCalendar(
+            staff.map(item => item._id), options.customerId, options.from, options.until,
+            { excludeAppointmentId: appointmentId },
+        ) : { shifts: [], timeOff: [], appointments: [] }
+        return {
+            appointmentId: appointment.id,
+            items:appointment.items.map(item=>({
+                serviceId: item.serviceId,
+                name: item.name,
+                priceVnd: item.priceVnd,
+                durationMinutes: item.durationMinutes,
+            })),
+            revision: appointment.revision,
+            generatedAt: now.toISOString(),
+            localDate: options.localDate,
+            timeZone: appointment.timeZone,
+            stylists: staff.map(item => ({
+                staffId: String(item._id), displayName: item.displayName,
+                slots: calculateStaffSlots(item._id, options, calendar, appointment.totalDurationMinutes, now),
+            })),
+        }
+    } catch (error) {
+        if (error instanceof AvailabilityError) {
+            throw new AppointmentError(error.message, { code: error.code, status: error.status })
+        }
+        throw error
+    }
+}
+
+// Audit quản trị chỉ đọc; cursor giới hạn trong đúng appointment.
+export async function getAppointmentAudit(identity, appointmentId, query = {}) {
+    requireAppointmentRole(identity, 'owner')
+    if (typeof appointmentId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(appointmentId)) {
+        throw new AppointmentError('Invalid appointment ID.', { code: 'INVALID_APPOINTMENT_ID', status: 400 })
+    }
+    if (Object.keys(query).some(key => !['limit', 'cursor'].includes(key))) {
+        throw new AppointmentError('Unsupported audit query.', { code: 'INVALID_QUERY', status: 400 })
+    }
+    const { limit } = parseAppointmentListQuery(query.limit === undefined ? {} : { limit: query.limit }, ['limit'], 20, 50, false)
+    let revision
+    if (query.cursor !== undefined) {
+        try {
+            if (typeof query.cursor !== 'string' || query.cursor.length > 512 || !/^[A-Za-z0-9_-]+$/.test(query.cursor)) throw new Error()
+            const decoded = Buffer.from(query.cursor, 'base64url')
+            if (decoded.toString('base64url') !== query.cursor) throw new Error()
+            const value = JSON.parse(decoded.toString('utf8'))
+            if (!value || Array.isArray(value) || Object.keys(value).length !== 2 ||
+                value.appointmentId !== appointmentId.toLowerCase() || !Number.isSafeInteger(value.revision) || value.revision < 0) throw new Error()
+            revision = value.revision
+        } catch {
+            throw new AppointmentError('Invalid audit cursor.', { code: 'INVALID_CURSOR', status: 400 })
+        }
+    }
+    const rows = await findAppointmentAuditEvents(appointmentId, { limit, revision })
+    if (!rows) throw new AppointmentError('Appointment not found.', { code: 'APPOINTMENT_NOT_FOUND', status: 404 })
+    const hasNextPage = rows.length > limit
+    const page = rows.slice(0, limit)
+    const snapshot = value => {
+        const result = {}
+        for (const field of ['status', 'staffId', 'startAt', 'endAt', 'occupiedFrom', 'occupiedUntil', 'startedAt', 'completedAt', 'estimatedEndAt']) {
+            if (value?.[field] !== undefined) result[field] = value[field] instanceof Date ? value[field].toISOString() : String(value[field])
+        }
+        return result
+    }
+    return {
+        items: page.map(event => ({
+            id: String(event._id), appointmentId: String(event.appointmentId), actorId: String(event.actorId),
+            revision: event.revision, kind: event.kind, occurredAt: event.occurredAt.toISOString(),
+            before: snapshot(event.before), after: snapshot(event.after),
+            ...(event.reason !== undefined ? { reason: event.reason } : {}),
+        })),
+        pagination: { limit, hasNextPage, nextCursor: hasNextPage ? Buffer.from(JSON.stringify({
+            appointmentId: appointmentId.toLowerCase(), revision: page.at(-1).revision,
+        })).toString('base64url') : null },
+    }
 }
