@@ -392,6 +392,8 @@ export async function getAppointmentDetail(identity, appointmentId) {
         ...toAppointmentListItem(appointment, role),
         revision: appointment.revision,
         confirmedAt: appointment.confirmedAt.toISOString(),
+        ...(['in_progress', 'completed'].includes(appointment.status) && appointment.startedAt ? { startedAt: appointment.startedAt.toISOString() } : {}),
+        ...(appointment.status === 'completed' && appointment.completedAt ? { completedAt: appointment.completedAt.toISOString() } : {}),
     }
 }
 

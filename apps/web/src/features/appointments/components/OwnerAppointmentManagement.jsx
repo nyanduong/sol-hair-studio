@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import OwnerAppointmentReschedule from './OwnerAppointmentReschedule.jsx'
+import OwnerAppointmentService from './OwnerAppointmentService.jsx'
 import { ownerAppointmentActions, ownerAppointmentPayload, useOwnerAppointmentCommand, useOwnerAppointmentTime } from '../hooks/useOwnerAppointmentCommand.js'
 
 const primary = 'min-h-11 rounded-full bg-terracotta px-5 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
@@ -7,22 +8,31 @@ const secondary = 'min-h-11 rounded-full border border-border bg-soft-surface px
 const field = 'mt-2 w-full rounded-xl border border-border bg-white px-3 py-2 text-sm text-ink disabled:opacity-50'
 const date = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' })
 
-export default function OwnerAppointmentManagement({ token, appointment, onChanged }) {
+export default function OwnerAppointmentManagement({ token, appointment, onChanged, personalStaffId }) {
   const [operation, setOperation] = useState(null)
   const now = useOwnerAppointmentTime(appointment.startAt)
   const actions = ownerAppointmentActions(appointment, now)
-  if (!actions.cancel) return null
+  const assigned = Boolean(personalStaffId) && appointment.staffId === personalStaffId
+  const canStart = assigned && actions.cancel && appointment.revision < Number.MAX_SAFE_INTEGER
+  const canComplete = assigned && appointment.status === 'in_progress' && Number.isSafeInteger(appointment.revision) && appointment.revision >= 0 && appointment.revision < Number.MAX_SAFE_INTEGER
+  if (!actions.cancel && !canComplete) return null
   return (
     <div className="border-t border-border px-6 py-5 sm:px-8">
       <div className="flex flex-wrap justify-end gap-3">
-        <button className={secondary} onClick={() => setOperation('reschedule')}>Đổi lịch</button>
-        <button className={secondary} onClick={() => setOperation('cancel')}>Hủy lịch</button>
-        <button className={primary} disabled={!actions.noShow} onClick={() => setOperation('no-show')}>Đánh dấu không đến</button>
+        {canStart && <button className={primary} onClick={() => setOperation('start')}>Bắt đầu phục vụ</button>}
+        {canComplete && <button className={primary} onClick={() => setOperation('complete')}>Hoàn tất phục vụ</button>}
+        {actions.cancel && <>
+          <button className={secondary} onClick={() => setOperation('reschedule')}>Đổi lịch</button>
+          <button className={secondary} onClick={() => setOperation('cancel')}>Hủy lịch</button>
+          <button className={primary} disabled={!actions.noShow} onClick={() => setOperation('no-show')}>Đánh dấu không đến</button>
+        </>}
       </div>
-      {!actions.noShow && <p className="mt-2 text-right text-xs text-muted">Không đến: chỉ ghi nhận từ 15 phút sau giờ hẹn, khi đã liên hệ và khách chưa đến.</p>}
+      {actions.cancel && !actions.noShow && <p className="mt-2 text-right text-xs text-muted">Không đến: chỉ ghi nhận từ 15 phút sau giờ hẹn, khi đã liên hệ và khách chưa đến.</p>}
+      {['start', 'complete'].includes(operation) && <OwnerAppointmentService key={operation} token={token} appointment={appointment}
+        operation={operation} personalStaffId={personalStaffId} onClose={() => setOperation(null)} onChanged={onChanged} />}
       {operation === 'reschedule' && <OwnerAppointmentReschedule token={token} appointment={appointment} now={now}
         onClose={() => setOperation(null)} onChanged={onChanged} />}
-      {operation && operation !== 'reschedule' && <OwnerCommandDialog key={operation} token={token} appointment={appointment}
+      {operation && !['reschedule', 'start', 'complete'].includes(operation) && <OwnerCommandDialog key={operation} token={token} appointment={appointment}
         operation={operation} now={now} onClose={() => setOperation(null)} onChanged={onChanged} />}
     </div>
   )

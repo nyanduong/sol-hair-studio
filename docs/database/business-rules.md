@@ -118,6 +118,23 @@ Giữ lastCommand(key,actorId,hash,resultRevision) trên appointment để retry
 
 Customer chỉ lịch mình; owner toàn tiệm; stylist lịch được giao, tên/phone/thông tin cần phục vụ và lịch sử **dịch vụ đã hoàn tất** của khách đó. Không email khách, lịch hủy/no-show hoặc duyệt mọi khách. API kiểm quyền/field allowlist, không chỉ UI. Stylist chỉ đọc lịch sử khách trong ngữ cảnh lịch được giao. Không tự liên kết hồ sơ vãng lai với account mới theo số phone.
 
+
+### Owner xem toàn salon và lịch trực tiếp phục vụ — SOL-037
+
+**[Yêu cầu UX đã chốt trong phiên SOL-037 ngày 23/10/2026]**
+Web Owner tách "Lịch toàn salon" (quản lý) và "Lịch của tôi" (trực tiếp phục vụ).
+Lịch cá nhân phải khớp staffId của hồ sơ staff có accountId bằng accountId của
+Owner đang đăng nhập; không đối chiếu tên/email, không yêu cầu thêm role stylist
+cho Owner đã có hồ sơ staff. Chưa có hồ sơ liên kết thì không hiển thị lịch cá
+nhân và không fallback về toàn salon. Có hồ sơ nhưng không có lịch thì danh sách rỗng.
+
+Start/Complete cá nhân chỉ hiển thị ở tab "Lịch của tôi", khi lịch được giao đúng
+hồ sơ và trạng thái lần lượt confirmed/in_progress. Tab toàn salon giữ quản lý
+đổi/hủy/no-show, không bổ sung thao tác hỗ trợ Start/Complete thay stylist.
+Đây là phân tách UX, không thu hẹp quyền Owner của API SOL-036. Backend vẫn quyết
+định quyền, trạng thái, revision, ca/nghỉ và xung đột. Không có chức năng hỗ trợ
+phục vụ thay stylist riêng được triển khai trong bước này.
+
 Ẩn service không hủy/đổi lịch cũ; snapshot name/price/duration không cập nhật theo catalog. Ngừng staff chặn nếu còn lịch chưa kết thúc; xử lý trước, giữ lịch sử. Lịch completed không đồng nghĩa đã thanh toán; không trạng thái paid. Không giới hạn tái phạm/đếm no-show để khóa khách.
 
 <a id="overrun"></a>

@@ -3,7 +3,7 @@ import { createBookingSubmission } from '../../../../../../shared/booking.js'
 import { apiBaseUrl } from '../../../config/env.js'
 import { getMe } from '../../auth/api/auth.api.js'
 import { sendOwnerAppointmentCommand } from '../api/owner-appointments.api.js'
-import { isOwnerAccount } from './useOwnerAppointments.js'
+import { isOwnerAccount, readOwnerAppointmentScope } from './useOwnerAppointments.js'
 import { rescheduleSelectionPayload } from './useAppointmentCommand.js'
 
 // Quyền cuối cùng, cutoff và giờ server vẫn được API kiểm tra tại lúc ghi.
@@ -45,23 +45,29 @@ export function ownerAppointmentPayload(appointment, operation, fields, now = Da
 }
 
 // Tái sử dụng cơ chế deduplicate và giữ nguyên intent/key khi kết quả chưa rõ.
-export function createOwnerAppointmentCommand({ readProfile, send }, newKey) {
+export function createOwnerAppointmentCommand({ readProfile, send, verify }, newKey) {
   return createBookingSubmission(async (body, key, signal) => {
     const profile = await readProfile(signal)
     if (!isOwnerAccount(profile?.account ?? profile)) {
       throw Object.assign(new Error('Chỉ Owner đang hoạt động được thực hiện.'), { status: 403 })
     }
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+    if (verify) await verify(profile?.account ?? profile, signal)
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
     return send(body, key, signal)
   }, newKey)
 }
 
-export function useOwnerAppointmentCommand(token, id, operation) {
+export function useOwnerAppointmentCommand(token, id, operation, personalStaffId) {
   const active = useRef(null)
   const manager = useMemo(() => createOwnerAppointmentCommand({
     readProfile: signal => getMe(apiBaseUrl, token, { signal }),
+    verify: ['start', 'complete'].includes(operation) ? async (profile, signal) => {
+      if (!personalStaffId) throw Object.assign(new Error('Personal scope required'), { status: 403 })
+      await readOwnerAppointmentScope({ baseUrl: apiBaseUrl, token, kind: 'detail', query: { id, mineStaffId: personalStaffId }, signal, profile })
+    } : undefined,
     send: (body, key, signal) => sendOwnerAppointmentCommand(apiBaseUrl, token, id, operation, body, key, signal),
-  }, () => crypto.randomUUID()), [token, id, operation])
+  }, () => crypto.randomUUID()), [token, id, operation, personalStaffId])
   const [result, setResult] = useState({ kind: 'idle' })
   useEffect(() => {
     const scope = { manager, controller: new AbortController() }
@@ -136,4 +142,26 @@ export function ownerReschedulePayload(appointment, selection, options, reason =
   // Xác nhận chỉ kiểm tra tại Web; không thêm field ngoài API contract.
   payload.reason = reason.trim()
   return payload
+}
+
+// Xác nhận thao tác thực tế trên Web, không gửi check-in hoặc giờ client.
+export function ownerServicePayload(appointment, operation, confirmed) {
+  const expected = operation === 'start' ? 'confirmed' : operation === 'complete' ? 'in_progress' : null
+  if (!expected || appointment.status !== expected) throw new Error('Trạng thái lịch không cho phép thao tác này. Hãy tải lại lịch.')
+  if (!Number.isSafeInteger(appointment.revision) || appointment.revision < 0 || appointment.revision >= Number.MAX_SAFE_INTEGER) throw new Error('Cần tải lại revision hợp lệ.')
+  if (confirmed !== true) throw new Error(operation === 'start'
+    ? 'Cần xác nhận khách đã đến salon.' : 'Cần xác nhận đã thực sự phục vụ xong.')
+  return { expectedRevision: appointment.revision }
+}
+
+// Giữ response POST đã xác nhận khi GET đang làm mới; GET cũng trả actual timestamps.
+// Không gắn thời gian cũ sang một revision mới hoặc giữ dữ liệu sau lỗi quyền.
+export function mergeOwnerServiceResult(state, command) {
+  if (state.kind !== 'success' || !command || command.id !== state.value?.id) return state
+  if (command.revision > state.value.revision) return { ...state, value: command }
+  if (command.revision !== state.value.revision || command.status !== state.value.status) return state
+  return { ...state, value: { ...state.value,
+    ...(command.startedAt ? { startedAt: command.startedAt } : {}),
+    ...(command.completedAt ? { completedAt: command.completedAt } : {}),
+  } }
 }

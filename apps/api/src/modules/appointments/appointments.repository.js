@@ -141,6 +141,8 @@ export function findAppointmentDetail(appointmentId, {role, customerId, staffId}
         ...APPOINTMENT_LIST_FIELDS,
         revision: 1,
         confirmedAt: 1,
+        startedAt: 1,
+        completedAt: 1,
     }
     if(role === 'customer') {
         assertObjectId(customerId, 'customerId')

@@ -1,8 +1,11 @@
 import { requestJson } from '../../../lib/http.js'
 
+const validActualTime = value => typeof value === 'string' && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value
+
 function ownerAppointment(data) {
   if (!data || typeof data.id !== 'string' || typeof data.customerId !== 'string' ||
       typeof data.customerSnapshot?.displayName !== 'string' || typeof data.customerSnapshot?.phone !== 'string' ||
+      ['startedAt', 'completedAt'].some(field => data[field] !== undefined && !validActualTime(data[field])) ||
       !Array.isArray(data.items) || !data.items.length ||
       !['confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'].includes(data.status) ||
       ![data.startAt, data.endAt].every(value => typeof value === 'string' && Number.isFinite(Date.parse(value))) ||
@@ -15,6 +18,7 @@ function ownerAppointment(data) {
   // Chỉ giữ DTO cần hiển thị; không giữ account/email, guard, receipt hoặc audit.
   return {
     ...(Number.isSafeInteger(data.revision) && data.revision >= 0 ? { revision: data.revision } : {}),
+    ...Object.fromEntries(['startedAt', 'completedAt'].filter(field => data[field] !== undefined).map(field => [field, data[field]])),
     id: data.id, customerId: data.customerId,
     customerSnapshot: { displayName: data.customerSnapshot.displayName, phone: data.customerSnapshot.phone },
     staffId: data.staffId, staffNameSnapshot: data.staffNameSnapshot,
@@ -53,10 +57,10 @@ export async function readOwnerAppointment(baseUrl, token, id, signal) {
 }
 
 export async function sendOwnerAppointmentCommand(baseUrl, token, id, operation, payload, key, signal) {
-  if (!/^[a-fA-F0-9]{24}$/.test(id ?? '') || !['cancel', 'no-show', 'reschedule'].includes(operation)) {
+  if (!/^[a-fA-F0-9]{24}$/.test(id ?? '') || !['cancel', 'no-show', 'reschedule', 'start', 'complete'].includes(operation)) {
     throw new Error('Thao tác hoặc mã lịch không hợp lệ.')
   }
-  const allowed = operation === 'reschedule' ? ['expectedRevision', 'startAt', 'staffId', 'reason']
+  const allowed = ['start', 'complete'].includes(operation) ? ['expectedRevision'] : operation === 'reschedule' ? ['expectedRevision', 'startAt', 'staffId', 'reason']
     : operation === 'cancel' ? ['expectedRevision', 'reason'] : ['expectedRevision', 'contactAttemptedAt']
   if (!payload || Object.keys(payload).some(field => !allowed.includes(field)) ||
       !Number.isSafeInteger(payload.expectedRevision) || payload.expectedRevision < 0) {
@@ -67,8 +71,11 @@ export async function sendOwnerAppointmentCommand(baseUrl, token, id, operation,
     body: payload, signal,
   })
   const data = response.data
-  if (data?.id !== id || data.status !== (operation === 'reschedule' ? 'confirmed' : operation === 'cancel' ? 'cancelled' : 'no_show') ||
-      data.revision !== payload.expectedRevision + 1) {
+  const expectedStatus = { reschedule: 'confirmed', cancel: 'cancelled', 'no-show': 'no_show', start: 'in_progress', complete: 'completed' }[operation]
+  if (data?.id !== id || data.status !== expectedStatus ||
+      data.revision !== payload.expectedRevision + 1 ||
+      (['start', 'complete'].includes(operation) && !validActualTime(data.startedAt)) ||
+      (operation === 'complete' && (!validActualTime(data.completedAt) || Date.parse(data.completedAt) < Date.parse(data.startedAt)))) {
     throw new Error('Chưa xác định được kết quả. Hãy thử lại cùng yêu cầu.')
   }
   return { ...ownerAppointment(data), revision: data.revision }

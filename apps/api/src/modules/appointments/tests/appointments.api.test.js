@@ -197,6 +197,22 @@ describe('appointment lists and details', () => {
     await get(detailPath(mine._id), otherStylist).expect(404)
     await get(detailPath(mine._id) + '?customerId=' + client.customer._id, otherClient).expect(404)
   })
+
+  it.each(['confirmed', 'in_progress', 'completed'])('returns persisted actual times on repeated scoped GET for %s', async status => {
+    const mine = await appointment({ status })
+    for (const acting of [client, stylist, owner]) {
+      for (let reload = 0; reload < 2; reload++) {
+        const data = (await get(detailPath(mine._id), acting).expect(200)).body.data
+        if (status !== 'confirmed') expect(data.startedAt).toBe(mine.startedAt.toISOString())
+        else expect(data).not.toHaveProperty('startedAt')
+        if (status === 'completed') expect(data.completedAt).toBe(mine.completedAt.toISOString())
+        else expect(data).not.toHaveProperty('completedAt')
+        for (const field of ['lastCommand', 'bookingRevision', 'createdByAccountId', 'email']) expect(data).not.toHaveProperty(field)
+      }
+    }
+    await get(detailPath(mine._id), otherClient).expect(404)
+    await get(detailPath(mine._id), otherStylist).expect(404)
+  })
   it('handles malformed/nonexistent IDs and missing profiles', async () => {
     await get(detailPath('bad')).expect(400)
     await get(detailPath(oid())).expect(404)

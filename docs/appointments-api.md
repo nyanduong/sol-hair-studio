@@ -53,7 +53,7 @@ Response data: {items:[appointment DTO],pagination:{limit,hasNextPage,nextCursor
 
 No request body. Returns 200 with role-scoped appointment DTO plus revision and confirmedAt. Stylist detail access is restricted to assigned confirmed/in_progress/completed appointments. Invalid ID returns 400; missing/out-of-scope returns 404.
 DTO allowlist: id, staffId, staffNameSnapshot, items (serviceId/name/priceVnd/durationMinutes), totalPriceVnd, totalDurationMinutes, startAt, endAt, timeZone, localDate, status. Stylist/Owner additionally receive customerSnapshot (displayName/phone); only Owner receives customerId. Account/email, guards, receipts and raw audit documents are not exposed.
-The current detail DTO does not expose every lifecycle timestamp merely because it exists in the model; Start returns startedAt in its command response.
+Detail additionally allowlists persisted startedAt for in_progress/completed and completedAt for completed, when present. Missing values are omitted, never synthesized. The same object/role scope applies; lists are unchanged.
 
 ### Contextual history: GET /api/appointments/:appointmentId/service-history
 
@@ -555,3 +555,31 @@ plus a required reason. The agreement attestation is checked only on Web and
 is never sent as an API field. Snapshot services are read-only. Both roles keep the
 original intent/key after uncertain outcomes, refresh detail after confirmed success,
 and reload the filtered list when returning. No Booking creation API is used.
+
+### Owner Web: salon scope and personal service scope — SOL-037
+
+The Web route /quan-ly/lich-hen has salon and personal tabs; view=mine is a Web
+routing parameter, never an appointments API query field. Salon management keeps
+the existing day/Staff/status filters and management commands. Personal scope
+keeps day/status filters and locks staffId to the authenticated Owner's Staff
+profile. The existing GET /api/staff Owner DTO supplies staffId/accountId; Web
+matches accountId with the fresh /api/auth/me profile, not name/email or roles
+alone. An Owner-linked Staff profile does not require an extra stylist role.
+
+Personal pages use the existing Owner GET appointments contract with staffId,
+localDate/status and cursor. Each page/detail refresh verifies the Staff link;
+a detail assigned to a different Staff is not shown as a personal appointment.
+No Staff profile means a dedicated missing-profile state, not an unfiltered API
+request. Profile lookup failure is an error, not an empty appointment list.
+
+Only personal detail of the matching Staff exposes Start/Complete; status remains
+confirmed/in_progress respectively. Before each command/retry, Web rechecks Owner,
+Staff linkage and current assignment using existing read APIs. Server checks and
+Idempotency-Key/expectedRevision semantics stay unchanged. This Web UX does not
+revoke the existing API right for Owner to support any shop appointment; a separate
+management-support UI has not been implemented.
+
+GET detail now returns persisted startedAt/completedAt according to appointment state
+and its scoped allowlist, so actual timestamps survive full reloads. Missing values
+are not fabricated. Web may still retain a newer confirmed command response while refreshing.
+Personal-tab UX keeps existing business permissions. The detail read projection/DTO was extended only for persisted actual timestamps; no DB data or schema change is required.

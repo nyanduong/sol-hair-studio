@@ -180,7 +180,7 @@ describe('Owner command HTTP, authorization and idempotency', () => {
   it('does not send service changes, contact confirmations or unsupported operations', async () => {
     const fetch = respond(result('cancel'))
     for (const [operation, body] of [['cancel', { ...payload('cancel'), items: [] }],
-      ['no-show', { ...payload('no-show'), confirmedAbsent: true }], ['start', { expectedRevision: 3 }]]) {
+      ['no-show', { ...payload('no-show'), confirmedAbsent: true }], ['eta', { expectedRevision: 3 }]]) {
       await expect(sendOwnerAppointmentCommand('https://api.example.test', 'token', item.id, operation, body, 'key')).rejects.toThrow()
     }
     expect(fetch).not.toHaveBeenCalled()
@@ -210,8 +210,11 @@ describe('Owner command confirmation UI and refreshed data', () => {
     vi.setSystemTime(now)
     expect(render()).not.toMatch(/<button[^>]*disabled=""[^>]*>Đánh dấu không đến<\/button>/)
   })
-  it.each(['in_progress', 'completed', 'cancelled', 'no_show'])('renders no commands on %s', status => {
-    expect(renderToStaticMarkup(<OwnerAppointmentManagement token="fixture" appointment={{ ...item, status }} />)).toBe('')
+  it.each(['in_progress', 'completed', 'cancelled', 'no_show'])('renders only allowed commands on %s', status => {
+    const html = renderToStaticMarkup(<OwnerAppointmentManagement token="fixture" appointment={{ ...item, status }} />)
+    for (const text of ['>Hủy lịch</button>', '>Đổi lịch</button>', '>Đánh dấu không đến</button>', '>Bắt đầu phục vụ</button>']) expect(html).not.toContain(text)
+    expect(html).not.toContain('>Hoàn tất phục vụ</button>')
+    expect(html).toBe('')
   })
   it('locks fields and closing during submit, and only permits same-intent retry after network error', () => {
     const pending = { payload: payload('cancel') }

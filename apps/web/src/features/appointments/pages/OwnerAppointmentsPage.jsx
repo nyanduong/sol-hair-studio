@@ -6,6 +6,7 @@ import SiteHeader from '../../home/components/SiteHeader.jsx'
 import SiteFooter from '../../home/components/SiteFooter.jsx'
 import OwnerAppointmentsView from '../components/OwnerAppointmentsView.jsx'
 import OwnerAppointmentManagement from '../components/OwnerAppointmentManagement.jsx'
+import { mergeOwnerServiceResult } from '../hooks/useOwnerAppointmentCommand.js'
 import { isOwnerAccount, useOwnerAppointmentRead, ownerAppointmentStatuses } from '../hooks/useOwnerAppointments.js'
 
 const field = 'mt-1.5 min-h-10 w-full rounded-xl border border-[#efe6db] bg-white px-3 py-2 text-xs sm:text-sm font-medium text-ink focus:border-[#3E2317] focus:outline-none transition-colors'
@@ -13,15 +14,25 @@ const field = 'mt-1.5 min-h-10 w-full rounded-xl border border-[#efe6db] bg-whit
 function OwnerWorkspace({ token, appointmentId, onLogin }) {
   const [search, setSearch] = useSearchParams()
   const [today] = useState(() => salonDate())
+  const personal = search.get('view') === 'mine'
   const filters = {
     localDate: search.get('localDate') ?? today,
     staffId: search.get('staffId') ?? '',
     status: search.get('status') ?? '',
   }
-  const suffix = '?' + new URLSearchParams(Object.entries(filters).filter(([, value]) => value)).toString()
+  const suffix = '?' + new URLSearchParams(Object.entries({ ...filters, ...(personal ? { view: 'mine' } : {}) }).filter(([, value]) => value)).toString()
 
   return (
     <>
+      <nav aria-label="Phạm vi lịch hẹn" className="mt-4 flex flex-wrap gap-2">
+        {[['salon', 'Lịch toàn salon'], ['mine', 'Lịch của tôi']].map(([view, label]) => (
+          <Link key={view} aria-current={(personal ? 'mine' : 'salon') === view ? 'page' : undefined}
+            to={'/quan-ly/lich-hen?' + new URLSearchParams(Object.entries({ ...filters, ...(view === 'mine' ? { view } : {}) }).filter(([, value]) => value))}
+            className={'min-h-10 rounded-full border px-5 py-2 text-sm font-semibold ' + ((personal ? 'mine' : 'salon') === view ? 'border-terracotta bg-terracotta text-white' : 'border-border bg-white text-ink')}>
+            {label}
+          </Link>
+        ))}
+      </nav>
       {appointmentId ? (
         <div className="mt-4">
           <Link
@@ -34,30 +45,48 @@ function OwnerWorkspace({ token, appointmentId, onLogin }) {
       ) : (
         <OwnerFilters
           token={token}
+          personal={personal}
           filters={filters}
           onChange={(name, value) => {
-            const next = new URLSearchParams(Object.entries({ ...filters, [name]: value }).filter(([, item]) => item))
+            const next = new URLSearchParams(Object.entries({ ...filters, [name]: value, ...(personal ? { view: 'mine' } : {}) }).filter(([, item]) => item))
             setSearch(next, { replace: true })
           }}
         />
       )}
-      <OwnerResults
+      {personal ? <OwnerPersonalWorkspace key={JSON.stringify([appointmentId, filters])} token={token} appointmentId={appointmentId}
+        filters={filters} search={suffix} onLogin={onLogin} /> : <OwnerResults
         key={JSON.stringify([appointmentId, filters])}
         token={token}
         appointmentId={appointmentId}
         filters={filters}
         search={suffix}
         onLogin={onLogin}
-      />
+      />}
     </>
   )
 }
 
-function OwnerFilters({ token, filters, onChange }) {
+function OwnerPersonalWorkspace({ token, appointmentId, filters, search, onLogin }) {
+  const profile = useOwnerAppointmentRead(token, 'my-staff', {})
+  if (profile.kind === 'loading') return <p role="status" className="mt-6 text-sm text-muted">Đang xác định hồ sơ stylist của bạn…</p>
+  if (profile.kind !== 'success') return <section role="alert" className="mt-6 rounded-2xl border border-border bg-white p-6 text-sm">
+    <p>Không xác định được hồ sơ stylist của phiên hiện tại.</p>
+    <button onClick={profile.retry} className="mt-3 min-h-10 rounded-full border border-border px-4">Thử lại</button>
+  </section>
+  if (!profile.value) return <p role="status" className="mt-6 rounded-2xl border border-border bg-white p-6 text-sm">Tài khoản của bạn chưa có hồ sơ stylist được liên kết. Không thể hiển thị lịch được giao.</p>
+  const mine = profile.value
+  return <>
+    <p className="mt-4 text-sm text-muted">Lịch được giao cho {mine.displayName}.</p>
+    <OwnerResults key={JSON.stringify([appointmentId, filters, mine.staffId])} token={token} appointmentId={appointmentId}
+      filters={{ ...filters, staffId: mine.staffId }} mineStaffId={mine.staffId} search={search} onLogin={onLogin} />
+  </>
+}
+
+function OwnerFilters({ token, filters, onChange, personal = false }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false)
   const staff = useOwnerAppointmentRead(token, 'staff', {})
   const people = staff.kind === 'success' ? staff.value : []
-  const activeCount = [filters.staffId, filters.status].filter(Boolean).length
+  const activeCount = [personal ? '' : filters.staffId, filters.status].filter(Boolean).length
 
   return (
     <form
@@ -141,7 +170,7 @@ function OwnerFilters({ token, filters, onChange }) {
             />
           </label>
 
-          <label className="text-xs font-semibold text-ink">
+          {!personal && <label className="text-xs font-semibold text-ink">
             Stylist
             <select
               className={field}
@@ -172,7 +201,7 @@ function OwnerFilters({ token, filters, onChange }) {
                 </button>
               </span>
             )}
-          </label>
+          </label>}
 
           <label className="text-xs font-semibold text-ink">
             Trạng thái
@@ -195,23 +224,26 @@ function OwnerFilters({ token, filters, onChange }) {
   )
 }
 
-function OwnerResults({ token, appointmentId, filters, search, onLogin }) {
+function OwnerResults({ token, appointmentId, filters, search, onLogin, mineStaffId }) {
   const [notice, setNotice] = useState('')
+  const [serviceResult, setServiceResult] = useState(null)
   const state = useOwnerAppointmentRead(
     token,
     appointmentId ? 'detail' : 'list',
-    appointmentId ? { id: appointmentId } : filters,
+    appointmentId ? { id: appointmentId, ...(mineStaffId ? { mineStaffId } : {}) } : { ...filters, ...(mineStaffId ? { mineStaffId } : {}) },
   )
+  const displayed = mergeOwnerServiceResult(state, serviceResult)
   function changed(value, operation) {
-    if (value) setNotice(operation === 'reschedule' ? 'Đã đổi lịch hẹn.' : operation === 'cancel' ? 'Đã hủy lịch hẹn.' : 'Đã đánh dấu không đến.')
+    if (value && ['start', 'complete'].includes(operation)) setServiceResult(value)
+    if (value) setNotice(operation === 'start' ? 'Đã bắt đầu phục vụ.' : operation === 'complete' ? 'Đã hoàn tất phục vụ.' : operation === 'reschedule' ? 'Đã đổi lịch hẹn.' : operation === 'cancel' ? 'Đã hủy lịch hẹn.' : 'Đã đánh dấu không đến.')
     void state.retry()
   }
   return <>
     {notice && <p role="status" className="mt-4 text-sm text-terracotta">{notice}</p>}
-    <OwnerAppointmentsView state={state} detailed={Boolean(appointmentId)} search={search} onLogin={onLogin}
-      actions={appointmentId && state.kind === 'success' ? (
-        <OwnerAppointmentManagement key={state.value.id + ':' + state.value.revision}
-          token={token} appointment={state.value} onChanged={changed} />
+    <OwnerAppointmentsView state={displayed} detailed={Boolean(appointmentId)} search={search} onLogin={onLogin}
+      actions={appointmentId && displayed.kind === 'success' ? (
+        <OwnerAppointmentManagement key={displayed.value.id + ':' + displayed.value.revision}
+          token={token} appointment={displayed.value} personalStaffId={mineStaffId} onChanged={changed} />
       ) : null} />
   </>
 }

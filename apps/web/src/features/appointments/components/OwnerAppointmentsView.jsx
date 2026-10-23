@@ -163,6 +163,14 @@ function DetailedAppointmentView({ appointment, actions }) {
             </p>
           </section>
 
+          {['in_progress', 'completed'].includes(appointment.status) && (
+            <section aria-label="Thời gian phục vụ thực tế" className="rounded-2xl border border-[#efe6db] bg-[#faf6f0] p-5 shadow-2xs">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#8c827a]">Thời gian phục vụ thực tế</p>
+              <p className="mt-2 text-xs text-muted">Bắt đầu thực tế: <span className="font-semibold text-ink">{appointment.startedAt ? date.format(new Date(appointment.startedAt)) + ' ' + time.format(new Date(appointment.startedAt)) : 'Chưa có thông tin.'}</span></p>
+              {appointment.status === 'completed' && <p className="mt-2 text-xs text-muted">Hoàn tất thực tế: <span className="font-semibold text-ink">{appointment.completedAt ? date.format(new Date(appointment.completedAt)) + ' ' + time.format(new Date(appointment.completedAt)) : 'Chưa có thông tin.'}</span></p>}
+            </section>
+          )}
+
           {/* Card Khách hàng */}
           <section aria-label="Khách hàng" className="rounded-2xl border border-[#efe6db] bg-[#faf6f0] p-5 shadow-2xs">
             <p className="text-[10px] font-bold uppercase tracking-widest text-[#8c827a]">Khách hàng</p>
@@ -224,7 +232,7 @@ export default function OwnerAppointmentsView({ state, detailed = false, search 
     return (
       <section role="alert" className="mt-6 rounded-2xl border border-border bg-white p-6 text-sm">
         <p>
-          {state.kind === 'notFound'
+          {state.error?.code === 'APPOINTMENT_NOT_ASSIGNED' ? 'Lịch này không được phân công cho bạn. Quay về Lịch toàn salon để quản lý.' : state.kind === 'notFound'
             ? 'Không tìm thấy lịch hẹn hoặc bạn không có quyền xem.'
             : state.error?.status === 401
               ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
