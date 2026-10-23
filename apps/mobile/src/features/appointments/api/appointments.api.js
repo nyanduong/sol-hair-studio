@@ -14,7 +14,11 @@ export async function listCustomerAppointments(baseUrl, token, cursor, signal) {
       (data.pagination.hasNextPage ? typeof data.pagination.nextCursor !== 'string' || !data.pagination.nextCursor : data.pagination.nextCursor !== null)) {
     throw new Error('Không đọc được phân trang lịch hẹn.')
   }
-  const items = data.items.map(item => {
+  const items = data.items.map(customerAppointmentItem)
+  return { items, pagination: { hasNextPage: data.pagination.hasNextPage, nextCursor: data.pagination.nextCursor } }
+}
+
+function customerAppointmentItem(item) {
     if (!item || !validId(item.id) || !validId(item.staffId) ||
         ['customerId', 'customerSnapshot', 'actorId', 'affectedAppointments', 'lastCommand', 'email'].some(field => field in item) ||
         !['confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'].includes(item.status) ||
@@ -33,6 +37,24 @@ export async function listCustomerAppointments(baseUrl, token, cursor, signal) {
       status: item.status, startAt: item.startAt, endAt: item.endAt,
       totalDurationMinutes: item.totalDurationMinutes, totalPriceVnd: item.totalPriceVnd,
       items: item.items.map(({ serviceId, name, priceVnd, durationMinutes }) => ({ serviceId, name, priceVnd, durationMinutes })) }
+}
+
+export async function getCustomerAppointment(baseUrl, token, appointmentId, signal) {
+  if (!validId(appointmentId)) throw Object.assign(new Error('Mã lịch hẹn không hợp lệ.'), { status: 400 })
+  const response = await requestJson('/api/appointments/' + encodeURIComponent(appointmentId), {
+    baseUrl, signal, headers: { Authorization: 'Bearer ' + token },
   })
-  return { items, pagination: { hasNextPage: data.pagination.hasNextPage, nextCursor: data.pagination.nextCursor } }
+  const data = response.data
+  const item = customerAppointmentItem(data)
+  if (item.id.toLowerCase() !== appointmentId.toLowerCase() ||
+      !Number.isSafeInteger(data.revision) || data.revision < 0 ||
+      !validTime(data.confirmedAt) || data.timeZone !== 'Asia/Ho_Chi_Minh' ||
+      typeof data.localDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(data.localDate) ||
+      ['startedAt', 'completedAt'].some(field => data[field] !== undefined && !validTime(data[field]))) {
+    throw new Error('Dữ liệu chi tiết lịch hẹn không hợp lệ.')
+  }
+  return { ...item, revision: data.revision, confirmedAt: data.confirmedAt,
+    timeZone: data.timeZone, localDate: data.localDate,
+    ...(['in_progress', 'completed'].includes(item.status) && data.startedAt ? { startedAt: data.startedAt } : {}),
+    ...(item.status === 'completed' && data.completedAt ? { completedAt: data.completedAt } : {}) }
 }

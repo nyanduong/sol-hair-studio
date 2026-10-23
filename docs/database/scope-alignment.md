@@ -145,3 +145,25 @@ Management, Owner Mobile. Không có route chi tiết Mobile nên card chưa có
 nút giả dẫn đến màn khác. Không thêm API, dependency hoặc thay đổi database.
 Tests kiểm API adapter/reader/lifecycle/policy/presentation; native export
 không được xem là nghiệm thu UI trên thiết bị.
+
+## SOL-038 — Bước 2: Customer Mobile Appointment Detail
+
+**Đã triển khai:** card ở danh sách mở CustomerAppointmentDetail bằng appointmentId.
+Native stack định danh màn theo ID để bấm nhanh không tạo nhiều bản cùng lịch;
+Back giữ luồng danh sách hiện tại. Params thiếu/sai định dạng được báo rõ và không
+gửi request chi tiết.
+
+GET /api/appointments/:appointmentId dùng Bearer qua helper Mobile. Trước khi
+đọc, kiểm tra lại account active/role Customer của phiên. Backend vẫn quyết định
+ownership; 404 được mô tả chung cho lịch không tồn tại hoặc ngoài phạm vi.
+UI chỉ nhận DTO allowlist Customer, giữ revision thật, snapshot dịch vụ/giá,
+stylist, thời gian dự kiến theo Việt Nam và actual timestamps nếu API có trả.
+Không truy vấn danh mục hiện tại thay snapshot; không suy diễn thanh toán.
+
+Có loading, lỗi/retry, 401/403/404; focus/foreground đọc lại; blur/background,
+đổi ID/account/token bỏ request và dữ liệu cũ. Không có nút Cancel/Reschedule
+trong bước này. Không sửa Backend/database hoặc thêm dependency.
+
+Kiểm chứng tự động gồm API adapter, reader/lifecycle/isolation, presentation và
+native stack router. Expo export chỉ kiểm tra bundle Android/iOS; chưa thay thế
+smoke test thao tác/render/back thực tế trên thiết bị hoặc emulator.

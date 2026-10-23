@@ -1,3 +1,4 @@
+import CustomerAppointmentDetailScreen from '../features/appointments/screens/CustomerAppointmentDetailScreen.jsx'
 import CustomerAppointmentsScreen from '../features/appointments/screens/CustomerAppointmentsScreen.jsx'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import ForgotPasswordScreen from '../features/auth/screens/ForgotPasswordScreen.jsx'
@@ -21,6 +22,7 @@ export default function RootNavigator() {
       <Stack.Screen name="Home" component={HomeScreen} />
       <Stack.Screen name="Services" component={ServicesScreen} />
       <Stack.Screen name="CustomerAppointments" component={CustomerAppointmentsScreen} />
+      <Stack.Screen name="CustomerAppointmentDetail" component={CustomerAppointmentDetailScreen} getId={({ params }) => params?.appointmentId} />
       <Stack.Screen name="Booking" component={BookingScreen} />
       <Stack.Screen name="StylistShifts" component={StylistShiftsScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />

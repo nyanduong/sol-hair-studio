@@ -16,9 +16,9 @@ function Action({ label, onPress, disabled = false }) {
   </Pressable>
 }
 
-function AppointmentCard({ item }) {
+function AppointmentCard({ item, navigation }) {
   const text = appointmentCardText(item)
-  return <View style={styles.card} accessibilityLabel={'Lịch hẹn ' + text.date + ', ' + text.status}>
+  return <Pressable accessibilityRole="button" onPress={() => navigation.navigate('CustomerAppointmentDetail', { appointmentId: item.id })} style={styles.card} accessibilityLabel={'Lịch hẹn ' + text.date + ', ' + text.status}>
     <View style={styles.cardTop}>
       <Text style={styles.date}>{text.date}</Text>
       <View style={styles.badge}><Text style={styles.badgeText}>{text.status}</Text></View>
@@ -30,7 +30,7 @@ function AppointmentCard({ item }) {
       <Text style={styles.meta}>{text.duration}</Text>
       <View><Text style={styles.meta}>Giá theo lịch</Text><Text style={styles.price}>{text.price}</Text></View>
     </View>
-  </View>
+  </Pressable>
 }
 
 function CustomerList({ navigation, token, accountId }) {
@@ -70,7 +70,7 @@ function CustomerList({ navigation, token, accountId }) {
       <Action label={state.kind === 'loadingMore' ? 'Đang tải thêm…' : 'Tải thêm lịch hẹn'} onPress={state.loadMore} disabled={state.kind === 'loadingMore'} />
     </View> : null}
   </View>
-  return <FlatList style={styles.viewport} data={denied ? [] : view.items} keyExtractor={item => item.id} renderItem={({ item }) => <AppointmentCard item={item} />}
+  return <FlatList style={styles.viewport} data={denied ? [] : view.items} keyExtractor={item => item.id} renderItem={({ item }) => <AppointmentCard item={item} navigation={navigation} />}
     contentContainerStyle={styles.list} ListHeaderComponent={header} ListEmptyComponent={empty} ListFooterComponent={footer}
     refreshing={state.refreshing} onRefresh={state.refresh} alwaysBounceVertical />
 }
