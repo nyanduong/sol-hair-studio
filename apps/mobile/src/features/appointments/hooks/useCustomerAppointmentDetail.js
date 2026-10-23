@@ -15,5 +15,5 @@ export function useCustomerAppointmentDetail(token, accountId, appointmentId) {
   }), [token, accountId, appointmentId])
   const state = useSyncExternalStore(reader.subscribe, reader.getSnapshot, reader.getSnapshot)
   useFocusEffect(useCallback(() => bindAppointmentLifecycle(reader, AppState), [reader]))
-  return { ...state, retry: reader.retry }
+  return { ...state, retry: reader.retry, refresh: reader.refresh }
 }

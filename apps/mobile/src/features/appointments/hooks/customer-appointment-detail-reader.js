@@ -6,8 +6,8 @@ export function createCustomerAppointmentDetailReader({ accountId, appointmentId
   const initial = { kind: 'loading', appointment: null }
   let state = initial, generation = 0, job, busy = false
   const publish = next => { state = next; listeners.forEach(listener => listener()) }
-  function load() {
-    if (busy) return job
+  function load(force = false) {
+    if (busy && !force) return job
     const current = ++generation
     busy = true
     publish(initial)
@@ -37,7 +37,7 @@ export function createCustomerAppointmentDetailReader({ accountId, appointmentId
   return {
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener) },
     getSnapshot: () => state,
-    load, retry: load,
+    load: () => load(), retry: () => load(), refresh: () => load(true),
     cancel() { generation += 1; latest.cancel(); busy = false; publish(initial) },
   }
 }

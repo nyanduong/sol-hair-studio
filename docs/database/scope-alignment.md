@@ -167,3 +167,30 @@ trong bước này. Không sửa Backend/database hoặc thêm dependency.
 Kiểm chứng tự động gồm API adapter, reader/lifecycle/isolation, presentation và
 native stack router. Expo export chỉ kiểm tra bundle Android/iOS; chưa thay thế
 smoke test thao tác/render/back thực tế trên thiết bị hoặc emulator.
+
+## SOL-038 — Bước 3: Customer Mobile Cancellation
+
+**Đã triển khai:** Customer Detail có thao tác Hủy lịch hẹn và Modal xác nhận,
+hiển thị lịch/dịch vụ/stylist, Giữ lịch và Xác nhận hủy. Chỉ cho tạo ý định hủy
+khi confirmed, revision hợp lệ và startAt còn ít nhất 2 giờ (bao gồm đúng mốc).
+Đồng hồ UI cập nhật; khi xác nhận và trước POST kiểm tra lại thời gian thực.
+Backend vẫn quyết định quyền, cutoff và concurrency.
+
+POST /api/appointments/:appointmentId/cancel gửi duy nhất expectedRevision,
+Bearer và Idempotency-Key (UUID từ expo-crypto đã có). Không yêu cầu lý do
+Customer. Tái sử dụng createBookingSubmission để dedup và giữ payload/key khi
+timeout/network/5xx. Trước POST/retry kiểm tra lại account Customer active đúng
+identity và GET detail. Khi GET xác nhận cancelled sau POST mất response, kết
+thúc bằng trạng thái server, không gửi POST mới. Retry chưa rõ giữ nguyên ý
+định/key; không dùng cutoff UI để chặn việc đối chiếu/replay ý định cũ.
+
+Conflict xác định yêu cầu đọc lại và xác nhận lại, không tự đổi revision rồi
+retry. Modal và rời màn bị khóa khi đang gửi hoặc còn kết quả chưa rõ; logout/
+đổi account xóa controller và bỏ response cũ. Sau xác nhận thành công refresh
+Detail bằng request mới, loại response GET cũ; List đọc lại khi focus trở lại,
+phân loại cancelled vào History theo contract.
+
+Không triển khai Reschedule, Owner Cancellation hoặc No-show Mobile. Không sửa
+Backend/database hoặc thêm dependency. Tests tự động kiểm eligibility, state
+Modal/controller, HTTP contract, idempotency, isolation và refresh reader;
+chưa thay thế kiểm chứng render/Android Back và luồng API thật trên thiết bị.

@@ -58,3 +58,22 @@ export async function getCustomerAppointment(baseUrl, token, appointmentId, sign
     ...(['in_progress', 'completed'].includes(item.status) && data.startedAt ? { startedAt: data.startedAt } : {}),
     ...(item.status === 'completed' && data.completedAt ? { completedAt: data.completedAt } : {}) }
 }
+
+export async function cancelCustomerAppointment(baseUrl, token, appointmentId, payload, key, signal) {
+  if (!validId(appointmentId) || !payload || Object.keys(payload).some(field => field !== 'expectedRevision') ||
+      !Number.isSafeInteger(payload.expectedRevision) || payload.expectedRevision < 0 ||
+      typeof key !== 'string' || key.length < 16 || key.length > 100) {
+    throw Object.assign(new Error('Yêu cầu hủy lịch không hợp lệ.'), { status: 400 })
+  }
+  const response = await requestJson('/api/appointments/' + encodeURIComponent(appointmentId) + '/cancel', {
+    baseUrl, signal, method: 'POST', body: payload,
+    headers: { Authorization: 'Bearer ' + token, 'Idempotency-Key': key },
+  })
+  const data = response.data
+  if (!data || data.id !== appointmentId || data.status !== 'cancelled' ||
+      data.revision !== payload.expectedRevision + 1 || !validTime(data.cancelledAt)) {
+    // HTTP 200 với DTO hỏng vẫn là kết quả chưa rõ, phải giữ lại intent/key.
+    throw new Error('Chưa xác định được kết quả hủy lịch. Hãy kiểm tra và thử lại cùng yêu cầu.')
+  }
+  return { ...customerAppointmentItem(data), revision: data.revision, cancelledAt: data.cancelledAt }
+}
