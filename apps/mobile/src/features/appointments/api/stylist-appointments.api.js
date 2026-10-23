@@ -49,3 +49,23 @@ export async function getStylistAppointment(baseUrl, token, id, signal) {
   if (response.data?.id?.toLowerCase() !== id.toLowerCase()) throw new Error('Chi tiết không khớp lịch được chọn.')
   return stylistAppointmentDto(response.data, true)
 }
+
+export async function sendStylistServiceCommand(baseUrl, token, id, operation, payload, key, signal) {
+  if (!['start', 'complete'].includes(operation) || !validId(id) || !payload ||
+      Object.keys(payload).length !== 1 || !Object.hasOwn(payload, 'expectedRevision') || !Number.isSafeInteger(payload.expectedRevision) ||
+      payload.expectedRevision < 0 || payload.expectedRevision >= Number.MAX_SAFE_INTEGER ||
+      typeof key !== 'string' || key.length < 16 || key.length > 100) {
+    throw Object.assign(new Error('Yêu cầu phục vụ không hợp lệ.'), { status: 400 })
+  }
+  const response = await requestJson('/api/appointments/' + encodeURIComponent(id) + '/' + operation, {
+    baseUrl, signal, method: 'POST', body: payload,
+    headers: { Authorization: 'Bearer ' + token, 'Idempotency-Key': key },
+  })
+  const data = response.data
+  if (!data || data.id !== id || data.revision !== payload.expectedRevision + 1 ||
+      data.status !== (operation === 'start' ? 'in_progress' : 'completed') || !validTime(data.startedAt) ||
+      (operation === 'complete' && (!validTime(data.completedAt) || Date.parse(data.completedAt) < Date.parse(data.startedAt)))) {
+    throw new Error('Chưa xác định được kết quả phục vụ. Hãy kiểm tra và thử lại cùng yêu cầu.')
+  }
+  return stylistAppointmentDto(data, true)
+}

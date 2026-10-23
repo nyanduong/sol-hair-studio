@@ -7,15 +7,11 @@ export function createStylistAppointmentReader({ accountId, readProfile, readSta
   let staffId
   const denied = () => Object.assign(new Error('Phiên hoặc hồ sơ stylist không còn phù hợp.'), { status: 403 })
   async function profile(signal) {
-    const value = await readProfile(signal), account = value?.account ?? value
-    if (!isAppointmentStylist(account) || typeof accountId !== 'string' || (account?.accountId ?? account?.id) !== accountId) throw denied()
-    if (signal.aborted) throw Object.assign(new Error('Aborted'), { name: 'AbortError' })
-    const staff = await readStaff(signal)
-    if (!Array.isArray(staff) || staff.length !== 1 || staff[0].accountId !== accountId ||
-        typeof staff[0].staffId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(staff[0].staffId)) throw denied()
-    if (staffId && staffId !== staff[0].staffId) { staffId = staff[0].staffId; throw denied() }
-    staffId = staff[0].staffId
-    return value
+    const session = await readStylistSession({ accountId, readProfile, readStaff }, signal)
+    const nextStaffId = session.staffId
+    if (staffId && staffId !== nextStaffId) { staffId = nextStaffId; throw denied() }
+    staffId = nextStaffId
+    return session.profile
   }
   function assigned(item) {
     if (!item || item.staffId !== staffId) throw denied()
@@ -31,4 +27,16 @@ export function createStylistAppointmentReader({ accountId, readProfile, readSta
       page.items.forEach(assigned)
       return page
     } })
+}
+
+export async function readStylistSession({ accountId, readProfile, readStaff }, signal) {
+  const denied = () => Object.assign(new Error('Phiên hoặc hồ sơ stylist không còn phù hợp.'), { status: 403 })
+  const profile = await readProfile(signal), account = profile?.account ?? profile
+  if (!isAppointmentStylist(account) || typeof accountId !== 'string' || (account?.accountId ?? account?.id) !== accountId) throw denied()
+  if (signal.aborted) throw Object.assign(new Error('Aborted'), { name: 'AbortError' })
+  const staff = await readStaff(signal)
+  if (!Array.isArray(staff) || staff.length !== 1 || staff[0].accountId !== accountId ||
+      typeof staff[0].staffId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(staff[0].staffId)) throw denied()
+  if (signal.aborted) throw Object.assign(new Error('Aborted'), { name: 'AbortError' })
+  return { profile, staffId: staff[0].staffId }
 }

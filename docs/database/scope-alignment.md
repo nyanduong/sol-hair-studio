@@ -270,3 +270,42 @@ Owner Corrections hoặc Audit trên Stylist Mobile. Không sửa Backend/databa
 hoặc thêm dependency. Tests kiểm API adapter/allowlist, reader/isolation/race/
 pagination/lifecycle và native stack router bằng fixtures; chưa thay thế smoke
 test thiết bị, render thực tế, Android Back hoặc API live.
+
+## SOL-038 — Bước 6: Stylist Mobile Start & Complete Service
+
+**Đã triển khai:** Stylist Detail có Bắt đầu phục vụ khi confirmed và Hoàn tất
+phục vụ khi in_progress; các trạng thái khác chỉ đọc. Modal giữ thông tin
+khách, điện thoại, dịch vụ và giờ hẹn, yêu cầu checkbox ban đầu chưa chọn:
+khách đã đến cho Start, đã thực sự phục vụ xong cho Complete. Không gửi ngay
+khi mở modal. Xác nhận có mặt là khai báo của Stylist, không phải kiểm chứng
+sự hiện diện vật lý tự động từ Backend.
+
+Dùng POST /api/appointments/:appointmentId/start hoặc /complete theo contract
+SOL-036 tại appointments-api.md; body duy nhất expectedRevision, Bearer và
+Idempotency-Key riêng từng ý định. Không gửi checkbox, timestamp/check-in,
+status, ETA hoặc dữ liệu thanh toán. Trước POST/retry, đọc lại auth/me, hồ sơ
+Staff của account và GET detail; kiểm assignment, revision và trạng thái.
+Không tự thêm cutoff/grid/lead-time cho Start. Backend kiểm ca/nghỉ/xung đột
+và quyết định actual times. Complete không bị frontend chặn vì quá ca hoặc
+ETA đã qua; Backend vẫn xác thực trạng thái và actual startedAt.
+
+Tái sử dụng createBookingSubmission: đồng bộ chặn double-submit, giữ payload/
+key khi timeout/network/5xx; khóa đóng modal/Back trong lúc gửi hoặc chưa rõ.
+Retry đối chiếu GET trước: nếu trạng thái/revision/actual times/snapshot khớp
+kết quả dự kiến, dùng dữ liệu server và không phát POST lần nữa. Nếu chưa
+thấy kết quả, giữ nguyên ý định/key; không retry bằng revision mới. Conflict
+xác định refresh detail và yêu cầu kiểm tra/xác nhận lại. Không optimistic
+status, không tạo thêm timestamp phía Mobile.
+
+Sau thành công, force-refresh Detail để response GET cũ không ghi đè; List
+đọc lại khi quay về. Thời gian thực tế lấy từ API. Complete hiển thị giải thích
+10 phút dọn dẹp, không suy diễn đã thanh toán và không sửa lịch khác.
+Controller tồn tại xuyên suốt detail refresh; đổi account/token/appointment
+hoặc unmount xóa state và bỏ response cũ. Mutation/receipt không lưu vào
+persistent storage qua việc tắt ứng dụng.
+
+Không thêm Owner Mobile, Stylist Cancel/No-show/Correction/Audit, ETA writer
+hoặc Service History. Không sửa Backend/database, business rules hoặc dependency.
+Tests adapter/controller/reader integration bằng fixtures không thay thế
+kiểm tra native Modal/Android Back/API live; không tuyên bố đã xác minh rollback
+MongoDB hay tính hợp lệ ca thực tế trong lượt Mobile này.

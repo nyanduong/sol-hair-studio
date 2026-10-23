@@ -1,3 +1,4 @@
+import StylistServiceActions from '../components/StylistServiceActions.jsx'
 import { ScrollView } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '../../auth/hooks/useAuth.js'
@@ -6,13 +7,21 @@ import { useStylistAppointments } from '../hooks/useStylistAppointments.js'
 import { StylistAppointmentCard, StylistGate, StylistHeader, StylistLoading, StylistReadError } from '../components/StylistAppointmentView.jsx'
 import { styles } from '../styles/appointments.styles.js'
 
-function PersonalDetail({ token, accountId, appointmentId }) {
-  const state = useStylistAppointments(token, accountId, undefined, appointmentId)
+function DetailContent({ state }) {
   if (state.kind === 'loading') return <StylistLoading />
   if (state.kind !== 'success') return <StylistReadError state={state} />
   return <ScrollView style={styles.viewport} contentContainerStyle={styles.list}>
     <StylistAppointmentCard appointment={state.appointment} detail />
   </ScrollView>
+}
+
+function PersonalDetail({ token, accountId, appointmentId }) {
+  const state = useStylistAppointments(token, accountId, undefined, appointmentId)
+  return <>
+    <DetailContent state={state} />
+    <StylistServiceActions token={token} accountId={accountId} appointmentId={appointmentId}
+      appointment={state.kind === 'success' ? state.appointment : null} onChanged={state.refresh} />
+  </>
 }
 
 export default function StylistAppointmentDetailScreen({ navigation, route }) {
