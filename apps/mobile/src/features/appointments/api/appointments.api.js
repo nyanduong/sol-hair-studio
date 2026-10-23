@@ -77,3 +77,50 @@ export async function cancelCustomerAppointment(baseUrl, token, appointmentId, p
   }
   return { ...customerAppointmentItem(data), revision: data.revision, cancelledAt: data.cancelledAt }
 }
+
+export async function getCustomerRescheduleOptions(baseUrl, token, appointmentId, localDate, signal) {
+  if (!validId(appointmentId) || typeof localDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(localDate) ||
+      !Number.isFinite(Date.parse(localDate)) || new Date(localDate).toISOString().slice(0, 10) !== localDate) {
+    throw Object.assign(new Error('Ngày hoặc mã lịch không hợp lệ.'), { status: 400 })
+  }
+  const response = await requestJson('/api/appointments/' + encodeURIComponent(appointmentId) +
+    '/reschedule-options?' + new URLSearchParams({ localDate }), {
+    baseUrl, signal, headers: { Authorization: 'Bearer ' + token },
+  })
+  const data = response.data
+  if (!data || data.appointmentId !== appointmentId || data.localDate !== localDate ||
+      data.timeZone !== 'Asia/Ho_Chi_Minh' || !validTime(data.generatedAt) ||
+      !Number.isSafeInteger(data.revision) || data.revision < 0 ||
+      !Array.isArray(data.stylists) || data.stylists.some(staff =>
+        !validId(staff.staffId) || typeof staff.displayName !== 'string' || !Array.isArray(staff.slots) ||
+        staff.slots.some(slot => !validTime(slot.startAt) || !validTime(slot.endAt) || !validTime(slot.occupiedUntil) ||
+          Date.parse(slot.endAt) <= Date.parse(slot.startAt) ||
+          Date.parse(slot.occupiedUntil) !== Date.parse(slot.endAt) + 600_000))) {
+    throw new Error('Không đọc được giờ trống cho lịch hẹn.')
+  }
+  return { appointmentId: data.appointmentId, revision: data.revision, generatedAt: data.generatedAt,
+    localDate: data.localDate, timeZone: data.timeZone,
+    stylists: data.stylists.map(staff => ({ staffId: staff.staffId, displayName: staff.displayName,
+      slots: staff.slots.map(({ startAt, endAt, occupiedUntil }) => ({ startAt, endAt, occupiedUntil })) })) }
+}
+
+export async function rescheduleCustomerAppointment(baseUrl, token, appointmentId, payload, key, signal) {
+  if (!validId(appointmentId) || !payload ||
+      Object.keys(payload).some(field => !['expectedRevision', 'staffId', 'startAt'].includes(field)) ||
+      !Number.isSafeInteger(payload.expectedRevision) || payload.expectedRevision < 0 ||
+      !validId(payload.staffId) || !validTime(payload.startAt) ||
+      typeof key !== 'string' || key.length < 16 || key.length > 100) {
+    throw Object.assign(new Error('Yêu cầu đổi lịch không hợp lệ.'), { status: 400 })
+  }
+  const response = await requestJson('/api/appointments/' + encodeURIComponent(appointmentId) + '/reschedule', {
+    baseUrl, signal, method: 'POST', body: payload,
+    headers: { Authorization: 'Bearer ' + token, 'Idempotency-Key': key },
+  })
+  const data = response.data
+  if (!data || data.id !== appointmentId || data.status !== 'confirmed' ||
+      data.revision !== payload.expectedRevision + 1 || data.staffId !== payload.staffId ||
+      data.startAt !== payload.startAt || !validTime(data.lastRescheduledAt)) {
+    throw new Error('Chưa xác định được kết quả đổi lịch. Hãy kiểm tra và thử lại cùng yêu cầu.')
+  }
+  return { ...customerAppointmentItem(data), revision: data.revision, lastRescheduledAt: data.lastRescheduledAt }
+}

@@ -194,3 +194,38 @@ Không triển khai Reschedule, Owner Cancellation hoặc No-show Mobile. Không
 Backend/database hoặc thêm dependency. Tests tự động kiểm eligibility, state
 Modal/controller, HTTP contract, idempotency, isolation và refresh reader;
 chưa thay thế kiểm chứng render/Android Back và luồng API thật trên thiết bị.
+
+## SOL-038 — Bước 4: Customer Mobile Reschedule
+
+**Đã triển khai:** Detail có hành động Đổi lịch hẹn đi vào native stack
+CustomerAppointmentReschedule theo appointmentId. Form chỉ Customer active,
+giữ snapshot dịch vụ/giá/thời lượng; cho đổi ngày trong phạm vi 168 giờ,
+giữ stylist hoặc chọn stylist khác từ options thực tế. Không mở Booking mới,
+không có Owner Reschedule hoặc chỉnh dịch vụ.
+
+GET /api/appointments/:appointmentId/reschedule-options chỉ gửi localDate;
+đổi ngày/stylist đều tải lại options, bỏ request cũ và xóa slot đã chọn.
+Trước POST kiểm tra lại Customer identity, GET detail và options mới. Chỉ
+chọn slot được trả về, revision phải khớp; giờ mới theo grid 15 phút, trước
+ít nhất 30 phút và không quá 168 giờ. Lịch cũ confirmed và còn >=2 giờ,
+bao gồm đúng mốc. Đây là kiểm tra UX; Backend vẫn quyết định cuối cùng.
+
+POST /api/appointments/:appointmentId/reschedule gửi duy nhất expectedRevision,
+staffId, startAt cùng Bearer và Idempotency-Key UUID từ expo-crypto đã có.
+createBookingSubmission giữ nguyên payload/key khi chưa rõ kết quả. Retry
+đối chiếu GET trước; nếu thấy đúng thời gian/stylist/revision/snapshot mới,
+hiển thị kết quả server, không phát POST lần nữa. Nếu chưa thấy kết quả và
+revision còn nguyên, retry đúng intent/key; không dùng options mới để thay ý
+định cũ. Conflict xác định khóa lựa chọn cũ, yêu cầu tải lại lịch/options và
+xác nhận lại, không tự retry bằng revision mới.
+
+Focus/foreground đọc lại, background/blur hủy reads/options. Mutation và
+intent chưa rõ được giữ trong screen; back bị chặn khi đang gửi/chưa rõ.
+Unmount/logout/account switch hủy controller, xóa state, bỏ response cũ.
+Thành công bỏ options cũ, hiển thị DTO mới; trở lại Detail/List kích hoạt
+GET mới qua focus lifecycle hiện có.
+
+Không sửa Backend/database/business rules hoặc thêm dependency. Tests kiểm
+adapter/selection/controller/lifecycle, native stack router và reader refresh
+bằng fixtures. Export Android/iOS không thay thế nghiệm thu UI/Android Back,
+kết nối thiết bị hoặc thao tác với API thật. Chưa triển khai Stylist Mobile.

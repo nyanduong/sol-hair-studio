@@ -1,3 +1,4 @@
+import CustomerAppointmentRescheduleAction from '../components/CustomerAppointmentRescheduleAction.jsx'
 import CustomerAppointmentCancellation from '../components/CustomerAppointmentCancellation.jsx'
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -159,11 +160,12 @@ function DetailContent({ state }) {
   )
 }
 
-function Detail({ token, accountId, appointmentId }) {
+function Detail({ token, accountId, appointmentId, navigation }) {
   const state = useCustomerAppointmentDetail(token, accountId, appointmentId)
   return (
     <>
       <DetailContent state={state} />
+      <CustomerAppointmentRescheduleAction appointment={state.kind === 'success' ? state.appointment : null} navigation={navigation} />
       <CustomerAppointmentCancellation
         token={token}
         accountId={accountId}
@@ -221,6 +223,7 @@ export default function CustomerAppointmentDetailScreen({ navigation, route }) {
       ) : (
         <Detail
           key={JSON.stringify([token, accountId, appointmentId, account?.roles, account?.status])}
+          navigation={navigation}
           token={token}
           accountId={accountId}
           appointmentId={appointmentId}
