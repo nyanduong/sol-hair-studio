@@ -114,3 +114,34 @@ Correction, không bỏ event cũ. Chỉ mount trên Owner detail.
 tài khoản hiện tại. Không tạo event giả/backfill, chỉnh/xóa audit, realtime hoặc
 Mobile. Excel kế hoạch không có trong checkout, không tạo backlog thay thế.
 Kiểm thử tự động không thay thế nghiệm thu trình duyệt/dữ liệu salon thực tế.
+
+## SOL-038 — Mobile Appointment Management, Bước 1
+
+**Phạm vi được người dùng xác nhận theo Sheet trong phiên triển khai:**
+Customer quản lý lịch của mình; Stylist quản lý lịch được giao và phục vụ.
+Owner Mobile ngoài SOL-038. Checkout không có Excel; không tuyên bố đã đọc
+hoặc cập nhật hàng phân công chính thức.
+
+**Đã triển khai Bước 1:** màn CustomerAppointments (“Lịch hẹn của tôi”), danh
+sách từ GET /api/appointments?limit=20&cursor=..., Bearer session qua helper
+Mobile. Chỉ Customer active không có role ưu tiên Owner/Stylist được dùng màn;
+trước mỗi trang kiểm tra lại GET auth/me và đúng account của phiên. Backend
+vẫn là nơi scope ownership. DTO được allowlist, không đưa contact/audit ra UI.
+
+Sắp tới gồm confirmed/in_progress; lịch sử gồm completed/cancelled/no_show,
+không tự đổi trạng thái theo đồng hồ. API chưa có filter tab: giữ cursor DESC
+của Customer, hiện “còn trang” và nút tải thêm ở cả tab; không kết luận rỗng
+hoặc đếm đầy đủ khi còn trang. Giờ hiển thị theo Asia/Ho_Chi_Minh; giá là snapshot
+“Giá theo lịch”, không suy diễn thanh toán.
+
+Pull-to-refresh, focus và foreground đọc lại trang đầu; blur/background hủy
+request, bỏ response cũ. Reader theo token/account và xóa dữ liệu khi phiên
+không hợp lệ; dedup request/ID và chặn cursor lặp. Nút Customer “Lịch hẹn”
+đi vào màn mới, Stylist vẫn giữ màn ca làm. Booking/Profile giữ đường dẫn cũ;
+login từ lịch hẹn trả về màn phù hợp role.
+
+**Chưa triển khai trong bước này:** Detail/Cancel/Reschedule, Stylist Appointment
+Management, Owner Mobile. Không có route chi tiết Mobile nên card chưa có
+nút giả dẫn đến màn khác. Không thêm API, dependency hoặc thay đổi database.
+Tests kiểm API adapter/reader/lifecycle/policy/presentation; native export
+không được xem là nghiệm thu UI trên thiết bị.

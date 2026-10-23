@@ -1,3 +1,4 @@
+import CustomerAppointmentsScreen from '../features/appointments/screens/CustomerAppointmentsScreen.jsx'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import ForgotPasswordScreen from '../features/auth/screens/ForgotPasswordScreen.jsx'
 import LoginScreen from '../features/auth/screens/LoginScreen.jsx'
@@ -19,6 +20,7 @@ export default function RootNavigator() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Home" component={HomeScreen} />
       <Stack.Screen name="Services" component={ServicesScreen} />
+      <Stack.Screen name="CustomerAppointments" component={CustomerAppointmentsScreen} />
       <Stack.Screen name="Booking" component={BookingScreen} />
       <Stack.Screen name="StylistShifts" component={StylistShiftsScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />

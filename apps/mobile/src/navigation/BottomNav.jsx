@@ -1,3 +1,4 @@
+import { appointmentListDestination } from '../features/appointments/appointment-presentation.js'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import Feather from '@expo/vector-icons/Feather'
 import { useFeatureUnavailable } from '../components/FeatureUnavailableProvider.jsx'
@@ -14,7 +15,7 @@ const items = [
 
 export default function BottomNav({ navigation, active }) {
   const showFeature = useFeatureUnavailable()
-  const { isAuthenticated, isStylist } = useAuth()
+  const { isAuthenticated, account } = useAuth()
 
   function handlePress(item) {
     if (item.label === 'Tài khoản') {
@@ -45,11 +46,13 @@ export default function BottomNav({ navigation, active }) {
       if (!isAuthenticated) {
         navigation.navigate('Login', {
           notice: 'Vui lòng đăng nhập để theo dõi lịch hẹn của bạn.',
+          returnTo: 'CustomerAppointments',
         })
         return
       }
-      if (isStylist) {
-        if (active !== 'StylistShifts') navigation.navigate('StylistShifts')
+      const destination = appointmentListDestination(account)
+      if (destination) {
+        if (active !== destination) navigation.navigate(destination)
         return
       }
       return showFeature(item.label)
@@ -64,7 +67,7 @@ export default function BottomNav({ navigation, active }) {
   return (
     <View style={styles.bar} accessibilityLabel="Điều hướng chính">
       {items.map((item) => {
-        const selected = active === item.route
+        const selected = active === item.route || (item.label === 'Lịch hẹn' && active === 'CustomerAppointments')
         return (
           <Pressable
             key={item.label}
