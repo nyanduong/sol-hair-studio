@@ -309,3 +309,46 @@ hoặc Service History. Không sửa Backend/database, business rules hoặc dep
 Tests adapter/controller/reader integration bằng fixtures không thay thế
 kiểm tra native Modal/Android Back/API live; không tuyên bố đã xác minh rollback
 MongoDB hay tính hợp lệ ca thực tế trong lượt Mobile này.
+
+## SOL-038 — Bước 7: Stylist Mobile ETA Management
+
+**Đã triển khai:** Stylist Detail có Cập nhật thời gian dự kiến khi in_progress.
+Form nhập ngày YYYY-MM-DD và giờ HH:mm hoặc HH:mm:ss theo Việt Nam, chuyển UTC
+ISO có milliseconds khi gửi; có bước kiểm tra/xác nhận rõ ETA mới trước POST.
+Giữ planned end, giờ hẹn ban đầu, dịch vụ và actual completion riêng biệt.
+Không tự áp dụng grid 15 phút, lead-time 30 phút, horizon 168 giờ hoặc yêu cầu
+ETA phải tăng so với ETA cũ. Chỉ kiểm future và sau planned end theo BR-09.
+
+POST /api/appointments/:appointmentId/eta nhận duy nhất expectedRevision và
+estimatedEndAt; Bearer và Idempotency-Key theo contract SOL-036 tại
+appointments-api.md. Kiểm lại account Stylist, Staff link và GET detail trước
+POST/retry; Backend vẫn quyết định authorization/transaction/availability.
+Không thêm preview endpoint hoặc gửi timestamp/status/planned fields khác.
+
+Stylist DTO đọc GET và POST nay giữ estimatedEndAt và impact chính thức:
+affectedAppointments (id/staffId/status/startAt/endAt/reasons), ownerReviewRequired.
+Từ chối cảnh báo khác Staff hoặc malformed; không giữ contact/email/audit của
+các lịch bị ảnh hưởng. UI hiển thị toàn bộ dòng cảnh báo và lý do trong vùng
+cuộn, không cắt danh sách hoặc suy đoán thông tin bị ẩn. Danh sách rỗng với
+ownerReviewRequired=true vẫn cảnh báo chủ cần kiểm tra, không hiển thị số lượng
+hay danh tính các lịch ngoài scope. Không tự thông báo, dời hoặc hủy lịch.
+
+Cảnh báo đến sau mutation và được GET tính lại; không có preview trên Mobile.
+GET mới được ưu tiên kể cả cùng revision vì calendar có thể thay đổi. Trong
+lúc GET chậm/lỗi mạng sau POST thành công, giữ warning đã xác nhận và ghi rõ
+đó là dữ liệu lần cập nhật trước. State/revision mới hoặc lỗi quyền làm ngừng
+dùng POST cũ; đổi account/appointment xóa state. Complete xóa fallback ETA để
+không đưa cảnh báo đang phục vụ vào lịch đã hoàn tất.
+
+Tái sử dụng createBookingSubmission, HTTP helper, Staff identity và lifecycle:
+double-submit chỉ một request, unknown outcome giữ payload/key, retry đọc
+server trước; xác nhận được ETA đã lưu thì không POST thêm. Intent cũ được
+đối chiếu/replay kể cả khi ETA cũ đã hết hạn. Conflict xác định tải lại Detail
+và yêu cầu xác nhận lại; không tự tăng revision/key. Sau thành công refresh
+Detail, List đọc lại khi trở về. Modal khóa close/Back/edit khi gửi/chưa rõ.
+
+Không sửa Backend/database/business rules hoặc thêm dependency. Chưa triển khai
+Service History, Owner Mobile/Correction/Audit hoặc thao tác trên lịch bị ảnh
+hưởng. Tests dùng fixtures cho API/validator/controller/reader integration;
+chưa thay thế native keyboard/Modal/Android Back, API live hoặc kiểm chứng
+MongoDB transaction trên dữ liệu thực tế.

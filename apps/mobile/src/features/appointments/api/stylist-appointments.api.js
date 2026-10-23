@@ -1,3 +1,4 @@
+import { stylistEtaImpact } from '../appointment-eta.js'
 import { requestJson } from '../../../lib/http.js'
 import { appointmentBaseDto } from './appointments.api.js'
 import { validAppointmentDate } from '../appointment-presentation.js'
@@ -23,7 +24,7 @@ export function stylistAppointmentDto(data, detail = false) {
     ...(detail ? { revision: data.revision, confirmedAt: data.confirmedAt } : {}),
     ...(detail && ['in_progress', 'completed'].includes(data.status) && data.startedAt ? { startedAt: data.startedAt } : {}),
     ...(detail && data.status === 'completed' && data.completedAt ? { completedAt: data.completedAt } : {}),
-    ...(detail && data.status === 'in_progress' && data.estimatedEndAt ? { estimatedEndAt: data.estimatedEndAt } : {}) }
+    ...(detail && data.status === 'in_progress' && data.estimatedEndAt ? { estimatedEndAt: data.estimatedEndAt, ...stylistEtaImpact(data) } : {}) }
 }
 
 export async function listStylistAppointments(baseUrl, token, localDate, cursor, signal) {

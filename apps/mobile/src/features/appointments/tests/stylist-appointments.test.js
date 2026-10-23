@@ -46,14 +46,14 @@ describe('Stylist Mobile read contract and field security', () => {
   })
   it('detail reads exact ID, preserves revision/contact/snapshot and allowed actual timestamps/ETA', async () => {
     const data = { ...detail, status: 'in_progress', startedAt: detail.startAt, estimatedEndAt: '2026-10-24T03:00:00.000Z',
-      affectedAppointments: [{ id: 'hidden-warning-id' }], ownerReviewRequired: true }
+      affectedAppointments: [{ id: '222222222222222222222222', staffId, status: 'confirmed', startAt: item.startAt, endAt: item.endAt, reasons: ['staff_overlap'] }], ownerReviewRequired: true }
     const fetch = respond(data)
     const value = await getStylistAppointment('https://api.test', 'token', id)
     expect(fetch.mock.calls[0][0]).toBe('https://api.test/api/appointments/' + id)
     expect(value).toMatchObject({ revision: 4, customerSnapshot: item.customerSnapshot, items: item.items,
       startAt: item.startAt, endAt: item.endAt, startedAt: item.startAt, estimatedEndAt: data.estimatedEndAt })
-    expect(value).not.toHaveProperty('affectedAppointments')
-    expect(value).not.toHaveProperty('ownerReviewRequired')
+    expect(value.affectedAppointments).toEqual(data.affectedAppointments)
+    expect(value.ownerReviewRequired).toBe(true)
     expect(value).not.toHaveProperty('completedAt')
   })
   it('reads completed actual time without inventing ETA or payment data', () => {
