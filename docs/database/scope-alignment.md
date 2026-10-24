@@ -352,3 +352,38 @@ Service History, Owner Mobile/Correction/Audit hoặc thao tác trên lịch b�
 hưởng. Tests dùng fixtures cho API/validator/controller/reader integration;
 chưa thay thế native keyboard/Modal/Android Back, API live hoặc kiểm chứng
 MongoDB transaction trên dữ liệu thực tế.
+
+## SOL-038 — Bước 8: Stylist Mobile Permitted Service History
+
+**Đã triển khai ở Mobile:** từ Stylist Appointment Detail mở màn riêng
+"Lịch sử dịch vụ" (route StylistServiceHistory, chỉ nhận appointmentId).
+Màn chỉ đọc có loading/empty/error/retry riêng, load more, pull-to-refresh,
+refresh khi focus/foreground. Lỗi lịch sử không chặn Detail/Start/Complete/ETA.
+
+**Contract Backend hiện có (không sửa trong bước này):**
+GET /api/appointments/:appointmentId/service-history, Bearer, limit=20 và
+opaque cursor; Backend mặc định 20, tối đa 50. Phân trang theo completedAt DESC,
+_id DESC. Stylist chỉ dùng lịch ngữ cảnh được giao và có trạng thái confirmed,
+in_progress hoặc completed; ngữ cảnh không còn phù hợp trả 404. Backend tự tìm
+customerId qua lịch ngữ cảnh và trả các lịch completed của hồ sơ khách đó,
+kể cả lần do Staff khác phục vụ. Lịch ngữ cảnh completed cũng có thể xuất hiện
+vì API không loại chính lịch đó. Không dùng Customer History hay tìm theo phone/email.
+
+DTO Mobile giữ id, staffId, staffNameSnapshot, status=completed, startAt/endAt,
+completedAt, items (serviceId/name/priceVnd/durationMinutes) và tổng giá/thời lượng
+snapshot. UI ưu tiên dịch vụ, stylist, thời gian hoàn tất thực tế theo Việt Nam.
+Không hiển thị thông tin liên hệ, email, customerId, audit, ghi chú tự suy diễn,
+cancelled/no_show hoặc trạng thái thanh toán.
+
+Trước mỗi trang, dùng lại auth/me và GET /api/staff để xác minh phiên/Staff.
+Backend vẫn kiểm quyền trên lịch ngữ cảnh trong mọi request lịch sử. Đổi hồ sơ
+Staff hoặc lỗi 401/403/404 xóa các trang cũ; token/account/appointment đổi tạo
+reader mới. Blur/background hủy request và xóa state; response trễ bị bỏ qua.
+Không lưu lịch sử vào persistent storage và không log dữ liệu khách.
+Phân trang dùng lại reader chung: deduplicate ID, phát hiện cursor lặp, retry
+đúng trang lỗi và tải lại khi cursor hết hiệu lực.
+
+Tests dùng fixtures cho adapter/DTO, identity, pagination, lifecycle và native
+stack router; chưa thay thế kiểm tra giao diện/Android Back trên thiết bị,
+API live hoặc authorization/database thực tế. Không sửa Backend/database,
+thêm dependency hoặc triển khai Owner Mobile. Chưa thực hiện Step 9 nghiệm thu tổng.

@@ -32,7 +32,7 @@ export function StylistAction({ label, onPress, disabled = false }) {
   )
 }
 
-export function StylistHeader({ navigation, detail = false }) {
+export function StylistHeader({ navigation, detail = false, title }) {
   return (
     <View style={styles.header}>
       <View style={styles.top}>
@@ -47,7 +47,7 @@ export function StylistHeader({ navigation, detail = false }) {
         <Text style={styles.brand}>SOL HAIR STUDIO</Text>
       </View>
       <Text accessibilityRole="header" style={styles.title}>
-        {detail ? 'Chi tiết lịch hẹn' : 'Lịch hẹn được giao'}
+        {title ?? (detail ? 'Chi tiết lịch hẹn' : 'Lịch hẹn được giao')}
       </Text>
       {!detail && (
         <Pressable
