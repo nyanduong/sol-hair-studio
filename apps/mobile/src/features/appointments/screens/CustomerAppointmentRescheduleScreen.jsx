@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { usePreventRemove } from '@react-navigation/native'
 import Feather from '@expo/vector-icons/Feather'
-import { money, salonDate, slotTime } from '../../../../../../shared/booking.js'
+import { money, slotTime } from '../../../../../../shared/booking.js'
 import { colors } from '../../../theme/tokens.js'
 import { useAuth } from '../../auth/hooks/useAuth.js'
 import { appointmentCardText, isAppointmentCustomer } from '../appointment-presentation.js'
 import { useCustomerReschedule } from '../hooks/useCustomerReschedule.js'
-import { rescheduleBlockReason } from '../hooks/customer-reschedule.js'
+import { rescheduleBlockReason, rescheduleCalendarDates } from '../hooks/customer-reschedule.js'
 import { styles } from '../styles/appointments.styles.js'
 import { styles as form } from '../styles/reschedule.styles.js'
 import { styles as dialog } from '../styles/cancellation.styles.js'
@@ -141,23 +141,12 @@ function RescheduleForm({ navigation, token, accountId, appointmentId }) {
   const isKeepingCurrentStylist = state.staffId === appointment?.staffId
 
   // Days strip calculation (8 days)
-  const baseToday = useMemo(() => salonDate(), [])
-  const allUpcomingDays = useMemo(() => {
-    const [y, m, d] = baseToday.split('-').map(Number)
-    const list = []
-    for (let i = 0; i < 8; i++) {
-      const dt = new Date(Date.UTC(y, m - 1, d + i, 12, 0, 0))
-      const dateStr = dt.toISOString().slice(0, 10)
-      list.push({
-        dateStr,
-        dayNum: dt.getUTCDate(),
-        weekday: WEEKDAYS[dt.getUTCDay()],
-        month: dt.getUTCMonth() + 1,
-        year: dt.getUTCFullYear(),
-      })
-    }
-    return list
-  }, [baseToday])
+  // Dải ngày theo đồng hồ hiện tại, không giữ ngày cũ sau nửa đêm/foreground.
+  const allUpcomingDays = rescheduleCalendarDates(now).map(dateStr => {
+    const dt = new Date(dateStr + 'T12:00:00.000Z')
+    return { dateStr, dayNum: dt.getUTCDate(), weekday: WEEKDAYS[dt.getUTCDay()],
+      month: dt.getUTCMonth() + 1, year: dt.getUTCFullYear() }
+  })
 
   const currentDayIdx = allUpcomingDays.findIndex(d => d.dateStr === state.localDate)
   const upcomingDays = currentDayIdx === 7 ? allUpcomingDays.slice(1) : allUpcomingDays.slice(0, 7)

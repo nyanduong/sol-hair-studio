@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CommonActions, StackActions, StackRouter } from '@react-navigation/routers'
 import { getCustomerRescheduleOptions, rescheduleCustomerAppointment } from '../api/appointments.api.js'
-import { bindRescheduleLifecycle, createCustomerReschedule, customerReschedulePayload, rescheduleBlockReason } from '../hooks/customer-reschedule.js'
+import { bindRescheduleLifecycle, createCustomerReschedule, customerReschedulePayload, rescheduleBlockReason, rescheduleCalendarDates } from '../hooks/customer-reschedule.js'
 
 const id = '111111111111111111111111', accountId = 'aaaaaaaaaaaaaaaaaaaaaaaa'
 const staffId = 'bbbbbbbbbbbbbbbbbbbbbbbb', otherStaff = 'cccccccccccccccccccccccc'
@@ -348,5 +348,27 @@ describe('reschedule refreshed data', () => {
     await detail.load(); await list.load()
     expect(detail.getSnapshot().appointment).toMatchObject({ revision: 8, startAt: slot.startAt })
     expect(list.getSnapshot().items[0].startAt).toBe(slot.startAt)
+  })
+})
+
+describe('reschedule calendar across Vietnam midnight and foreground', () => {
+  it('moves today and the final horizon day when the app remains mounted across midnight', () => {
+    const before = rescheduleCalendarDates(Date.parse('2026-10-23T16:59:59.999Z'))
+    const after = rescheduleCalendarDates(Date.parse('2026-10-23T17:00:00.000Z'))
+    expect(before[0]).toBe('2026-10-23')
+    expect(before.at(-1)).toBe('2026-10-30')
+    expect(after[0]).toBe('2026-10-24')
+    expect(after.at(-1)).toBe('2026-10-31')
+    expect(after).not.toContain('2026-10-23')
+    expect(new Set(after).size).toBe(8)
+  })
+  it.each([
+    ['2026-12-31T17:00:00.000Z', '2027-01-01', '2027-01-08'],
+    ['2028-02-28T17:00:00.000Z', '2028-02-29', '2028-03-07'],
+    ['2026-02-28T17:00:00.000Z', '2026-03-01', '2026-03-08'],
+  ])('uses Vietnam calendar after foreground at %s', (now, first, last) => {
+    const dates = rescheduleCalendarDates(Date.parse(now))
+    expect(dates[0]).toBe(first); expect(dates.at(-1)).toBe(last)
+    expect(dates).toHaveLength(8)
   })
 })

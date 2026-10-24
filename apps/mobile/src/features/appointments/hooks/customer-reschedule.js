@@ -215,3 +215,9 @@ export function bindRescheduleLifecycle(command, appState) {
   })
   return () => { subscription.remove(); command.pause() }
 }
+
+export function rescheduleCalendarDates(now = Date.now()) {
+  const today = salonDate(new Date(now))
+  const midnight = Date.parse(today + 'T00:00:00.000Z')
+  return Array.from({ length: 8 }, (_, index) => new Date(midnight + index * 86_400_000).toISOString().slice(0, 10))
+}
