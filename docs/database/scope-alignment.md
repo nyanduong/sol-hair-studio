@@ -114,3 +114,276 @@ Correction, không bỏ event cũ. Chỉ mount trên Owner detail.
 tài khoản hiện tại. Không tạo event giả/backfill, chỉnh/xóa audit, realtime hoặc
 Mobile. Excel kế hoạch không có trong checkout, không tạo backlog thay thế.
 Kiểm thử tự động không thay thế nghiệm thu trình duyệt/dữ liệu salon thực tế.
+
+## SOL-038 — Mobile Appointment Management, Bước 1
+
+**Phạm vi được người dùng xác nhận theo Sheet trong phiên triển khai:**
+Customer quản lý lịch của mình; Stylist quản lý lịch được giao và phục vụ.
+Owner Mobile ngoài SOL-038. Checkout không có Excel; không tuyên bố đã đọc
+hoặc cập nhật hàng phân công chính thức.
+
+**Đã triển khai Bước 1:** màn CustomerAppointments (“Lịch hẹn của tôi”), danh
+sách từ GET /api/appointments?limit=20&cursor=..., Bearer session qua helper
+Mobile. Chỉ Customer active không có role ưu tiên Owner/Stylist được dùng màn;
+trước mỗi trang kiểm tra lại GET auth/me và đúng account của phiên. Backend
+vẫn là nơi scope ownership. DTO được allowlist, không đưa contact/audit ra UI.
+
+Sắp tới gồm confirmed/in_progress; lịch sử gồm completed/cancelled/no_show,
+không tự đổi trạng thái theo đồng hồ. API chưa có filter tab: giữ cursor DESC
+của Customer, hiện “còn trang” và nút tải thêm ở cả tab; không kết luận rỗng
+hoặc đếm đầy đủ khi còn trang. Giờ hiển thị theo Asia/Ho_Chi_Minh; giá là snapshot
+“Giá theo lịch”, không suy diễn thanh toán.
+
+Pull-to-refresh, focus và foreground đọc lại trang đầu; blur/background hủy
+request, bỏ response cũ. Reader theo token/account và xóa dữ liệu khi phiên
+không hợp lệ; dedup request/ID và chặn cursor lặp. Nút Customer “Lịch hẹn”
+đi vào màn mới, Stylist vẫn giữ màn ca làm. Booking/Profile giữ đường dẫn cũ;
+login từ lịch hẹn trả về màn phù hợp role.
+
+**Chưa triển khai trong bước này:** Detail/Cancel/Reschedule, Stylist Appointment
+Management, Owner Mobile. Không có route chi tiết Mobile nên card chưa có
+nút giả dẫn đến màn khác. Không thêm API, dependency hoặc thay đổi database.
+Tests kiểm API adapter/reader/lifecycle/policy/presentation; native export
+không được xem là nghiệm thu UI trên thiết bị.
+
+## SOL-038 — Bước 2: Customer Mobile Appointment Detail
+
+**Đã triển khai:** card ở danh sách mở CustomerAppointmentDetail bằng appointmentId.
+Native stack định danh màn theo ID để bấm nhanh không tạo nhiều bản cùng lịch;
+Back giữ luồng danh sách hiện tại. Params thiếu/sai định dạng được báo rõ và không
+gửi request chi tiết.
+
+GET /api/appointments/:appointmentId dùng Bearer qua helper Mobile. Trước khi
+đọc, kiểm tra lại account active/role Customer của phiên. Backend vẫn quyết định
+ownership; 404 được mô tả chung cho lịch không tồn tại hoặc ngoài phạm vi.
+UI chỉ nhận DTO allowlist Customer, giữ revision thật, snapshot dịch vụ/giá,
+stylist, thời gian dự kiến theo Việt Nam và actual timestamps nếu API có trả.
+Không truy vấn danh mục hiện tại thay snapshot; không suy diễn thanh toán.
+
+Có loading, lỗi/retry, 401/403/404; focus/foreground đọc lại; blur/background,
+đổi ID/account/token bỏ request và dữ liệu cũ. Không có nút Cancel/Reschedule
+trong bước này. Không sửa Backend/database hoặc thêm dependency.
+
+Kiểm chứng tự động gồm API adapter, reader/lifecycle/isolation, presentation và
+native stack router. Expo export chỉ kiểm tra bundle Android/iOS; chưa thay thế
+smoke test thao tác/render/back thực tế trên thiết bị hoặc emulator.
+
+## SOL-038 — Bước 3: Customer Mobile Cancellation
+
+**Đã triển khai:** Customer Detail có thao tác Hủy lịch hẹn và Modal xác nhận,
+hiển thị lịch/dịch vụ/stylist, Giữ lịch và Xác nhận hủy. Chỉ cho tạo ý định hủy
+khi confirmed, revision hợp lệ và startAt còn ít nhất 2 giờ (bao gồm đúng mốc).
+Đồng hồ UI cập nhật; khi xác nhận và trước POST kiểm tra lại thời gian thực.
+Backend vẫn quyết định quyền, cutoff và concurrency.
+
+POST /api/appointments/:appointmentId/cancel gửi duy nhất expectedRevision,
+Bearer và Idempotency-Key (UUID từ expo-crypto đã có). Không yêu cầu lý do
+Customer. Tái sử dụng createBookingSubmission để dedup và giữ payload/key khi
+timeout/network/5xx. Trước POST/retry kiểm tra lại account Customer active đúng
+identity và GET detail. Khi GET xác nhận cancelled sau POST mất response, kết
+thúc bằng trạng thái server, không gửi POST mới. Retry chưa rõ giữ nguyên ý
+định/key; không dùng cutoff UI để chặn việc đối chiếu/replay ý định cũ.
+
+Conflict xác định yêu cầu đọc lại và xác nhận lại, không tự đổi revision rồi
+retry. Modal và rời màn bị khóa khi đang gửi hoặc còn kết quả chưa rõ; logout/
+đổi account xóa controller và bỏ response cũ. Sau xác nhận thành công refresh
+Detail bằng request mới, loại response GET cũ; List đọc lại khi focus trở lại,
+phân loại cancelled vào History theo contract.
+
+Không triển khai Reschedule, Owner Cancellation hoặc No-show Mobile. Không sửa
+Backend/database hoặc thêm dependency. Tests tự động kiểm eligibility, state
+Modal/controller, HTTP contract, idempotency, isolation và refresh reader;
+chưa thay thế kiểm chứng render/Android Back và luồng API thật trên thiết bị.
+
+## SOL-038 — Bước 4: Customer Mobile Reschedule
+
+**Đã triển khai:** Detail có hành động Đổi lịch hẹn đi vào native stack
+CustomerAppointmentReschedule theo appointmentId. Form chỉ Customer active,
+giữ snapshot dịch vụ/giá/thời lượng; cho đổi ngày trong phạm vi 168 giờ,
+giữ stylist hoặc chọn stylist khác từ options thực tế. Không mở Booking mới,
+không có Owner Reschedule hoặc chỉnh dịch vụ.
+
+GET /api/appointments/:appointmentId/reschedule-options chỉ gửi localDate;
+đổi ngày/stylist đều tải lại options, bỏ request cũ và xóa slot đã chọn.
+Trước POST kiểm tra lại Customer identity, GET detail và options mới. Chỉ
+chọn slot được trả về, revision phải khớp; giờ mới theo grid 15 phút, trước
+ít nhất 30 phút và không quá 168 giờ. Lịch cũ confirmed và còn >=2 giờ,
+bao gồm đúng mốc. Đây là kiểm tra UX; Backend vẫn quyết định cuối cùng.
+
+POST /api/appointments/:appointmentId/reschedule gửi duy nhất expectedRevision,
+staffId, startAt cùng Bearer và Idempotency-Key UUID từ expo-crypto đã có.
+createBookingSubmission giữ nguyên payload/key khi chưa rõ kết quả. Retry
+đối chiếu GET trước; nếu thấy đúng thời gian/stylist/revision/snapshot mới,
+hiển thị kết quả server, không phát POST lần nữa. Nếu chưa thấy kết quả và
+revision còn nguyên, retry đúng intent/key; không dùng options mới để thay ý
+định cũ. Conflict xác định khóa lựa chọn cũ, yêu cầu tải lại lịch/options và
+xác nhận lại, không tự retry bằng revision mới.
+
+Focus/foreground đọc lại, background/blur hủy reads/options. Mutation và
+intent chưa rõ được giữ trong screen; back bị chặn khi đang gửi/chưa rõ.
+Unmount/logout/account switch hủy controller, xóa state, bỏ response cũ.
+Thành công bỏ options cũ, hiển thị DTO mới; trở lại Detail/List kích hoạt
+GET mới qua focus lifecycle hiện có.
+
+Không sửa Backend/database/business rules hoặc thêm dependency. Tests kiểm
+adapter/selection/controller/lifecycle, native stack router và reader refresh
+bằng fixtures. Export Android/iOS không thay thế nghiệm thu UI/Android Back,
+kết nối thiết bị hoặc thao tác với API thật. Chưa triển khai Stylist Mobile.
+
+## SOL-038 — Bước 5: Stylist Mobile Appointment List & Detail
+
+**Đã triển khai:** StylistAppointments (“Lịch hẹn được giao”), ngày mặc định
+theo Việt Nam; có ngày trước/sau, nhập YYYY-MM-DD và Hôm nay. Danh sách ASC
+startAt/id, cursor 50, pull-to-refresh, loading/empty/error/retry. Card mở
+StylistAppointmentDetail theo ID, không tạo nhiều bản cùng lịch khi nhấn nhanh.
+
+GET /api/appointments chỉ gửi localDate/limit/cursor bằng Bearer Stylist;
+Backend scope theo Staff của identity, chỉ confirmed/in_progress/completed.
+GET /api/appointments/:appointmentId kiểm assignment và trả 404 cho ID
+ngoài phạm vi. Trước mỗi trang/detail, Mobile đọc lại auth/me và GET /api/staff
+hiện có để xác nhận đúng một hồ sơ Staff gắn với account. Response có Staff ID
+khác bị từ chối toàn bộ, không tải toàn salon rồi lọc UI. Staff link thay đổi
+giữa trang xóa dữ liệu cũ trước khi đọc lại. Không tự cấm đọc lịch sử chỉ vì
+Staff isActive=false: quyền đọc vẫn theo active account và scope Backend.
+
+DTO Mobile chỉ giữ dữ liệu được phép: snapshot dịch vụ/giá/thời lượng, tên
+Stylist, giờ hẹn Việt Nam, trạng thái, customerSnapshot displayName/phone.
+Detail giữ revision/confirmedAt, actual timestamps và estimatedEndAt nếu API
+trả phù hợp trạng thái. Không giữ email/account Customer, receipt, audit hoặc
+ETA impact của các lịch khác. Không có field ghi chú phục vụ trong contract
+hiện tại nên không tự thêm. ETA, planned end và actual completion hiển thị riêng;
+completed không được mô tả là đã thanh toán.
+
+BottomNav “Lịch hẹn” nay mở StylistAppointments cho Stylist active không có
+Owner role; Customer giữ luồng riêng. Ca làm của tôi từ SOL-027 vẫn ở
+StylistShifts, không thay thế implementation: hai màn có nút truy cập qua lại.
+Đăng nhập qua mục lịch hẹn trả đúng màn theo role. Owner Mobile không được
+bổ sung. Booking/Profile giữ route hiện có.
+
+Tái sử dụng DTO nền và reader pagination/detail/lifecycle với policy theo role;
+Customer giữ wrapper và thứ tự DESC cũ. Đổi ngày/ID/token/account tạo reader mới;
+blur/background hủy request và xóa dữ liệu; focus/foreground tải lại. Không reuse
+cursor của ngày cũ, dedup item/request và chặn cursor lặp.
+
+Chỉ đọc List/Detail: chưa có Start/Complete, cập nhật ETA, Service History,
+Owner Corrections hoặc Audit trên Stylist Mobile. Không sửa Backend/database
+hoặc thêm dependency. Tests kiểm API adapter/allowlist, reader/isolation/race/
+pagination/lifecycle và native stack router bằng fixtures; chưa thay thế smoke
+test thiết bị, render thực tế, Android Back hoặc API live.
+
+## SOL-038 — Bước 6: Stylist Mobile Start & Complete Service
+
+**Đã triển khai:** Stylist Detail có Bắt đầu phục vụ khi confirmed và Hoàn tất
+phục vụ khi in_progress; các trạng thái khác chỉ đọc. Modal giữ thông tin
+khách, điện thoại, dịch vụ và giờ hẹn, yêu cầu checkbox ban đầu chưa chọn:
+khách đã đến cho Start, đã thực sự phục vụ xong cho Complete. Không gửi ngay
+khi mở modal. Xác nhận có mặt là khai báo của Stylist, không phải kiểm chứng
+sự hiện diện vật lý tự động từ Backend.
+
+Dùng POST /api/appointments/:appointmentId/start hoặc /complete theo contract
+SOL-036 tại appointments-api.md; body duy nhất expectedRevision, Bearer và
+Idempotency-Key riêng từng ý định. Không gửi checkbox, timestamp/check-in,
+status, ETA hoặc dữ liệu thanh toán. Trước POST/retry, đọc lại auth/me, hồ sơ
+Staff của account và GET detail; kiểm assignment, revision và trạng thái.
+Không tự thêm cutoff/grid/lead-time cho Start. Backend kiểm ca/nghỉ/xung đột
+và quyết định actual times. Complete không bị frontend chặn vì quá ca hoặc
+ETA đã qua; Backend vẫn xác thực trạng thái và actual startedAt.
+
+Tái sử dụng createBookingSubmission: đồng bộ chặn double-submit, giữ payload/
+key khi timeout/network/5xx; khóa đóng modal/Back trong lúc gửi hoặc chưa rõ.
+Retry đối chiếu GET trước: nếu trạng thái/revision/actual times/snapshot khớp
+kết quả dự kiến, dùng dữ liệu server và không phát POST lần nữa. Nếu chưa
+thấy kết quả, giữ nguyên ý định/key; không retry bằng revision mới. Conflict
+xác định refresh detail và yêu cầu kiểm tra/xác nhận lại. Không optimistic
+status, không tạo thêm timestamp phía Mobile.
+
+Sau thành công, force-refresh Detail để response GET cũ không ghi đè; List
+đọc lại khi quay về. Thời gian thực tế lấy từ API. Complete hiển thị giải thích
+10 phút dọn dẹp, không suy diễn đã thanh toán và không sửa lịch khác.
+Controller tồn tại xuyên suốt detail refresh; đổi account/token/appointment
+hoặc unmount xóa state và bỏ response cũ. Mutation/receipt không lưu vào
+persistent storage qua việc tắt ứng dụng.
+
+Không thêm Owner Mobile, Stylist Cancel/No-show/Correction/Audit, ETA writer
+hoặc Service History. Không sửa Backend/database, business rules hoặc dependency.
+Tests adapter/controller/reader integration bằng fixtures không thay thế
+kiểm tra native Modal/Android Back/API live; không tuyên bố đã xác minh rollback
+MongoDB hay tính hợp lệ ca thực tế trong lượt Mobile này.
+
+## SOL-038 — Bước 7: Stylist Mobile ETA Management
+
+**Đã triển khai:** Stylist Detail có Cập nhật thời gian dự kiến khi in_progress.
+Form nhập ngày YYYY-MM-DD và giờ HH:mm hoặc HH:mm:ss theo Việt Nam, chuyển UTC
+ISO có milliseconds khi gửi; có bước kiểm tra/xác nhận rõ ETA mới trước POST.
+Giữ planned end, giờ hẹn ban đầu, dịch vụ và actual completion riêng biệt.
+Không tự áp dụng grid 15 phút, lead-time 30 phút, horizon 168 giờ hoặc yêu cầu
+ETA phải tăng so với ETA cũ. Chỉ kiểm future và sau planned end theo BR-09.
+
+POST /api/appointments/:appointmentId/eta nhận duy nhất expectedRevision và
+estimatedEndAt; Bearer và Idempotency-Key theo contract SOL-036 tại
+appointments-api.md. Kiểm lại account Stylist, Staff link và GET detail trước
+POST/retry; Backend vẫn quyết định authorization/transaction/availability.
+Không thêm preview endpoint hoặc gửi timestamp/status/planned fields khác.
+
+Stylist DTO đọc GET và POST nay giữ estimatedEndAt và impact chính thức:
+affectedAppointments (id/staffId/status/startAt/endAt/reasons), ownerReviewRequired.
+Từ chối cảnh báo khác Staff hoặc malformed; không giữ contact/email/audit của
+các lịch bị ảnh hưởng. UI hiển thị toàn bộ dòng cảnh báo và lý do trong vùng
+cuộn, không cắt danh sách hoặc suy đoán thông tin bị ẩn. Danh sách rỗng với
+ownerReviewRequired=true vẫn cảnh báo chủ cần kiểm tra, không hiển thị số lượng
+hay danh tính các lịch ngoài scope. Không tự thông báo, dời hoặc hủy lịch.
+
+Cảnh báo đến sau mutation và được GET tính lại; không có preview trên Mobile.
+GET mới được ưu tiên kể cả cùng revision vì calendar có thể thay đổi. Trong
+lúc GET chậm/lỗi mạng sau POST thành công, giữ warning đã xác nhận và ghi rõ
+đó là dữ liệu lần cập nhật trước. State/revision mới hoặc lỗi quyền làm ngừng
+dùng POST cũ; đổi account/appointment xóa state. Complete xóa fallback ETA để
+không đưa cảnh báo đang phục vụ vào lịch đã hoàn tất.
+
+Tái sử dụng createBookingSubmission, HTTP helper, Staff identity và lifecycle:
+double-submit chỉ một request, unknown outcome giữ payload/key, retry đọc
+server trước; xác nhận được ETA đã lưu thì không POST thêm. Intent cũ được
+đối chiếu/replay kể cả khi ETA cũ đã hết hạn. Conflict xác định tải lại Detail
+và yêu cầu xác nhận lại; không tự tăng revision/key. Sau thành công refresh
+Detail, List đọc lại khi trở về. Modal khóa close/Back/edit khi gửi/chưa rõ.
+
+Không sửa Backend/database/business rules hoặc thêm dependency. Chưa triển khai
+Service History, Owner Mobile/Correction/Audit hoặc thao tác trên lịch bị ảnh
+hưởng. Tests dùng fixtures cho API/validator/controller/reader integration;
+chưa thay thế native keyboard/Modal/Android Back, API live hoặc kiểm chứng
+MongoDB transaction trên dữ liệu thực tế.
+
+## SOL-038 — Bước 8: Stylist Mobile Permitted Service History
+
+**Đã triển khai ở Mobile:** từ Stylist Appointment Detail mở màn riêng
+"Lịch sử dịch vụ" (route StylistServiceHistory, chỉ nhận appointmentId).
+Màn chỉ đọc có loading/empty/error/retry riêng, load more, pull-to-refresh,
+refresh khi focus/foreground. Lỗi lịch sử không chặn Detail/Start/Complete/ETA.
+
+**Contract Backend hiện có (không sửa trong bước này):**
+GET /api/appointments/:appointmentId/service-history, Bearer, limit=20 và
+opaque cursor; Backend mặc định 20, tối đa 50. Phân trang theo completedAt DESC,
+_id DESC. Stylist chỉ dùng lịch ngữ cảnh được giao và có trạng thái confirmed,
+in_progress hoặc completed; ngữ cảnh không còn phù hợp trả 404. Backend tự tìm
+customerId qua lịch ngữ cảnh và trả các lịch completed của hồ sơ khách đó,
+kể cả lần do Staff khác phục vụ. Lịch ngữ cảnh completed cũng có thể xuất hiện
+vì API không loại chính lịch đó. Không dùng Customer History hay tìm theo phone/email.
+
+DTO Mobile giữ id, staffId, staffNameSnapshot, status=completed, startAt/endAt,
+completedAt, items (serviceId/name/priceVnd/durationMinutes) và tổng giá/thời lượng
+snapshot. UI ưu tiên dịch vụ, stylist, thời gian hoàn tất thực tế theo Việt Nam.
+Không hiển thị thông tin liên hệ, email, customerId, audit, ghi chú tự suy diễn,
+cancelled/no_show hoặc trạng thái thanh toán.
+
+Trước mỗi trang, dùng lại auth/me và GET /api/staff để xác minh phiên/Staff.
+Backend vẫn kiểm quyền trên lịch ngữ cảnh trong mọi request lịch sử. Đổi hồ sơ
+Staff hoặc lỗi 401/403/404 xóa các trang cũ; token/account/appointment đổi tạo
+reader mới. Blur/background hủy request và xóa state; response trễ bị bỏ qua.
+Không lưu lịch sử vào persistent storage và không log dữ liệu khách.
+Phân trang dùng lại reader chung: deduplicate ID, phát hiện cursor lặp, retry
+đúng trang lỗi và tải lại khi cursor hết hiệu lực.
+
+Tests dùng fixtures cho adapter/DTO, identity, pagination, lifecycle và native
+stack router; chưa thay thế kiểm tra giao diện/Android Back trên thiết bị,
+API live hoặc authorization/database thực tế. Không sửa Backend/database,
+thêm dependency hoặc triển khai Owner Mobile. Chưa thực hiện Step 9 nghiệm thu tổng.

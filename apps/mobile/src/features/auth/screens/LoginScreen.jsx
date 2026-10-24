@@ -1,3 +1,4 @@
+import { appointmentListDestination } from '../../appointments/appointment-presentation.js'
 import { useState } from 'react'
 import {
   ActivityIndicator,
@@ -40,13 +41,13 @@ export default function LoginScreen({ navigation, route }) {
     setFieldErrors({})
     setIsSubmitting(true)
     try {
-      await login({
+      const data = await login({
         email: validation.values.email,
         password: validation.values.password,
       })
       // Successful login
       if (route?.params?.returnTo) {
-        navigation.navigate(route.params.returnTo)
+        navigation.navigate(route.params.returnTo === 'CustomerAppointments' ? appointmentListDestination(data.account) ?? 'Profile' : route.params.returnTo)
       } else {
         navigation.navigate('Profile')
       }
