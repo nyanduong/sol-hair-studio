@@ -26,7 +26,7 @@ export function createApp({ routes = apiRouter, logStream } = {}) {
   }))
 
   app.use(cors({ origin: allowedOrigins }))
-  app.use(express.json())
+  app.use(express.json({ limit: '15mb' }))
   app.use(routes)
   app.use(notFound)
   app.use(errorHandler)

@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthContext } from '../../auth/context/auth-context.js'
 import CustomerAppointmentsPage from '../pages/CustomerAppointmentsPage.jsx'
 import CustomerAppointmentList from '../components/CustomerAppointmentList.jsx'
@@ -24,6 +24,13 @@ function list(state) {
   return renderToStaticMarkup(<MemoryRouter><CustomerAppointmentList state={{ items: [], retry: vi.fn(), loadMore: vi.fn(), ...state }} onLogin={() => {}} /></MemoryRouter>)
 }
 describe('customer appointments Web', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-24T00:00:00.000Z'))
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
   it('registers the route and requires login', () => {
     const html = render(null, null, true)
     expect(html).toContain('Lịch hẹn của tôi')
