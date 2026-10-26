@@ -73,6 +73,7 @@ export default function SiteHeader() {
           {links.map(({ href, label }) => <a key={href} href={href} className="inline-flex min-h-11 items-center text-xs text-muted transition-colors hover:text-terracotta">{label}</a>)}
           {showStylistAppointments && <Link to="/nhan-vien/lich-hen" className="inline-flex min-h-11 items-center whitespace-nowrap text-xs text-muted transition-colors hover:text-terracotta">Lịch của tôi</Link>}
           {showOwnerAppointments && <Link to="/quan-ly/lich-hen" className="inline-flex min-h-11 items-center whitespace-nowrap text-xs text-muted transition-colors hover:text-terracotta">Lịch salon</Link>}
+          {showOwnerAppointments && <Link to="/quan-ly/dich-vu" className="inline-flex min-h-11 items-center whitespace-nowrap text-xs text-muted transition-colors hover:text-terracotta">Dịch vụ salon</Link>}
           {showAppointments && (
             <Link to="/lich-cua-toi" className="inline-flex min-h-11 items-center whitespace-nowrap text-xs text-muted transition-colors hover:text-terracotta">Lịch của tôi</Link>
           )}
@@ -94,6 +95,7 @@ export default function SiteHeader() {
             {links.map(({ href, label }) => <a key={href} href={href} onClick={navigate} className="flex min-h-11 items-center rounded-xl px-4 text-sm hover:bg-soft-surface">{label}</a>)}
             {showStylistAppointments && <Link to="/nhan-vien/lich-hen" onClick={closeMenu} className="flex min-h-11 items-center rounded-xl px-4 text-sm hover:bg-soft-surface">Lịch của tôi</Link>}
             {showOwnerAppointments && <Link to="/quan-ly/lich-hen" onClick={closeMenu} className="flex min-h-11 items-center rounded-xl px-4 text-sm hover:bg-soft-surface">Lịch salon</Link>}
+            {showOwnerAppointments && <Link to="/quan-ly/dich-vu" onClick={closeMenu} className="flex min-h-11 items-center rounded-xl px-4 text-sm hover:bg-soft-surface">Dịch vụ salon</Link>}
             {showAppointments && (
               <Link to="/lich-cua-toi" onClick={closeMenu} className="flex min-h-11 items-center rounded-xl px-4 text-sm hover:bg-soft-surface">Lịch của tôi</Link>
             )}
