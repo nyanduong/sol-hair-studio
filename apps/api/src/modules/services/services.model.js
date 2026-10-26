@@ -35,6 +35,28 @@ const serviceSchema = new mongoose.Schema(
       trim: true,
       match: /^https:\/\/res\.cloudinary\.com\//,
     },
+    coverImageId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Image',
+    },
+    images: {
+      type: [
+        {
+          _id: false,
+          imageId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Image',
+            required: true,
+          },
+          alt: {
+            type: String,
+            trim: true,
+            maxlength: 200,
+          },
+        },
+      ],
+      default: undefined,
+    },
     isActive: { type: Boolean, default: true },
     displayOrder: { type: Number, default: 0 },
   },
