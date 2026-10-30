@@ -7,6 +7,8 @@ import {
   getAppointmentRescheduleOptions,
   rescheduleAppointment,
   markAppointmentNoShow,
+  startAppointment,
+  completeAppointment,
 } from '../appointments/appointments.service.js'
 import { listStaff } from '../staff/staff.service.js'
 import { salonDate } from '../../../../../shared/booking.js'
@@ -63,6 +65,8 @@ export async function showOwnerAppointmentDetail(req, res, next) {
       appointment,
       cancelKey: randomUUID(),
       noShowKey: randomUUID(),
+      startKey: randomUUID(),
+      completeKey: randomUUID(),
       error: '',
     })
   } catch (error) {
@@ -326,6 +330,74 @@ export async function submitOwnerNoShow(req, res) {
       pending,
       error: pending
         ? 'Chưa xác định được kết quả no-show. Hãy kiểm tra và thử lại cùng yêu cầu.'
+        : error.message,
+    })
+  }
+}
+
+export function submitOwnerStart(req, res) {
+  return submitOwnerServiceAction(req, res, 'start', startAppointment)
+}
+
+export function submitOwnerComplete(req, res) {
+  return submitOwnerServiceAction(req, res, 'complete', completeAppointment)
+}
+
+async function submitOwnerServiceAction(req, res, operation, service) {
+  const rawRevision = req.body?.expectedRevision
+
+  const expectedRevision =
+    typeof rawRevision === 'string' && /^(0|[1-9]\d*)$/.test(rawRevision)
+      ? Number(rawRevision)
+      : rawRevision
+
+  const commandKey =
+    req.get('Idempotency-Key') ?? req.body?.commandKey
+
+  const view = {
+    title: operation === 'start'
+      ? 'Bắt đầu phục vụ'
+      : 'Hoàn tất phục vụ',
+    operation,
+    appointmentId: req.params.appointmentId,
+    form: {
+      expectedRevision,
+      commandKey: commandKey ?? '',
+    },
+  }
+
+  try {
+    const result = await service(
+      req.identity,
+      req.params.appointmentId,
+      { expectedRevision },
+      commandKey,
+    )
+
+    return res.render('owner/appointment-service-result', {
+      ...view,
+      result,
+      error: '',
+      pending: false,
+    })
+  } catch (error) {
+    const knownError = error instanceof AppointmentError
+    const status = knownError ? error.status : 500
+    const pending = status >= 500 || status === 408
+
+    if (!knownError) {
+      console.error('Lỗi thao tác phục vụ Owner.', {
+        operation,
+        name: error instanceof Error ? error.name : 'UnknownError',
+      })
+    }
+
+    return res.status(status).render('owner/appointment-service-result', {
+      ...view,
+      result: null,
+      pending,
+      error: pending
+        ? 'Chưa xác định được kết quả. Hãy kiểm tra và thử lại cùng yêu cầu.'
         : error.message,
     })
   }

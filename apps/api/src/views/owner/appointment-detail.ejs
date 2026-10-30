@@ -234,6 +234,100 @@
                             <% } %>
                         </section>
                     <% } %>
+
+                    <% if (['confirmed', 'in_progress', 'completed'].includes(appointment.status)) { %>
+                        <section class="mt-6 border-t border-border pt-6">
+                            <h2 class="font-display text-2xl font-semibold">
+                                Phục vụ
+                            </h2>
+
+                            <% if (appointment.status === 'confirmed') {
+                                const isEarlyStart = Date.now() < Date.parse(appointment.startAt)
+                            %>
+                                <p class="mt-2 text-sm leading-6 text-muted">
+                                    <%= isEarlyStart
+                                    ? 'Bạn đang bắt đầu trước giờ hẹn. Chỉ xác nhận khi thực sự bắt đầu phục vụ khách.'
+                                    : 'Chỉ xác nhận khi thực sự bắt đầu phục vụ khách.' %>
+                                    Backend sẽ kiểm tra ca làm, thời gian nghỉ và lịch trùng.
+                                </p>
+
+                                <form
+                                    method="post"
+                                    action="/owner/appointments/<%= appointment.id %>/start"
+                                    class="mt-4"
+                                >
+                                    <input
+                                        type="hidden"
+                                        name="expectedRevision"
+                                        value="<%= appointment.revision %>"
+                                    />
+                                    <input
+                                        type="hidden"
+                                        name="commandKey"
+                                        value="<%= startKey %>"
+                                    />
+
+                                    <button
+                                        type="submit"
+                                        class="min-h-11 rounded-full bg-terracotta px-6 py-2 text-sm font-semibold text-white hover:bg-terracotta-dark"
+                                    >
+                                        <%= isEarlyStart ? 'Xác nhận bắt đầu sớm' : 'Xác nhận bắt đầu phục vụ' %>
+                                    </button>
+                                </form>
+                            <% } %>
+
+                            <% if (appointment.startedAt) { %>
+                                <p class="mt-4 text-sm text-muted">
+                                    Bắt đầu thực tế:
+                                    <%= dateTime.format(new Date(appointment.startedAt)) %>
+                                </p>
+                            <% } %>
+
+                            <% if (appointment.status === 'in_progress') { %>
+                                <p class="mt-2 text-sm leading-6 text-muted">
+                                    Xác nhận khi đã phục vụ xong. Hệ thống ghi giờ hoàn tất
+                                    tại thời điểm xử lý và giữ thêm 10 phút dọn.
+                                </p>
+
+                                <form
+                                    method="post"
+                                    action="/owner/appointments/<%= appointment.id %>/complete"
+                                    class="mt-4"
+                                >
+                                    <input
+                                        type="hidden"
+                                        name="expectedRevision"
+                                        value="<%= appointment.revision %>"
+                                    />
+                                    <input
+                                        type="hidden"
+                                        name="commandKey"
+                                        value="<%= completeKey %>"
+                                    />
+
+                                    <button
+                                        type="submit"
+                                        class="min-h-11 rounded-full bg-terracotta px-6 py-2 text-sm font-semibold text-white hover:bg-terracotta-dark"
+                                    >
+                                        Xác nhận hoàn tất phục vụ
+                                    </button>
+                                </form>
+                            <% } %>
+
+                            <% if (appointment.completedAt) { %>
+                                <p class="mt-2 text-sm text-muted">
+                                    Hoàn tất thực tế:
+                                    <%= dateTime.format(new Date(appointment.completedAt)) %>
+                                </p>
+                                <p class="mt-2 text-sm text-muted">
+                                    Thời gian dọn kết thúc:
+                                    <%= dateTime.format(new Date(
+                                    Date.parse(appointment.completedAt) + 10 * 60_000
+                                    )) %>
+                                </p>
+                            <% } %>
+                        </section>
+                    <% } %>
                 </section>
             <% } %>
         </main>

@@ -1,0 +1,120 @@
+<%
+    const dateTime = new Intl.DateTimeFormat('vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+    })
+%>
+
+<!DOCTYPE html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title><%= title %> — Sol Hair Studio</title>
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet"
+        />
+        <link rel="stylesheet" href="/owner-assets/css/owner.css" />
+    </head>
+
+    <body class="min-h-screen bg-canvas font-sans text-ink">
+        <main class="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+        <p class="text-sm font-semibold text-terracotta">Sol Hair Studio</p>
+        <h1 class="mt-2 font-display text-4xl font-semibold">
+            <%= title %>
+        </h1>
+
+            <section class="mt-6 rounded-3xl border border-border bg-white p-6 sm:p-8">
+                <% if (result) { %>
+                    <h2 class="text-lg font-semibold">
+                        <%= operation === 'start'
+                        ? 'Đã bắt đầu phục vụ'
+                        : 'Đã hoàn tất phục vụ' %>
+                    </h2>
+
+                    <p class="mt-4 text-sm text-muted">
+                        Bắt đầu thực tế:
+                        <%= dateTime.format(new Date(result.startedAt)) %>
+                    </p>
+
+                    <% if (operation === 'complete') { %>
+                        <p class="mt-2 text-sm text-muted">
+                        Hoàn tất thực tế:
+                        <%= dateTime.format(new Date(result.completedAt)) %>
+                        </p>
+                        <p class="mt-2 text-sm text-muted">
+                            Thời gian dọn kết thúc:
+                            <%= dateTime.format(new Date(
+                                Date.parse(result.completedAt) + 10 * 60_000
+                            )) %>
+                        </p>
+                    <% } %>
+                <% } else { %>
+                    <div role="alert">
+                        <h2 class="text-lg font-semibold">
+                        <%= pending
+                            ? 'Chưa xác định được kết quả'
+                            : 'Chưa thể thực hiện thao tác' %>
+                        </h2>
+                        <p class="mt-2 text-sm text-muted"><%= error %></p>
+                    </div>
+
+                    <% if (pending) { %>
+                        <p class="mt-4 text-sm text-muted">
+                            Kiểm tra chi tiết lịch trước. Nếu cần gửi lại, dùng nút
+                            bên dưới để giữ nguyên yêu cầu vừa gửi.
+                        </p>
+
+                        <form
+                            method="post"
+                            action="/owner/appointments/<%= appointmentId %>/<%= operation %>"
+                            class="mt-4"
+                        >
+                            <input
+                                type="hidden"
+                                name="expectedRevision"
+                                value="<%= form.expectedRevision %>"
+                            />
+                            <input
+                                type="hidden"
+                                name="commandKey"
+                                value="<%= form.commandKey %>"
+                            />
+
+                            <button
+                                type="submit"
+                                class="min-h-11 rounded-full bg-terracotta px-6 py-2 text-sm font-semibold text-white hover:bg-terracotta-dark"
+                            >
+                                Gửi lại cùng yêu cầu
+                            </button>
+                        </form>
+                    <% } %>
+                <% } %>
+
+                <div class="mt-6 flex flex-wrap gap-4">
+                    <a
+                        href="/owner/appointments/<%= appointmentId %>"
+                        class="text-sm font-semibold text-terracotta hover:underline"
+                    >
+                        Xem chi tiết lịch
+                    </a>
+                    <a
+                        href="/owner/appointments"
+                        class="text-sm font-semibold text-terracotta hover:underline"
+                    >
+                        Về danh sách lịch
+                    </a>
+                </div>
+            </section>
+        </main>
+    </body>
+</html>

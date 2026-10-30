@@ -7,6 +7,8 @@ import {
     showOwnerReschedule,
     submitOwnerReschedule,
     submitOwnerNoShow,
+    submitOwnerStart,
+    submitOwnerComplete,
 } from './owner-web.controller.js'
 export const ownerWebRouter = Router()
 
@@ -27,3 +29,5 @@ ownerWebRouter.post('/appointments/:appointmentId/cancel', requireAuth, requireR
 ownerWebRouter.get('/appointments/:appointmentId/reschedule', requireAuth, requireRoles('owner'), showOwnerReschedule,)
 ownerWebRouter.post('/appointments/:appointmentId/reschedule', requireAuth, requireRoles('owner'), urlencoded({ extended: false, limit: '10kb' }), submitOwnerReschedule)
 ownerWebRouter.post('/appointments/:appointmentId/no-show', requireAuth, requireRoles('owner'), urlencoded({ extended: false, limit: '10kb' }), submitOwnerNoShow)
+ownerWebRouter.post( '/appointments/:appointmentId/start', requireAuth, requireRoles('owner'), urlencoded({ extended: false, limit: '10kb' }), submitOwnerStart,)
+ownerWebRouter.post( '/appointments/:appointmentId/complete', requireAuth, requireRoles('owner'), urlencoded({ extended: false, limit: '10kb' }), submitOwnerComplete)
