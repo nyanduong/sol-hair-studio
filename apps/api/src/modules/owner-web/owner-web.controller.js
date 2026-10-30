@@ -9,6 +9,7 @@ import {
   markAppointmentNoShow,
   startAppointment,
   completeAppointment,
+  updateAppointmentEta,
 } from '../appointments/appointments.service.js'
 import { listStaff } from '../staff/staff.service.js'
 import { salonDate } from '../../../../../shared/booking.js'
@@ -67,6 +68,7 @@ export async function showOwnerAppointmentDetail(req, res, next) {
       noShowKey: randomUUID(),
       startKey: randomUUID(),
       completeKey: randomUUID(),
+      etaKey: randomUUID(),
       error: '',
     })
   } catch (error) {
@@ -398,6 +400,92 @@ async function submitOwnerServiceAction(req, res, operation, service) {
       pending,
       error: pending
         ? 'Chưa xác định được kết quả. Hãy kiểm tra và thử lại cùng yêu cầu.'
+        : error.message,
+    })
+  }
+}
+
+export async function submitOwnerEta(req, res) {
+  const rawRevision = req.body?.expectedRevision
+
+  const expectedRevision =
+    typeof rawRevision === 'string' && /^(0|[1-9]\d*)$/.test(rawRevision)
+      ? Number(rawRevision)
+      : rawRevision
+
+  const estimatedEndLocal = req.body?.estimatedEndLocal
+
+  const commandKey =
+    req.get('Idempotency-Key') ?? req.body?.commandKey
+
+  const view = {
+    title: 'Kết quả cập nhật ETA',
+    appointmentId: req.params.appointmentId,
+    form: {
+      expectedRevision,
+      estimatedEndLocal: estimatedEndLocal ?? '',
+      commandKey: commandKey ?? '',
+    },
+  }
+
+  try {
+    if (
+      typeof estimatedEndLocal !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(estimatedEndLocal)
+    ) {
+      throw new AppointmentError('Vui lòng nhập giờ dự kiến kết thúc.', {
+        code: 'INVALID_ETA',
+        status: 400,
+      })
+    }
+
+    const estimatedEnd = new Date(`${estimatedEndLocal}:00+07:00`)
+
+    if (
+      !Number.isFinite(estimatedEnd.getTime()) ||
+      new Date(estimatedEnd.getTime() + 7 * 60 * 60_000)
+        .toISOString()
+        .slice(0, 16) !== estimatedEndLocal
+    ) {
+      throw new AppointmentError('Giờ dự kiến kết thúc không hợp lệ.', {
+        code: 'INVALID_ETA',
+        status: 400,
+      })
+    }
+
+    const result = await updateAppointmentEta(
+      req.identity,
+      req.params.appointmentId,
+      {
+        expectedRevision,
+        estimatedEndAt: estimatedEnd.toISOString(),
+      },
+      commandKey,
+    )
+
+    return res.render('owner/appointment-eta-result', {
+      ...view,
+      result,
+      error: '',
+      pending: false,
+    })
+  } catch (error) {
+    const knownError = error instanceof AppointmentError
+    const status = knownError ? error.status : 500
+    const pending = status >= 500 || status === 408
+
+    if (!knownError) {
+      console.error('Lỗi cập nhật ETA Owner.', {
+        name: error instanceof Error ? error.name : 'UnknownError',
+      })
+    }
+
+    return res.status(status).render('owner/appointment-eta-result', {
+      ...view,
+      result: null,
+      pending,
+      error: pending
+        ? 'Chưa xác định được kết quả cập nhật ETA. Hãy kiểm tra và thử lại cùng yêu cầu.'
         : error.message,
     })
   }

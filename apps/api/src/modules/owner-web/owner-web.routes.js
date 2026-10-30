@@ -9,6 +9,7 @@ import {
     submitOwnerNoShow,
     submitOwnerStart,
     submitOwnerComplete,
+    submitOwnerEta,
 } from './owner-web.controller.js'
 export const ownerWebRouter = Router()
 
@@ -31,3 +32,4 @@ ownerWebRouter.post('/appointments/:appointmentId/reschedule', requireAuth, requ
 ownerWebRouter.post('/appointments/:appointmentId/no-show', requireAuth, requireRoles('owner'), urlencoded({ extended: false, limit: '10kb' }), submitOwnerNoShow)
 ownerWebRouter.post( '/appointments/:appointmentId/start', requireAuth, requireRoles('owner'), urlencoded({ extended: false, limit: '10kb' }), submitOwnerStart,)
 ownerWebRouter.post( '/appointments/:appointmentId/complete', requireAuth, requireRoles('owner'), urlencoded({ extended: false, limit: '10kb' }), submitOwnerComplete)
+ownerWebRouter.post('/appointments/:appointmentId/eta', requireAuth, requireRoles('owner'), urlencoded({ extended: false, limit: '10kb' }), submitOwnerEta)

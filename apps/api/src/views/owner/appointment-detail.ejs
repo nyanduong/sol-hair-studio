@@ -314,6 +314,113 @@
                                 </form>
                             <% } %>
 
+                            
+                            <% if (appointment.status === 'in_progress') { %>
+                                <section class="mt-6 border-t border-border pt-6">
+                                    <h3 class="font-display text-2xl font-semibold">
+                                        Dự kiến kết thúc phục vụ
+                                    </h3>
+
+                                    <% if (appointment.estimatedEndAt) { %>
+                                        <p class="mt-2 text-sm text-muted">
+                                            ETA hiện tại:
+                                            <%= dateTime.format(new Date(appointment.estimatedEndAt)) %>
+                                        </p>
+                                    <% } %>
+
+                                    <p class="mt-2 text-sm leading-6 text-muted">
+                                        Nhập giờ Việt Nam. ETA phải sau thời điểm hiện tại và sau giờ
+                                        kết thúc dự kiến ban đầu. Thời gian giữ Stylist gồm thêm 10 phút dọn.
+                                    </p>
+
+                                    <form
+                                        method="post"
+                                        action="/owner/appointments/<%= appointment.id %>/eta"
+                                        class="mt-4 space-y-4"
+                                    >
+                                        <input
+                                            type="hidden"
+                                            name="expectedRevision"
+                                            value="<%= appointment.revision %>"
+                                        />
+                                        <input
+                                            type="hidden"
+                                            name="commandKey"
+                                            value="<%= etaKey %>"
+                                        />
+
+                                        <label class="block text-sm font-semibold">
+                                            Giờ dự kiến kết thúc mới
+                                            <input
+                                            type="datetime-local"
+                                            name="estimatedEndLocal"
+                                            step="60"
+                                            required
+                                            class="mt-2 block w-full rounded-xl border border-border bg-white px-3 py-2 text-sm font-normal"
+                                            />
+                                        </label>
+
+                                        <p class="text-sm text-muted">
+                                            Xác nhận sẽ lưu ETA. Kết quả ảnh hưởng được Backend trả về
+                                            sau khi cập nhật, không phải bản xem trước.
+                                        </p>
+
+                                        <button
+                                            type="submit"
+                                            class="min-h-11 rounded-full bg-terracotta px-6 py-2 text-sm font-semibold text-white hover:bg-terracotta-dark"
+                                        >
+                                            Xác nhận cập nhật ETA
+                                        </button>
+                                    </form>
+                                    <% if (appointment.estimatedEndAt) { %>
+                                        <div class="mt-6">
+                                            <h4 class="text-sm font-semibold">
+                                                Lịch bị ảnh hưởng theo dữ liệu đang xem
+                                            </h4>
+
+                                            <% if (appointment.ownerReviewRequired) { %>
+                                                <p role="alert" class="mt-2 text-sm font-semibold text-terracotta">
+                                                    Có lịch bị ảnh hưởng, Owner cần xem xét xử lý.
+                                                </p>
+                                            <% } %>
+
+                                            <% if (!(appointment.affectedAppointments ?? []).length) { %>
+                                                <p class="mt-2 text-sm text-muted">
+                                                    Chưa ghi nhận lịch bị ảnh hưởng tại thời điểm tải dữ liệu.
+                                                </p>
+                                            <% } else { %>
+                                                <ul class="mt-3 space-y-3">
+                                                    <% for (const affected of appointment.affectedAppointments) { %>
+                                                    <li class="rounded-xl border border-border p-4">
+                                                        <a
+                                                        href="/owner/appointments/<%= affected.id %>"
+                                                        class="break-all text-sm font-semibold text-terracotta hover:underline"
+                                                        >
+                                                            Lịch <%= affected.id %>
+                                                            </a>
+
+                                                            <p class="mt-2 text-sm text-muted">
+                                                            <%= dateTime.format(new Date(affected.startAt)) %>
+                                                            – <%= dateTime.format(new Date(affected.endAt)) %>
+                                                            </p>
+
+                                                            <p class="mt-2 text-sm text-muted">
+                                                            <%= affected.reasons.map(reason =>
+                                                                reason === 'staff_overlap'
+                                                                ? 'Trùng thời gian Stylist'
+                                                                : reason === 'customer_overlap'
+                                                                    ? 'Trùng thời gian khách'
+                                                                    : reason
+                                                            ).join('; ') %>
+                                                            </p>
+                                                        </li>
+                                                        <% } %>
+                                                    </ul>
+                                                <% } %>
+                                            </div>
+                                        <% } %>
+                                    </section>
+                                <% } %>
                             <% if (appointment.completedAt) { %>
                                 <p class="mt-2 text-sm text-muted">
                                     Hoàn tất thực tế:
