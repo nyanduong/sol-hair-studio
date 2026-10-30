@@ -18,6 +18,41 @@ export default function ServiceImageUploader({
 
   const fileInputRef = useRef(null)
 
+  async function uploadFile(file) {
+    if (!file) return
+    setIsUploading(true)
+    setUploadError('')
+    setUploadSuccess('')
+
+    try {
+      const reader = new FileReader()
+      const dataUrl = await new Promise((resolve, reject) => {
+        reader.onload = (e) => resolve(e.target?.result)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+
+      const res = await uploadServiceImage(apiBaseUrl, token, {
+        dataUrl,
+        originalName: file.name,
+      })
+
+      const finalUrl = res.secureUrl || res.url
+      setPreviewUrl(finalUrl)
+      setUploadSuccess('Tải ảnh lên Cloudinary thành công!')
+      setSelectedFile(null)
+
+      onImageUploaded({
+        coverImageId: res.id,
+        imageUrl: finalUrl,
+      })
+    } catch (err) {
+      setUploadError(err?.message || 'Không thể tải ảnh lên. Vui lòng kiểm tra lại.')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
   function handleFileChange(event) {
     const file = event.target.files?.[0]
     if (!file) return
@@ -43,40 +78,14 @@ export default function ServiceImageUploader({
       setPreviewUrl(e.target?.result || '')
     }
     reader.readAsDataURL(file)
+
+    // Tự động tải lên Cloudinary ngay sau khi chọn file
+    uploadFile(file)
   }
 
-  async function handleUpload() {
-    if (!selectedFile) return
-    setIsUploading(true)
-    setUploadError('')
-    setUploadSuccess('')
-
-    try {
-      const reader = new FileReader()
-      const dataUrl = await new Promise((resolve, reject) => {
-        reader.onload = (e) => resolve(e.target?.result)
-        reader.onerror = reject
-        reader.readAsDataURL(selectedFile)
-      })
-
-      const res = await uploadServiceImage(apiBaseUrl, token, {
-        dataUrl,
-        originalName: selectedFile.name,
-      })
-
-      const finalUrl = res.secureUrl || res.url
-      setPreviewUrl(finalUrl)
-      setUploadSuccess('Tải ảnh lên Cloudinary thành công!')
-      setSelectedFile(null)
-
-      onImageUploaded({
-        coverImageId: res.id,
-        imageUrl: finalUrl,
-      })
-    } catch (err) {
-      setUploadError(err?.message || 'Không thể tải ảnh lên. Vui lòng kiểm tra lại.')
-    } finally {
-      setIsUploading(false)
+  function handleUpload() {
+    if (selectedFile) {
+      uploadFile(selectedFile)
     }
   }
 
@@ -179,16 +188,24 @@ export default function ServiceImageUploader({
                   Chọn file từ máy
                 </button>
 
-                {selectedFile && (
+                {isUploading ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-xl bg-terracotta/10 px-3 py-1.5 text-xs font-semibold text-terracotta">
+                    <svg className="size-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                    </svg>
+                    Đang tải lên Cloudinary…
+                  </span>
+                ) : selectedFile ? (
                   <button
                     type="button"
-                    disabled={disabled || isUploading}
+                    disabled={disabled}
                     onClick={handleUpload}
                     className="rounded-xl bg-terracotta px-3 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-terracotta-dark transition-colors disabled:opacity-50"
                   >
-                    {isUploading ? 'Đang tải lên Cloudinary…' : 'Tải lên Cloudinary'}
+                    Tải lên Cloudinary
                   </button>
-                )}
+                ) : null}
 
                 {previewUrl && (
                   <button
