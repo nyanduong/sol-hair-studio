@@ -121,14 +121,20 @@
                             Tên dịch vụ, giá và thời lượng theo thông tin đã lưu trong lịch hẹn.
                         </p>
                     </section>
-                    
+
                     <% if (appointment.status === 'confirmed') {
                         const cancelReasonRequired =
                             Date.parse(appointment.startAt) - Date.now() < 7_200_000
                         %>
                         <section class="mt-6 border-t border-border pt-6">
+                            <a
+                                href="/owner/appointments/<%= appointment.id %>/reschedule"
+                                class="mb-6 inline-flex min-h-11 items-center rounded-full border border-terracotta px-6 py-2 text-sm font-semibold text-terracotta hover:bg-soft-surface"
+                            >
+                                Đổi giờ hoặc Stylist
+                            </a>
                             <h2 class="font-display text-2xl font-semibold">Hủy lịch hẹn</h2>
-
+                            
                             <p class="mt-2 text-sm leading-6 text-muted">
                             Lịch đã hủy không thể mở lại. Hãy kiểm tra đúng khách và giờ hẹn trước khi xác nhận.
                             </p>
