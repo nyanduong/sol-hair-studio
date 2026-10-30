@@ -11,6 +11,8 @@ import {
   completeAppointment,
   updateAppointmentEta,
   getAppointmentAudit,
+  correctAppointmentStart,
+  correctAppointmentCompletion,
 } from '../appointments/appointments.service.js'
 import { listStaff } from '../staff/staff.service.js'
 import { salonDate } from '../../../../../shared/booking.js'
@@ -70,6 +72,8 @@ export async function showOwnerAppointmentDetail(req, res, next) {
       startKey: randomUUID(),
       completeKey: randomUUID(),
       etaKey: randomUUID(),
+      correctStartKey: randomUUID(),
+      correctCompleteKey: randomUUID(),
       error: '',
     })
   } catch (error) {
@@ -523,6 +527,129 @@ export async function showOwnerAudit(req, res, next) {
         nextCursor: null,
       },
       error: error.message,
+    })
+  }
+}
+
+export function submitOwnerCorrectStart(req, res) {
+  return submitOwnerCorrection(req, res, 'correct-start')
+}
+
+export function submitOwnerCorrectComplete(req, res) {
+  return submitOwnerCorrection(req, res, 'correct-complete')
+}
+
+async function submitOwnerCorrection(req, res, operation) {
+  const correctingComplete = operation === 'correct-complete'
+  const confirmationField = correctingComplete
+    ? 'serviceNotCompleted'
+    : 'serviceNotStarted'
+
+  const service = correctingComplete
+    ? correctAppointmentCompletion
+    : correctAppointmentStart
+
+  const rawRevision = req.body?.expectedRevision
+  const expectedRevision =
+    typeof rawRevision === 'string' && /^(0|[1-9]\d*)$/.test(rawRevision)
+      ? Number(rawRevision)
+      : rawRevision
+
+  const confirmed = req.body?.[confirmationField] === 'true'
+  const estimatedEndLocal = correctingComplete
+    ? req.body?.estimatedEndLocal
+    : undefined
+
+  const commandKey =
+    req.get('Idempotency-Key') ?? req.body?.commandKey
+
+  const payload = {
+    expectedRevision,
+    reason: req.body?.reason,
+    [confirmationField]: confirmed,
+  }
+
+  const view = {
+    title: correctingComplete
+      ? 'Sửa hoàn tất nhầm'
+      : 'Sửa bắt đầu nhầm',
+    operation,
+    confirmationField,
+    appointmentId: req.params.appointmentId,
+    form: {
+      expectedRevision,
+      reason: payload.reason ?? '',
+      confirmed,
+      estimatedEndLocal: estimatedEndLocal ?? '',
+      commandKey: commandKey ?? '',
+    },
+  }
+
+  try {
+    if (
+      correctingComplete &&
+      estimatedEndLocal !== undefined &&
+      estimatedEndLocal !== ''
+    ) {
+      if (
+        typeof estimatedEndLocal !== 'string' ||
+        !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(estimatedEndLocal)
+      ) {
+        throw new AppointmentError('ETA mới không hợp lệ.', {
+          code: 'INVALID_ETA',
+          status: 400,
+        })
+      }
+
+      const estimatedEnd = new Date(`${estimatedEndLocal}:00+07:00`)
+
+      if (
+        !Number.isFinite(estimatedEnd.getTime()) ||
+        new Date(estimatedEnd.getTime() + 7 * 60 * 60_000)
+          .toISOString()
+          .slice(0, 16) !== estimatedEndLocal
+      ) {
+        throw new AppointmentError('ETA mới không hợp lệ.', {
+          code: 'INVALID_ETA',
+          status: 400,
+        })
+      }
+
+      payload.estimatedEndAt = estimatedEnd.toISOString()
+    }
+
+    const result = await service(
+      req.identity,
+      req.params.appointmentId,
+      payload,
+      commandKey,
+    )
+
+    return res.render('owner/appointment-correction-result', {
+      ...view,
+      result,
+      error: '',
+      pending: false,
+    })
+  } catch (error) {
+    const knownError = error instanceof AppointmentError
+    const status = knownError ? error.status : 500
+    const pending = status >= 500 || status === 408
+
+    if (!knownError) {
+      console.error('Lỗi sửa thao tác nhầm Owner.', {
+        operation,
+        name: error instanceof Error ? error.name : 'UnknownError',
+      })
+    }
+
+    return res.status(status).render('owner/appointment-correction-result', {
+      ...view,
+      result: null,
+      pending,
+      error: pending
+        ? 'Chưa xác định được kết quả sửa nhầm. Hãy kiểm tra và thử lại cùng yêu cầu.'
+        : error.message,
     })
   }
 }

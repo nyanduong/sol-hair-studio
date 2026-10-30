@@ -441,6 +441,99 @@
                             <% } %>
                         </section>
                     <% } %>
+
+                    <% if (['in_progress', 'completed'].includes(appointment.status)) {
+                        const correctingComplete = appointment.status === 'completed'
+                        const correctionOperation = correctingComplete
+                            ? 'correct-complete'
+                            : 'correct-start'
+                        const correctionEtaRequired =
+                            correctingComplete && Date.now() >= Date.parse(appointment.endAt)
+                        %>
+                        <section class="mt-6 border-t border-border pt-6">
+                            <h2 class="font-display text-2xl font-semibold">
+                                <%= correctingComplete
+                                    ? 'Sửa hoàn tất nhầm'
+                                    : 'Sửa bắt đầu nhầm' %>
+                            </h2>
+
+                            <p class="mt-2 text-sm leading-6 text-muted">
+                                <%= correctingComplete
+                                    ? 'Chỉ dùng khi đã bấm hoàn tất nhầm và khách vẫn đang được phục vụ.'
+                                    : 'Chỉ dùng khi đã bấm bắt đầu nhầm nhưng thực tế chưa phục vụ khách.' %>
+                                Backend sẽ kiểm tra xung đột trước khi khôi phục.
+                            </p>
+
+                            <form
+                                method="post"
+                                action="/owner/appointments/<%= appointment.id %>/<%= correctionOperation %>"
+                                class="mt-4 space-y-4"
+                            >
+                                <input
+                                    type="hidden"
+                                    name="expectedRevision"
+                                    value="<%= appointment.revision %>"
+                                />
+                                <input
+                                    type="hidden"
+                                    name="commandKey"
+                                    value="<%= correctingComplete ? correctCompleteKey : correctStartKey %>"
+                                />
+
+                                <label class="block text-sm font-semibold">
+                                    Lý do sửa nhầm
+                                    <textarea
+                                        name="reason"
+                                        rows="3"
+                                        maxlength="500"
+                                        required
+                                        class="mt-2 block w-full rounded-xl border border-border bg-white px-3 py-2 text-sm font-normal"
+                                    ></textarea>
+                                </label>
+
+                                <% if (correctingComplete) { %>
+                                    <label class="block text-sm font-semibold">
+                                        ETA mới theo giờ Việt Nam
+                                        <%= correctionEtaRequired ? '(bắt buộc)' : '(không bắt buộc)' %>
+                                        <input
+                                            type="datetime-local"
+                                            name="estimatedEndLocal"
+                                            step="60"
+                                            <%= correctionEtaRequired ? 'required' : '' %>
+                                            class="mt-2 block w-full rounded-xl border border-border bg-white px-3 py-2 text-sm font-normal"
+                                        />
+                                    </label>
+
+                                    <p class="text-sm text-muted">
+                                        Nếu đã qua giờ kết thúc dự kiến, phải nhập ETA mới.
+                                        ETA được nhập phải sau thời điểm hiện tại và sau giờ kết thúc dự kiến.
+                                    </p>
+                                <% } %>
+
+                                <label class="flex items-start gap-3 text-sm">
+                                    <input
+                                        type="checkbox"
+                                        name="<%= correctingComplete ? 'serviceNotCompleted' : 'serviceNotStarted' %>"
+                                        value="true"
+                                        required
+                                        class="mt-1"
+                                    />
+                                    <span>
+                                        <%= correctingComplete
+                                            ? 'Tôi xác nhận đã hoàn tất nhầm và khách vẫn đang được phục vụ.'
+                                            : 'Tôi xác nhận đã bắt đầu nhầm và thực tế chưa phục vụ khách.' %>
+                                    </span>
+                                </label>
+
+                                <button
+                                    type="submit"
+                                    class="min-h-11 rounded-full bg-terracotta px-6 py-2 text-sm font-semibold text-white hover:bg-terracotta-dark"
+                                >
+                                    Xác nhận sửa thao tác nhầm
+                                </button>
+                            </form>
+                        </section>
+                    <% } %>
                 </section>
             <% } %>
         </main>

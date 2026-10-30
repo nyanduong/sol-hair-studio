@@ -11,6 +11,8 @@ import {
     submitOwnerComplete,
     submitOwnerEta,
     showOwnerAudit,
+    submitOwnerCorrectStart,
+    submitOwnerCorrectComplete,
 } from './owner-web.controller.js'
 export const ownerWebRouter = Router()
 
@@ -31,7 +33,9 @@ ownerWebRouter.post('/appointments/:appointmentId/cancel', requireAuth, requireR
 ownerWebRouter.get('/appointments/:appointmentId/reschedule', requireAuth, requireRoles('owner'), showOwnerReschedule,)
 ownerWebRouter.post('/appointments/:appointmentId/reschedule', requireAuth, requireRoles('owner'), urlencoded({ extended: false, limit: '10kb' }), submitOwnerReschedule)
 ownerWebRouter.post('/appointments/:appointmentId/no-show', requireAuth, requireRoles('owner'), urlencoded({ extended: false, limit: '10kb' }), submitOwnerNoShow)
-ownerWebRouter.post( '/appointments/:appointmentId/start', requireAuth, requireRoles('owner'), urlencoded({ extended: false, limit: '10kb' }), submitOwnerStart,)
+ownerWebRouter.post( '/appointments/:appointmentId/start', requireAuth, requireRoles('owner'), urlencoded({ extended: false, limit: '10kb' }), submitOwnerStart)
 ownerWebRouter.post( '/appointments/:appointmentId/complete', requireAuth, requireRoles('owner'), urlencoded({ extended: false, limit: '10kb' }), submitOwnerComplete)
 ownerWebRouter.post('/appointments/:appointmentId/eta', requireAuth, requireRoles('owner'), urlencoded({ extended: false, limit: '10kb' }), submitOwnerEta)
 ownerWebRouter.get('/appointments/:appointmentId/audit',requireAuth,requireRoles('owner'),showOwnerAudit)
+ownerWebRouter.post('/appointments/:appointmentId/correct-start', requireAuth, requireRoles('owner'), urlencoded({ extended: false, limit: '10kb' }), submitOwnerCorrectStart)
+ownerWebRouter.post( '/appointments/:appointmentId/correct-complete', requireAuth, requireRoles('owner'), urlencoded({ extended: false, limit: '10kb' }), submitOwnerCorrectComplete)
