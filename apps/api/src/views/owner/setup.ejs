@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title><%= title %> — Kiểm tra EJS</title>
+
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet"
+        />
+        <link rel="stylesheet" href="/owner-assets/css/owner.css" />
+    </head>
+    <body class="min-h-svh bg-canvas font-sans text-ink">
+        <main class="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+        <p class="text-xs font-semibold uppercase tracking-widest text-terracotta">
+            Sol Hair Studio
+        </p>
+
+        <h1 class="mt-4 font-display text-4xl sm:text-5xl">
+            <%= title %>
+        </h1>
+
+        <section class="mt-6 rounded-3xl border border-border bg-white p-6 sm:p-8">
+            <p class="text-sm leading-6 text-muted"><%= message %></p>
+        </section>
+        </main>
+    </body>
+</html>
