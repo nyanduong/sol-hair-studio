@@ -5,6 +5,8 @@ import { config } from './config/env.js'
 import { errorHandler } from './middlewares/error-handler.js'
 import { notFound } from './middlewares/not-found.js'
 import { apiRouter } from './routes/index.js'
+import { fileURLToPath } from 'node:url'
+import { ownerWebRouter } from './modules/owner-web/owner-web.routes.js'
 
 const allowedOrigins =
   config.corsOrigin === '*' ? true : config.corsOrigin
@@ -14,6 +16,10 @@ const allowedOrigins =
 
 export function createApp({ routes = apiRouter, logStream } = {}) {
   const app = express()
+  app.set('view engine', 'ejs')
+  app.set('views', fileURLToPath(new URL('./views/', import.meta.url)))
+
+  app.use('/owner-assets',express.static(fileURLToPath(new URL('../public/', import.meta.url))))
 
   app.disable('x-powered-by')
   // Log HTTP ra terminal; không ghi query, body hoặc Authorization.
@@ -28,6 +34,7 @@ export function createApp({ routes = apiRouter, logStream } = {}) {
   app.use(cors({ origin: allowedOrigins }))
   app.use(express.json({ limit: '15mb' }))
   app.use(routes)
+  app.use('/owner', ownerWebRouter)
   app.use(notFound)
   app.use(errorHandler)
 

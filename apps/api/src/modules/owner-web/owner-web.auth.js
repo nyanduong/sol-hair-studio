@@ -1,0 +1,1 @@
+// Xác thực Owner EJS là phần phụ thuộc, chờ tích hợp cơ chế chung.
