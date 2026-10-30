@@ -6,7 +6,7 @@ Nền tảng dùng chung cho bài tập SDN302 và MMA301. Repository này chứ
 | --- | --- | --- |
 | `apps/web` | React + Vite + JavaScript/JSX + Tailwind CSS | Trang chủ thích ứng, lấy danh mục dịch vụ từ API |
 | `apps/mobile` | React Native + Expo + JavaScript/JSX | Danh mục dịch vụ native Android/iOS và màn hình kiểm tra kết nối API |
-| `apps/api` | Node.js + Express + JavaScript | API dùng chung, MongoDB và ảnh dịch vụ trên Cloudinary |
+| `apps/api` | Node.js + Express + EJS + JavaScript | API dùng chung, trang quản trị EJS, MongoDB và ảnh dịch vụ trên Cloudinary |
 
 Repository có trang chủ web, danh mục dịch vụ trên mobile và API dùng chung. MongoDB lưu dịch vụ; Cloudinary phân phối ảnh dịch vụ. API tài khoản/OTP/phân quyền được triển khai ở SOL-017; giao diện tài khoản thuộc SOL-018/SOL-019. Đặt lịch và trang tổng quan chưa triển khai, thanh toán ngoài MVP. Đây chưa phải tuyên bố đáp ứng rubric. Phạm vi hai môn và các giả định đang được ghi tại [docs/course-scope.md](docs/course-scope.md).
 
@@ -61,7 +61,7 @@ npm run dev:mobile
 - Web mặc định: `http://localhost:5173` và đọc `VITE_API_BASE_URL`.
 - Ứng dụng di động đọc `EXPO_PUBLIC_API_BASE_URL`.
 
-Trang `/quan-ly/nhan-su` hiện mặc định dùng phiên và HTTP giả lập, dữ liệu chỉ ở trong bộ nhớ; tải lại trang sẽ mất thay đổi và không tạo tài khoản thật. Giao diện đi qua `staff-client.js`, các hàm API SOL-025 và HTTP helper trước khi nhận phản hồi mẫu, bao gồm lỗi xung đột. Phiên mẫu không đăng nhập vào API thật; route chưa có phiên SOL-018 để cấp client thật và link xử lý từng lịch M5 chưa có. Cần ghép phiên SOL-018, kiểm thử API thật và kết nối M5 trước khi nghiệm thu.
+Trang quản trị nhân sự EJS ở `http://localhost:4000/admin/nhan-su` yêu cầu đăng nhập bằng tài khoản chủ tiệm và đọc dữ liệu thật qua API SOL-025.
 
 Mobile mở Home với thương hiệu Sol, ảnh hero và dịch vụ từ `GET /api/services`. Thanh điều hướng chuyển giữa **Trang chủ** và **Dịch vụ**; danh mục tự xuống một cột khi màn hẹp hoặc chữ hệ thống lớn. Cả hai màn giữ trạng thái tải, rỗng, lỗi, thử lại và tải lại. Liên kết **Kiểm tra kết nối** cuối danh sách mở Health; nút quay lại trở về màn trước. Thanh dưới có thêm Đặt lịch, Lịch hẹn, Tài khoản; các mục này, chuông thông báo và hai CTA Đặt lịch ngay mở modal thông báo tính năng đang phát triển. Modal dùng chung trong `apps/mobile/src/components/`. Home ẩn toolbar tải lại để bám prototype, vẫn có kéo xuống tải lại và nút thử lại khi lỗi. Không cần đăng nhập để xem dịch vụ.
 
