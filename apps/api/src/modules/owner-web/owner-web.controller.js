@@ -1,5 +1,13 @@
 
-import { AppointmentError, listAppointments, getAppointmentDetail, cancelAppointment, getAppointmentRescheduleOptions, rescheduleAppointment} from '../appointments/appointments.service.js'
+import {
+  AppointmentError,
+  listAppointments,
+  getAppointmentDetail,
+  cancelAppointment,
+  getAppointmentRescheduleOptions,
+  rescheduleAppointment,
+  markAppointmentNoShow,
+} from '../appointments/appointments.service.js'
 import { listStaff } from '../staff/staff.service.js'
 import { salonDate } from '../../../../../shared/booking.js'
 import { randomUUID } from 'node:crypto'
@@ -54,6 +62,7 @@ export async function showOwnerAppointmentDetail(req, res, next) {
       title: 'Chi tiết lịch hẹn',
       appointment,
       cancelKey: randomUUID(),
+      noShowKey: randomUUID(),
       error: '',
     })
   } catch (error) {
@@ -231,6 +240,92 @@ export async function submitOwnerReschedule(req, res) {
       pending,
       error: pending
         ? 'Chưa xác định được kết quả đổi lịch. Hãy kiểm tra và thử lại cùng yêu cầu.'
+        : error.message,
+    })
+  }
+}
+
+export async function submitOwnerNoShow(req, res) {
+  const rawRevision = req.body?.expectedRevision
+
+  const expectedRevision =
+    typeof rawRevision === 'string' && /^(0|[1-9]\d*)$/.test(rawRevision)
+      ? Number(rawRevision)
+      : rawRevision
+
+  const contactLocal = req.body?.contactAttemptedLocal
+
+  const commandKey =
+    req.get('Idempotency-Key') ?? req.body?.commandKey
+
+  const view = {
+    title: 'Khách không đến',
+    appointmentId: req.params.appointmentId,
+    form: {
+      expectedRevision,
+      contactAttemptedLocal: contactLocal ?? '',
+      commandKey: commandKey ?? '',
+    },
+  }
+
+  try {
+    if (
+      typeof contactLocal !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(contactLocal)
+    ) {
+      throw new AppointmentError('Vui lòng nhập thời điểm đã liên hệ khách.', {
+        code: 'INVALID_CONTACT_ATTEMPTED_AT',
+        status: 400,
+      })
+    }
+
+    const contactDate = new Date(`${contactLocal}:00+07:00`)
+
+    if (
+      !Number.isFinite(contactDate.getTime()) ||
+      new Date(contactDate.getTime() + 7 * 60 * 60_000)
+        .toISOString()
+        .slice(0, 16) !== contactLocal
+    ) {
+      throw new AppointmentError('Thời điểm liên hệ không hợp lệ.', {
+        code: 'INVALID_CONTACT_ATTEMPTED_AT',
+        status: 400,
+      })
+    }
+
+    const result = await markAppointmentNoShow(
+      req.identity,
+      req.params.appointmentId,
+      {
+        expectedRevision,
+        contactAttemptedAt: contactDate.toISOString(),
+      },
+      commandKey,
+    )
+
+    return res.render('owner/appointment-no-show-result', {
+      ...view,
+      result,
+      error: '',
+      pending: false,
+    })
+  } catch (error) {
+    const knownError = error instanceof AppointmentError
+    const status = knownError ? error.status : 500
+    const pending = status >= 500 || status === 408
+
+    if (!knownError) {
+      console.error('Lỗi đánh dấu no-show Owner.', {
+        name: error instanceof Error ? error.name : 'UnknownError',
+      })
+    }
+
+    return res.status(status).render('owner/appointment-no-show-result', {
+      ...view,
+      result: null,
+      pending,
+      error: pending
+        ? 'Chưa xác định được kết quả no-show. Hãy kiểm tra và thử lại cùng yêu cầu.'
         : error.message,
     })
   }

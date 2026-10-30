@@ -180,6 +180,59 @@
                                 </button>
                             </form>
                         </section>
+
+                        <section class="mt-6 border-t border-border pt-6">
+                        <h2 class="font-display text-2xl font-semibold">
+                            Khách không đến
+                        </h2>
+
+                            <% if (Date.now() >= Date.parse(appointment.startAt) + 15 * 60_000) { %>
+                                <p class="mt-2 text-sm leading-6 text-muted">
+                                    Chỉ xác nhận sau khi đã liên hệ khách và khách không đến.
+                                    Thời điểm liên hệ nhập theo giờ Việt Nam.
+                                </p>
+
+                                <form
+                                    method="post"
+                                    action="/owner/appointments/<%= appointment.id %>/no-show"
+                                    class="mt-4 space-y-4"
+                                >
+                                    <input
+                                        type="hidden"
+                                        name="expectedRevision"
+                                        value="<%= appointment.revision %>"
+                                    />
+                                    <input
+                                        type="hidden"
+                                        name="commandKey"
+                                        value="<%= noShowKey %>"
+                                    />
+
+                                    <label class="block text-sm font-semibold">
+                                        Thời điểm đã liên hệ khách
+                                        <input
+                                            type="datetime-local"
+                                            name="contactAttemptedLocal"
+                                            step="60"
+                                            required
+                                            class="mt-2 block w-full rounded-xl border border-border bg-white px-3 py-2 text-sm font-normal"
+                                        />
+                                    </label>
+
+                                    <button
+                                        type="submit"
+                                        class="min-h-11 rounded-full bg-terracotta px-6 py-2 text-sm font-semibold text-white hover:bg-terracotta-dark"
+                                    >
+                                        Xác nhận khách không đến
+                                    </button>
+                                </form>
+                            <% } else { %>
+                                <p class="mt-2 text-sm leading-6 text-muted">
+                                    Chưa đủ 15 phút từ giờ hẹn để đánh dấu khách không đến.
+                                    Tải lại trang khi đến thời điểm này.
+                                </p>
+                            <% } %>
+                        </section>
                     <% } %>
                 </section>
             <% } %>
