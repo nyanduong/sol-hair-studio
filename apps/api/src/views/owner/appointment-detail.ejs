@@ -121,6 +121,60 @@
                             Tên dịch vụ, giá và thời lượng theo thông tin đã lưu trong lịch hẹn.
                         </p>
                     </section>
+                    
+                    <% if (appointment.status === 'confirmed') {
+                        const cancelReasonRequired =
+                            Date.parse(appointment.startAt) - Date.now() < 7_200_000
+                        %>
+                        <section class="mt-6 border-t border-border pt-6">
+                            <h2 class="font-display text-2xl font-semibold">Hủy lịch hẹn</h2>
+
+                            <p class="mt-2 text-sm leading-6 text-muted">
+                            Lịch đã hủy không thể mở lại. Hãy kiểm tra đúng khách và giờ hẹn trước khi xác nhận.
+                            </p>
+
+                            <form
+                                method="post"
+                                action="/owner/appointments/<%= appointment.id %>/cancel"
+                                class="mt-4 space-y-4"
+                            >
+                                <input
+                                    type="hidden"
+                                    name="expectedRevision"
+                                    value="<%= appointment.revision %>"
+                                />
+                                <input
+                                    type="hidden"
+                                    name="commandKey"
+                                    value="<%= cancelKey %>"
+                                />
+
+                                <label class="block text-sm font-semibold">
+                                    Lý do hủy
+                                    <%= cancelReasonRequired ? '(bắt buộc)' : '(không bắt buộc)' %>
+
+                                    <textarea
+                                        name="reason"
+                                        rows="3"
+                                        maxlength="500"
+                                        <%= cancelReasonRequired ? 'required' : '' %>
+                                        class="mt-2 w-full rounded-xl border border-border bg-white px-3 py-2 text-sm font-normal"
+                                    ></textarea>
+                                </label>
+
+                                <p class="text-xs leading-6 text-muted">
+                                    Hủy khi còn dưới 2 giờ hoặc đã quá giờ hẹn cần có lý do.
+                                </p>
+
+                                <button
+                                    type="submit"
+                                    class="min-h-11 rounded-full bg-terracotta px-6 py-2 text-sm font-semibold text-white hover:bg-terracotta-dark"
+                                >
+                                    Xác nhận hủy lịch
+                                </button>
+                            </form>
+                        </section>
+                    <% } %>
                 </section>
             <% } %>
         </main>

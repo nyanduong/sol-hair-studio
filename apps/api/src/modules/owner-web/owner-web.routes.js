@@ -1,6 +1,6 @@
-import { Router } from 'express'
+import { Router, urlencoded } from 'express'
 import { requireAuth, requireRoles } from '../../middlewares/auth.js'
-import { showOwnerAppointments, showOwnerAppointmentDetail, } from './owner-web.controller.js'
+import { showOwnerAppointments, showOwnerAppointmentDetail, submitOwnerCancellation,} from './owner-web.controller.js'
 export const ownerWebRouter = Router()
 
 ownerWebRouter.use((req, res, next) => {
@@ -15,4 +15,5 @@ ownerWebRouter.get('/setup', (req, res) => {
     })
 })
 ownerWebRouter.get('/appointments',requireAuth,requireRoles('owner'),showOwnerAppointments)
-ownerWebRouter.get('/appointments/:appointmentId', requireAuth, requireRoles('owner'), showOwnerAppointmentDetail,)
+ownerWebRouter.get('/appointments/:appointmentId', requireAuth, requireRoles('owner'), showOwnerAppointmentDetail)
+ownerWebRouter.post('/appointments/:appointmentId/cancel', requireAuth, requireRoles('owner'), urlencoded({ extended: false, limit: '10kb' }), submitOwnerCancellation)
