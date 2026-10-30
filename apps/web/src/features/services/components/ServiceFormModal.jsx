@@ -293,7 +293,7 @@ export default function ServiceFormModal({
                   type="number"
                   min="1"
                   max="480"
-                  step="5"
+                  step="1"
                   required
                   value={durationMin}
                   onChange={handleDurationMinChange}
@@ -311,7 +311,7 @@ export default function ServiceFormModal({
                   type="number"
                   min="1"
                   max="480"
-                  step="5"
+                  step="1"
                   required
                   value={durationMax}
                   onChange={handleDurationMaxChange}
@@ -327,9 +327,9 @@ export default function ServiceFormModal({
                 <input
                   id="booking-duration"
                   type="number"
-                  min={durationMin}
-                  max={durationMax}
-                  step="5"
+                  min="1"
+                  max="480"
+                  step="1"
                   required
                   value={bookingDurationMinutes}
                   onChange={(e) => setBookingDurationMinutes(Number(e.target.value))}
