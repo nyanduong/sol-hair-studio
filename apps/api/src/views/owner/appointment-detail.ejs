@@ -59,6 +59,12 @@
                 <section class="mt-6 rounded-3xl border border-border bg-white p-6 sm:p-8">
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <p class="break-all text-xs text-muted">Mã lịch: <%= appointment.id %></p>
+                        <a
+                            href="/owner/appointments/<%= appointment.id %>/audit"
+                            class="inline-flex min-h-11 items-center text-sm font-semibold text-terracotta hover:underline"
+                        >
+                            Xem lịch sử thao tác
+                        </a>
                         <span class="rounded-full bg-soft-surface px-3 py-1 text-xs font-semibold text-terracotta">
                         <%= statuses[appointment.status] ?? appointment.status %>
                         </span>

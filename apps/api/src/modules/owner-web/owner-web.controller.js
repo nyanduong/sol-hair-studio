@@ -10,6 +10,7 @@ import {
   startAppointment,
   completeAppointment,
   updateAppointmentEta,
+  getAppointmentAudit,
 } from '../appointments/appointments.service.js'
 import { listStaff } from '../staff/staff.service.js'
 import { salonDate } from '../../../../../shared/booking.js'
@@ -487,6 +488,41 @@ export async function submitOwnerEta(req, res) {
       error: pending
         ? 'Chưa xác định được kết quả cập nhật ETA. Hãy kiểm tra và thử lại cùng yêu cầu.'
         : error.message,
+    })
+  }
+}
+
+export async function showOwnerAudit(req, res, next) {
+  const view = {
+    title: 'Lịch sử thao tác',
+    appointmentId: req.params.appointmentId,
+  }
+
+  try {
+    const page = await getAppointmentAudit(
+      req.identity,
+      req.params.appointmentId,
+      req.query,
+    )
+
+    return res.render('owner/appointment-audit', {
+      ...view,
+      events: page.items,
+      pagination: page.pagination,
+      error: '',
+    })
+  } catch (error) {
+    if (!(error instanceof AppointmentError)) return next(error)
+
+    return res.status(error.status).render('owner/appointment-audit', {
+      ...view,
+      events: [],
+      pagination: {
+        limit: 20,
+        hasNextPage: false,
+        nextCursor: null,
+      },
+      error: error.message,
     })
   }
 }
