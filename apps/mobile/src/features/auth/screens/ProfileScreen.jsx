@@ -197,41 +197,6 @@ export default function ProfileScreen({ navigation }) {
             </View>
           ) : null}
 
-          {/* Owner Admin Menu */}
-          {account?.roles?.includes('owner') && (
-            <View style={authStyles.card}>
-              <Text style={[authStyles.title, { fontSize: 16, marginBottom: 10 }]}>
-                Khu vực quản trị chủ tiệm
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Quản lý dịch vụ & hình ảnh"
-                onPress={() => navigation.navigate('OwnerServices')}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  backgroundColor: colors.soft,
-                  padding: 14,
-                  borderRadius: 14,
-                }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                  <Feather name="grid" size={20} color={colors.copper} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: colors.ink }}>
-                      Quản lý dịch vụ &amp; hình ảnh
-                    </Text>
-                    <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>
-                      Xem, thêm, sửa bảng giá và cấu hình thời lượng
-                    </Text>
-                  </View>
-                </View>
-                <Feather name="chevron-right" size={18} color={colors.copper} />
-              </Pressable>
-            </View>
-          )}
-
           {/* Customer Profile Edit Card */}
           <View style={authStyles.card}>
             <Text style={[authStyles.title, { fontSize: 20, marginBottom: 16 }]}>
