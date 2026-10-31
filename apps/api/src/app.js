@@ -7,6 +7,7 @@ import { notFound } from './middlewares/not-found.js'
 import { apiRouter } from './routes/index.js'
 import { fileURLToPath } from 'node:url'
 import { ownerWebRouter } from './modules/owner-web/owner-web.routes.js'
+import { availabilityInvalidation } from './modules/availability/availability.realtime.js'
 
 const allowedOrigins =
   config.corsOrigin === '*' ? true : config.corsOrigin
@@ -33,6 +34,7 @@ export function createApp({ routes = apiRouter, logStream } = {}) {
 
   app.use(cors({ origin: allowedOrigins }))
   app.use(express.json({ limit: '15mb' }))
+  app.use(availabilityInvalidation)
   app.use(routes)
   app.use('/owner', ownerWebRouter)
   app.use(notFound)

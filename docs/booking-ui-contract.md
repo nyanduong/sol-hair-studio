@@ -13,7 +13,7 @@ URL giữ lựa chọn khi tải lại hoặc đăng nhập tại trang; khách 
 
 - `GET /api/services`: DTO 8 field hiện có, danh sách công khai.
 - `GET /api/auth/me`: profile active và customer (nếu đã có).
-- `PATCH /api/auth/me`: `{displayName,phone}`; phone E.164, tên 1–120 ký tự. Dùng M1 để lưu contact.
+- `PATCH /api/auth/me`: `{displayName,phone}`; phone gửi API vẫn là E.164, tên 1–120 ký tự. SOL-043: helper contactInput dùng chung chấp nhận số Việt Nam đầu 0 (di động 10 chữ số, cố định đầu 02 có 11 chữ số), chuẩn hóa sang +84; bỏ khoảng trắng/dấu chấm/gạch nối/ngoặc khi dán. Số +84 kiểm tra cùng độ dài; số quốc tế khác giữ kiểm tra E.164 hiện có. Web tìm khách dùng đúng số đã chuẩn hóa. Dùng M1 để lưu contact.
 - `GET /api/availability`: serviceIds phân cách dấu phẩy, localDate/mode, owner có thể truyền customerId đã chọn.
   Tổng giá/thời lượng/items và slot do server trả; UI không cộng thời gian/giá làm dữ liệu authoritative.
 
@@ -79,3 +79,11 @@ SOL-034 nghiệm thu Web + Android với DB thật, tranh lịch và receipt. Gi
 Customer Web chia thành ba bước Dịch vụ → Stylist & thời gian → Xác nhận. Chuyển bước chỉ thay trạng thái trình bày; các hook, endpoint, payload và shared booking manager giữ nguyên. Quay lại giữ lựa chọn; đổi dịch vụ/ngày vẫn xóa stylist/slot theo luồng cũ. Sau lưu hồ sơ hoặc conflict 409, UI trở về bước chọn giờ để chọn lại slot. Khi có pending intent hoặc đã thành công, điều hướng bước và lựa chọn bị khóa.
 
 Thẻ dùng ảnh, mô tả, giá và thời lượng danh mục; lỗi ảnh có fallback. Tóm tắt hiển thị tạm tính danh mục khi chưa có availability, ghi rõ là tham khảo. Khi availability thành công, tổng giá/thời lượng dùng nguyên giá trị API, không tính lại giờ trống ở client. Không ẩn bản ghi demo. Owner giữ form đặt hộ/tới ngay hiện tại, không chuyển sang wizard customer; không triển khai thêm admin React hoặc thay đổi EJS.
+
+## SOL-043 — Cập nhật giờ trống qua Socket.IO
+
+API gắn Socket.IO trên cùng HTTP server/port; handshake dùng token phiên qua auth.token và kiểm tra customer/owner bằng authenticate hiện có. Client dùng VITE_API_BASE_URL, không hardcode host. Tín hiệu availability:changed không có payload và không nhận sự kiện ghi từ client. Middleware phát tín hiệu sau response ghi thành công cho appointments/staff/services và owner appointments; bao gồm tạo, đổi/hủy, ca và thay đổi năng lực. Không gửi tên, số điện thoại, mã lịch hay token qua broadcast.
+
+Booking Web mở kết nối khi có phiên và lựa chọn dịch vụ, gom tín hiệu trong 150ms rồi đọc lại GET availability. Giữ kết quả đang hiển thị khi refresh nền, latest-request bỏ kết quả cũ. Nếu slot đã chọn không còn hợp lệ, bỏ slot, báo rõ và trở về bước 2. Không tự chuyển lựa chọn khi đang gửi, pending retry hoặc đã thành công. Reconnect/focus đọc lại; kiểm tra định kỳ 60 giây khi kết nối và 15 giây khi mất socket để bù tín hiệu bỏ lỡ. Cleanup listener/timer/socket khi rời màn hình hoặc đổi phiên.
+
+Socket chỉ làm mới UI; transaction/guard/idempotency và 409 vẫn là nguồn bảo đảm chống trùng. Adapter hiện tại chạy trong một API process; nhiều instance cần adapter đồng bộ trước khi triển khai scale-out. Sửa DB trực tiếp không phát tín hiệu, được phản ánh khi đọc lại. Mobile giữ HTTP hiện tại.
