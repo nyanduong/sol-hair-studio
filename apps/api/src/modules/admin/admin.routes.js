@@ -3,6 +3,7 @@ import {
   renderLogin,
   handleLogin,
   handleLogout,
+  renderDashboard,
   renderServices,
   createServiceAction,
   updateServiceAction,
@@ -19,8 +20,12 @@ adminRouter.post('/admin/logout', requireAdminAuth, handleLogout)
 
 // Default admin redirect
 adminRouter.get('/admin', (req, res) => {
-  res.redirect('/admin/services')
+  res.redirect('/admin/dashboard')
 })
+
+// Owner Dashboard routes (EJS)
+adminRouter.get('/admin/dashboard', requireAdminAuth, renderDashboard)
+adminRouter.get('/owner/dashboard', requireAdminAuth, renderDashboard)
 
 // Owner Services management routes (EJS)
 adminRouter.get('/admin/services', requireAdminAuth, renderServices)

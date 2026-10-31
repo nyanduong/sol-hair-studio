@@ -36,7 +36,7 @@
   <header class="sticky top-0 z-30 border-b border-[#e7e2da] bg-white/95 backdrop-blur shadow-sm">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       <div class="flex items-center space-x-4">
-        <a href="/admin/services" class="flex items-center space-x-3">
+        <a href="/admin/dashboard" class="flex items-center space-x-3">
           <div class="w-9 h-9 rounded-full bg-[#b55338] text-white flex items-center justify-center font-bold text-sm tracking-wider">
             SOL
           </div>
@@ -46,7 +46,10 @@
           </div>
         </a>
         <nav class="hidden md:flex items-center space-x-1 pl-6">
-          <a href="/admin/services" class="px-3 py-1.5 rounded-lg text-sm font-semibold bg-[#b55338]/10 text-[#b55338]">
+          <a href="/admin/dashboard" class="px-3 py-1.5 rounded-lg text-sm font-semibold transition <%= locals.activeTab === 'dashboard' ? 'bg-[#b55338]/10 text-[#b55338]' : 'text-[#7a7269] hover:text-ink hover:bg-[#f4f0ea]' %>">
+            Tổng quan
+          </a>
+          <a href="/admin/services" class="px-3 py-1.5 rounded-lg text-sm font-semibold transition <%= locals.activeTab === 'services' ? 'bg-[#b55338]/10 text-[#b55338]' : 'text-[#7a7269] hover:text-ink hover:bg-[#f4f0ea]' %>">
             Quản lý Dịch vụ
           </a>
           <a href="/owner/appointments" class="px-3 py-1.5 rounded-lg text-sm font-medium text-[#7a7269] hover:text-ink hover:bg-[#f4f0ea] transition">
@@ -75,4 +78,3 @@
     </div>
   </header>
   <main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 max-w-7xl w-full mx-auto">
-

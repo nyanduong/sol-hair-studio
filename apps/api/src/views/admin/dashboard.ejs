@@ -1,0 +1,351 @@
+<%- include('layout-header', { title, identity, activeTab }) %>
+
+<div class="space-y-8">
+  <!-- Top Welcome & Date Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#e7e2da] pb-6">
+    <div>
+      <div class="flex items-center space-x-2">
+        <h1 class="text-2xl font-bold tracking-tight text-ink">Tổng quan Hoạt động Salon</h1>
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+          Trực tiếp
+        </span>
+      </div>
+      <p class="mt-1 text-sm text-[#7a7269]">
+        Theo dõi lịch hẹn khách hàng, hiệu suất dịch vụ và doanh thu salon ngày <strong class="text-ink"><%= todayStr %></strong>.
+      </p>
+    </div>
+    <div class="flex items-center space-x-3">
+      <a
+        href="/owner/appointments"
+        class="inline-flex items-center px-4 py-2 rounded-xl border border-[#e7e2da] bg-white text-sm font-semibold text-ink shadow-sm hover:bg-[#f4f0ea] transition active:scale-[0.98]"
+      >
+        <svg class="w-4 h-4 mr-2 text-[#7a7269]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        <span>Lịch Salon</span>
+      </a>
+      <a
+        href="/admin/services"
+        class="inline-flex items-center px-4 py-2 rounded-xl bg-[#b55338] text-white text-sm font-semibold shadow-sm hover:bg-[#96422b] transition active:scale-[0.98]"
+      >
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        <span>Quản lý dịch vụ</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- 4 KPI Stat Cards -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+    <!-- Doanh thu hoàn thành -->
+    <div class="rounded-2xl bg-white border border-[#e7e2da] p-5 shadow-sm hover:shadow transition">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold text-[#7a7269] uppercase tracking-wider">Doanh thu hoàn tất</span>
+        <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+      </div>
+      <div class="mt-4">
+        <div class="text-2xl font-bold tracking-tight text-ink"><%= formatVnd(totalRevenueVnd) %></div>
+        <div class="mt-1 text-xs text-[#7a7269]">
+          Hôm nay: <strong class="text-emerald-600"><%= formatVnd(todayStats.revenueVnd) %></strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lịch hẹn hôm nay -->
+    <div class="rounded-2xl bg-white border border-[#e7e2da] p-5 shadow-sm hover:shadow transition">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold text-[#7a7269] uppercase tracking-wider">Lịch hẹn hôm nay</span>
+        <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        </div>
+      </div>
+      <div class="mt-4">
+        <div class="text-2xl font-bold tracking-tight text-ink"><%= todayStats.total %> ca</div>
+        <div class="mt-1 text-xs text-[#7a7269]">
+          Đã xong: <span class="font-semibold text-emerald-600"><%= todayStats.completed %></span> · Chờ/Đang làm: <span class="font-semibold text-blue-600"><%= todayStats.confirmed + todayStats.inProgress %></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Đang & Chờ phục vụ -->
+    <div class="rounded-2xl bg-white border border-[#e7e2da] p-5 shadow-sm hover:shadow transition">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold text-[#7a7269] uppercase tracking-wider">Chờ & Đang phục vụ</span>
+        <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+      </div>
+      <div class="mt-4">
+        <div class="text-2xl font-bold tracking-tight text-ink"><%= todayStats.confirmed + todayStats.inProgress %> ca</div>
+        <div class="mt-1 text-xs text-[#7a7269]">
+          <% if (todayStats.inProgress > 0) { %>
+            <span class="inline-flex items-center text-amber-600 font-semibold">
+              <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse mr-1.5"></span>
+              <%= todayStats.inProgress %> ca đang làm tóc
+            </span>
+          <% } else { %>
+            <span>Không có ca nào đang làm tóc</span>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quy mô Salon -->
+    <div class="rounded-2xl bg-white border border-[#e7e2da] p-5 shadow-sm hover:shadow transition">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold text-[#7a7269] uppercase tracking-wider">Quy mô hoạt động</span>
+        <div class="w-9 h-9 rounded-xl bg-[#b55338]/10 text-[#b55338] flex items-center justify-center">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+        </div>
+      </div>
+      <div class="mt-4">
+        <div class="text-2xl font-bold tracking-tight text-ink"><%= activeServicesCount %> dịch vụ</div>
+        <div class="mt-1 text-xs text-[#7a7269]">
+          <span class="font-semibold text-ink"><%= activeStaffCount %></span> Stylist đang nhận lịch
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Today's Live Queue Table -->
+  <div class="rounded-2xl bg-white border border-[#e7e2da] shadow-sm overflow-hidden">
+    <div class="p-5 border-b border-[#e7e2da] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div>
+        <h2 class="text-base font-bold text-ink">Hàng đợi lịch hẹn hôm nay (<%= todayStr %>)</h2>
+        <p class="text-xs text-[#7a7269] mt-0.5">Danh sách các ca khách đặt phục vụ trong ngày theo thứ tự thời gian.</p>
+      </div>
+      <div class="flex items-center space-x-2">
+        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-[#f4f0ea] text-[#7a7269]">
+          Tổng cộng: <%= todayAppointments.length %> ca
+        </span>
+      </div>
+    </div>
+
+    <% if (todayAppointments.length === 0) { %>
+      <div class="p-12 text-center">
+        <div class="w-14 h-14 mx-auto rounded-2xl bg-[#f4f0ea] text-[#7a7269] flex items-center justify-center mb-3">
+          <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        </div>
+        <h3 class="text-sm font-bold text-ink">Hôm nay chưa có lịch hẹn nào</h3>
+        <p class="text-xs text-[#7a7269] mt-1 max-w-sm mx-auto">
+          Khi có khách đặt lịch trên web hoặc ứng dụng di động, các ca hẹn sẽ tự động xuất hiện tại đây.
+        </p>
+      </div>
+    <% } else { %>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-[#e7e2da] bg-[#fcfbf9] text-[11px] font-semibold text-[#7a7269] uppercase tracking-wider">
+              <th class="py-3 px-4">Giờ hẹn</th>
+              <th class="py-3 px-4">Khách hàng</th>
+              <th class="py-3 px-4">Dịch vụ</th>
+              <th class="py-3 px-4">Stylist</th>
+              <th class="py-3 px-4 text-right">Tổng tiền</th>
+              <th class="py-3 px-4 text-center">Trạng thái</th>
+              <th class="py-3 px-4 text-center">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-[#e7e2da] text-xs">
+            <% todayAppointments.forEach(function(apt) { %>
+              <tr class="hover:bg-[#fcfbf9] transition">
+                <!-- Giờ hẹn -->
+                <td class="py-3.5 px-4 whitespace-nowrap">
+                  <div class="font-bold text-ink">
+                    <%= formatTime(apt.startAt) %> – <%= formatTime(apt.endAt) %>
+                  </div>
+                  <div class="text-[10px] text-[#7a7269]"><%= apt.totalDurationMinutes %> phút</div>
+                </td>
+
+                <!-- Khách hàng -->
+                <td class="py-3.5 px-4 whitespace-nowrap">
+                  <div class="font-semibold text-ink"><%= apt.customerSnapshot?.displayName || 'Khách vãng lai' %></div>
+                  <div class="text-[11px] text-[#7a7269]"><%= apt.customerSnapshot?.phone || '—' %></div>
+                </td>
+
+                <!-- Dịch vụ -->
+                <td class="py-3.5 px-4">
+                  <div class="max-w-[220px]">
+                    <% if (apt.items && apt.items.length > 0) { %>
+                      <div class="font-medium text-ink truncate" title="<%= apt.items.map(i => i.name).join(', ') %>">
+                        <%= apt.items.map(i => i.name).join(', ') %>
+                      </div>
+                      <div class="text-[10px] text-[#7a7269]"><%= apt.items.length %> dịch vụ</div>
+                    <% } else { %>
+                      <span class="text-[#7a7269]">—</span>
+                    <% } %>
+                  </div>
+                </td>
+
+                <!-- Stylist -->
+                <td class="py-3.5 px-4 whitespace-nowrap">
+                  <div class="font-medium text-ink"><%= apt.staffNameSnapshot || 'Chưa chỉ định' %></div>
+                </td>
+
+                <!-- Tổng tiền -->
+                <td class="py-3.5 px-4 whitespace-nowrap text-right font-bold text-ink">
+                  <%= formatVnd(apt.totalPriceVnd) %>
+                </td>
+
+                <!-- Trạng thái badge -->
+                <td class="py-3.5 px-4 whitespace-nowrap text-center">
+                  <% if (apt.status === 'confirmed') { %>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                      Chờ phục vụ
+                    </span>
+                  <% } else if (apt.status === 'in_progress') { %>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 animate-pulse">
+                      Đang làm tóc
+                    </span>
+                  <% } else if (apt.status === 'completed') { %>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Hoàn thành
+                    </span>
+                  <% } else if (apt.status === 'cancelled') { %>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-700 border border-gray-200">
+                      Đã hủy
+                    </span>
+                  <% } else if (apt.status === 'no_show') { %>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-700 border border-red-200">
+                      Vắng mặt
+                    </span>
+                  <% } %>
+                </td>
+
+                <!-- Thao tác -->
+                <td class="py-3.5 px-4 whitespace-nowrap text-center">
+                  <a
+                    href="/owner/appointments/<%= apt._id %>"
+                    class="inline-flex items-center text-xs font-semibold text-[#b55338] hover:text-[#96422b] hover:underline"
+                  >
+                    Xem chi tiết →
+                  </a>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
+
+  <!-- Bottom Two Columns: Top Services & Status Breakdown -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Top 5 Dịch vụ được ưa chuộng -->
+    <div class="rounded-2xl bg-white border border-[#e7e2da] p-5 shadow-sm">
+      <div class="flex items-center justify-between border-b border-[#e7e2da] pb-4 mb-4">
+        <div>
+          <h2 class="text-sm font-bold text-ink">Top Dịch vụ đặt nhiều nhất</h2>
+          <p class="text-xs text-[#7a7269] mt-0.5">Xếp hạng theo tổng số lượt khách đặt</p>
+        </div>
+        <a href="/admin/services" class="text-xs font-semibold text-[#b55338] hover:underline">
+          Xem tất cả
+        </a>
+      </div>
+
+      <% if (!topServices || topServices.length === 0) { %>
+        <p class="text-xs text-[#7a7269] py-8 text-center">Chưa có đủ dữ liệu lịch hẹn để xếp hạng dịch vụ.</p>
+      <% } else { %>
+        <div class="space-y-3">
+          <% topServices.forEach(function(item, idx) { %>
+            <div class="flex items-center justify-between p-3 rounded-xl bg-[#fcfbf9] border border-[#e7e2da]/70">
+              <div class="flex items-center space-x-3">
+                <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold <%= idx === 0 ? 'bg-amber-100 text-amber-800' : (idx === 1 ? 'bg-slate-200 text-slate-700' : (idx === 2 ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-[#7a7269]')) %>">
+                  <%= idx + 1 %>
+                </span>
+                <div>
+                  <div class="font-semibold text-xs text-ink"><%= item._id %></div>
+                  <div class="text-[10px] text-[#7a7269]"><%= item.count %> lượt đặt</div>
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="text-xs font-bold text-ink"><%= formatVnd(item.totalRevenue) %></div>
+                <div class="text-[10px] text-emerald-600 font-medium">Doanh thu</div>
+              </div>
+            </div>
+          <% }); %>
+        </div>
+      <% } %>
+    </div>
+
+    <!-- Phân bổ trạng thái lịch hẹn & Lối tắt -->
+    <div class="rounded-2xl bg-white border border-[#e7e2da] p-5 shadow-sm flex flex-col justify-between">
+      <div>
+        <div class="border-b border-[#e7e2da] pb-4 mb-4">
+          <h2 class="text-sm font-bold text-ink">Phân bổ trạng thái lịch hẹn</h2>
+          <p class="text-xs text-[#7a7269] mt-0.5">Tổng số: <strong class="text-ink"><%= totalAppointments %></strong> lượt đặt trên toàn hệ thống</p>
+        </div>
+
+        <!-- Progress Bars Breakdown -->
+        <div class="space-y-3.5">
+          <!-- Hoàn thành -->
+          <div>
+            <div class="flex justify-between text-xs font-medium mb-1">
+              <span class="text-emerald-700 flex items-center">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span>
+                Hoàn thành (<%= statusMap.completed %> ca)
+              </span>
+              <span class="text-[#7a7269] font-semibold">
+                <%= totalAppointments > 0 ? Math.round((statusMap.completed / totalAppointments) * 100) : 0 %>%
+              </span>
+            </div>
+            <div class="w-full bg-[#f4f0ea] h-2.5 rounded-full overflow-hidden">
+              <div class="bg-emerald-500 h-2.5 rounded-full" style="width: <%= totalAppointments > 0 ? (statusMap.completed / totalAppointments) * 100 : 0 %>%"></div>
+            </div>
+          </div>
+
+          <!-- Đang chờ / Đang làm -->
+          <div>
+            <div class="flex justify-between text-xs font-medium mb-1">
+              <span class="text-blue-700 flex items-center">
+                <span class="w-2 h-2 rounded-full bg-blue-500 mr-1.5"></span>
+                Chờ & Đang làm (<%= statusMap.confirmed + statusMap.in_progress %> ca)
+              </span>
+              <span class="text-[#7a7269] font-semibold">
+                <%= totalAppointments > 0 ? Math.round(((statusMap.confirmed + statusMap.in_progress) / totalAppointments) * 100) : 0 %>%
+              </span>
+            </div>
+            <div class="w-full bg-[#f4f0ea] h-2.5 rounded-full overflow-hidden">
+              <div class="bg-blue-500 h-2.5 rounded-full" style="width: <%= totalAppointments > 0 ? ((statusMap.confirmed + statusMap.in_progress) / totalAppointments) * 100 : 0 %>%"></div>
+            </div>
+          </div>
+
+          <!-- Đã hủy / Vắng mặt -->
+          <div>
+            <div class="flex justify-between text-xs font-medium mb-1">
+              <span class="text-red-700 flex items-center">
+                <span class="w-2 h-2 rounded-full bg-red-400 mr-1.5"></span>
+                Đã hủy & Vắng mặt (<%= statusMap.cancelled + statusMap.no_show %> ca)
+              </span>
+              <span class="text-[#7a7269] font-semibold">
+                <%= totalAppointments > 0 ? Math.round(((statusMap.cancelled + statusMap.no_show) / totalAppointments) * 100) : 0 %>%
+              </span>
+            </div>
+            <div class="w-full bg-[#f4f0ea] h-2.5 rounded-full overflow-hidden">
+              <div class="bg-red-400 h-2.5 rounded-full" style="width: <%= totalAppointments > 0 ? ((statusMap.cancelled + statusMap.no_show) / totalAppointments) * 100 : 0 %>%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Action Cards -->
+      <div class="mt-6 pt-4 border-t border-[#e7e2da] grid grid-cols-2 gap-3">
+        <a
+          href="/admin/services"
+          class="p-3 rounded-xl border border-[#e7e2da] bg-[#fcfbf9] hover:bg-[#f4f0ea] transition flex flex-col justify-center items-center text-center group"
+        >
+          <span class="text-xs font-semibold text-ink group-hover:text-[#b55338]">Cấu hình Dịch vụ</span>
+          <span class="text-[10px] text-[#7a7269] mt-0.5">Giá, ảnh, thời lượng</span>
+        </a>
+        <a
+          href="/owner/appointments"
+          class="p-3 rounded-xl border border-[#e7e2da] bg-[#fcfbf9] hover:bg-[#f4f0ea] transition flex flex-col justify-center items-center text-center group"
+        >
+          <span class="text-xs font-semibold text-ink group-hover:text-[#b55338]">Lịch toàn Salon</span>
+          <span class="text-[10px] text-[#7a7269] mt-0.5">Xử lý ca hẹn & đổi giờ</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('layout-footer') %>
+

@@ -27,9 +27,15 @@ vi.mock('../../auth/auth.service.js', async (importOriginal) => {
   }
 })
 
+vi.mock('../admin.service.js', () => ({
+  getDashboardData: vi.fn(),
+  getSalonTodayDate: vi.fn(),
+}))
+
 import { getDatabaseStatus } from '../../../config/database.js'
 import * as servicesRepo from '../../services/services.repository.js'
 import { authenticate, login, logout } from '../../auth/auth.service.js'
+import * as adminService from '../admin.service.js'
 import { app } from '../../../app.js'
 
 describe('Admin EJS Portal Routes', () => {
@@ -41,9 +47,97 @@ describe('Admin EJS Portal Routes', () => {
   })
 
   describe('GET /admin', () => {
-    it('chuyển hướng sang /admin/services', async () => {
+    it('chuyển hướng sang /admin/dashboard', async () => {
       const response = await request(app).get('/admin').expect(302)
-      expect(response.headers.location).toBe('/admin/services')
+      expect(response.headers.location).toBe('/admin/dashboard')
+    })
+  })
+
+  describe('GET /admin/dashboard', () => {
+    it('chưa đăng nhập thì chuyển hướng sang /admin/login', async () => {
+      const response = await request(app).get('/admin/dashboard').expect(302)
+      expect(response.headers.location).toBe('/admin/login')
+    })
+
+    it('đã đăng nhập với owner thì render thành công giao diện dashboard', async () => {
+      authenticate.mockResolvedValue(ownerIdentity)
+      adminService.getDashboardData.mockResolvedValue({
+        todayStr: '2026-10-31',
+        todayStats: {
+          total: 2,
+          completed: 1,
+          confirmed: 1,
+          inProgress: 0,
+          cancelled: 0,
+          revenueVnd: 450_000,
+        },
+        todayAppointments: [
+          {
+            _id: '507f1f77bcf86cd799439011',
+            startAt: new Date('2026-10-31T09:00:00.000+07:00'),
+            endAt: new Date('2026-10-31T10:00:00.000+07:00'),
+            totalDurationMinutes: 60,
+            customerSnapshot: { displayName: 'Trương Khang', phone: '+84901234567' },
+            items: [{ name: 'Cắt & tạo kiểu', priceVnd: 450_000 }],
+            staffNameSnapshot: 'Nguyễn Văn Stylist',
+            totalPriceVnd: 450_000,
+            status: 'completed',
+          },
+        ],
+        totalRevenueVnd: 15_850_000,
+        totalAppointments: 10,
+        statusMap: {
+          confirmed: 3,
+          in_progress: 1,
+          completed: 5,
+          cancelled: 1,
+          no_show: 0,
+        },
+        topServices: [
+          { _id: 'Cắt & tạo kiểu', count: 12, totalRevenue: 5_400_000 },
+          { _id: 'Nhuộm thời trang', count: 8, totalRevenue: 9_600_000 },
+        ],
+        activeServicesCount: 6,
+        totalServicesCount: 8,
+        activeStaffCount: 4,
+      })
+
+      const response = await request(app)
+        .get('/admin/dashboard')
+        .set('Cookie', ['sol_admin_token=mock-owner-token'])
+        .expect(200)
+
+      expect(response.headers['content-type']).toMatch(/text\/html/)
+      expect(response.text).toContain('Tổng quan Hoạt động Salon')
+      expect(response.text).toContain('Hàng đợi lịch hẹn hôm nay')
+      expect(response.text).toContain('Trương Khang')
+      expect(response.text).toContain('Cắt &amp; tạo kiểu')
+      expect(response.text).toContain('Top Dịch vụ đặt nhiều nhất')
+      expect(response.text).toContain('Phân bổ trạng thái lịch hẹn')
+    })
+
+    it('alias /owner/dashboard cũng hoạt động và render dashboard', async () => {
+      authenticate.mockResolvedValue(ownerIdentity)
+      adminService.getDashboardData.mockResolvedValue({
+        todayStr: '2026-10-31',
+        todayStats: { total: 0, completed: 0, confirmed: 0, inProgress: 0, cancelled: 0, revenueVnd: 0 },
+        todayAppointments: [],
+        totalRevenueVnd: 0,
+        totalAppointments: 0,
+        statusMap: { confirmed: 0, in_progress: 0, completed: 0, cancelled: 0, no_show: 0 },
+        topServices: [],
+        activeServicesCount: 0,
+        totalServicesCount: 0,
+        activeStaffCount: 0,
+      })
+
+      const response = await request(app)
+        .get('/owner/dashboard')
+        .set('Cookie', ['sol_admin_token=mock-owner-token'])
+        .expect(200)
+
+      expect(response.headers['content-type']).toMatch(/text\/html/)
+      expect(response.text).toContain('Hôm nay chưa có lịch hẹn nào')
     })
   })
 
@@ -160,7 +254,7 @@ describe('Admin EJS Portal Routes', () => {
           durationMinutes: { min: 30, max: 30 },
           bookingDurationMinutes: 30,
           priceVnd: 200_000,
-          imageUrl: 'https://res.cloudinary.com/demo/image/upload/sample.jpg',
+          imageUrl: 'https://res.cloudinary.com/demo/image/upload/hidden.jpg',
           isActive: false,
           displayOrder: 2,
         },
@@ -174,18 +268,15 @@ describe('Admin EJS Portal Routes', () => {
       expect(response.headers['content-type']).toMatch(/text\/html/)
       expect(response.text).toContain('Quản lý Dịch vụ Salon')
       expect(response.text).toContain('Cắt &amp; tạo kiểu')
-      expect(response.text).toContain('450.000 đ')
-      expect(response.text).toContain('Đang hiện')
-      expect(response.text).toContain('Đang ẩn')
-      expect(response.text).toContain('action="/admin/services/service-cut-style/toggle"')
+      expect(response.text).toContain('Dịch vụ tạm ẩn')
+      expect(response.text).toContain('450.000')
     })
   })
 
   describe('POST /admin/services (Create service)', () => {
-    it('tạo mới dịch vụ thành công và chuyển hướng về kèm thông báo', async () => {
+    it('thêm dịch vụ mới thành công và chuyển hướng về danh sách', async () => {
       authenticate.mockResolvedValue(ownerIdentity)
       servicesRepo.findServiceById.mockResolvedValue(null)
-      servicesRepo.findServiceBySlug.mockResolvedValue(null)
       servicesRepo.createService.mockResolvedValue({
         id: 'service-uon-toc',
         name: 'Uốn tóc cao cấp',
@@ -195,7 +286,7 @@ describe('Admin EJS Portal Routes', () => {
         .post('/admin/services')
         .set('Cookie', ['sol_admin_token=mock-owner-token'])
         .send(
-          'id=service-uon-toc&name=Uốn tóc cao cấp&category=Tạo kiểu&priceVnd=800000&durationMin=60&durationMax=90&bookingDurationMinutes=90&imageUrl=https://res.cloudinary.com/demo/image/upload/sample.jpg&isActive=true',
+          'id=service-uon-toc&name=Uốn tóc cao cấp&category=Tạo kiểu&priceVnd=800000&durationMin=60&durationMax=90&bookingDurationMinutes=90&imageUrl=https://res.cloudinary.com/demo/image/upload/uon.jpg&isActive=true',
         )
         .set('Content-Type', 'application/x-www-form-urlencoded')
         .expect(302)
@@ -292,4 +383,3 @@ describe('Admin EJS Portal Routes', () => {
     })
   })
 })
-
