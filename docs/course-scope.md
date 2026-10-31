@@ -18,7 +18,7 @@ Các lựa chọn dưới đây tạo điểm bắt đầu dễ bảo trì và c
 - Monorepo dùng npm workspaces với `apps/web`, `apps/mobile` và `apps/api`.
 - Node.js 24 LTS cho toàn repository.
 - Web dùng React, Vite, JavaScript/JSX và Tailwind CSS.
-- Mobile dùng React Native, Expo SDK 57 và JavaScript/JSX.
+- Mobile dùng React Native, Expo SDK 58 và JavaScript/JSX.
 - API dùng Express 5 và JavaScript.
 - Dùng MongoDB với Mongoose 9 khi bắt đầu lưu dữ liệu.
 - Web và mobile dùng một hợp đồng API chung, nhưng base URL được cấu hình riêng theo môi trường chạy.
