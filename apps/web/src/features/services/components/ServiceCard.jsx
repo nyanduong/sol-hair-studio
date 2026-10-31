@@ -1,11 +1,16 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { formatDuration, formatPrice } from '../format-service.js'
 
 export default function ServiceCard({ service }) {
   const [failedImageUrl, setFailedImageUrl] = useState(null)
 
   return (
-    <article className="group transition-[translate,box-shadow,border-color] duration-300 motion-safe:hover:-translate-y-1 hover:border-terracotta/40 hover:shadow-lg motion-reduce:transition-none flex h-full min-w-0 flex-col rounded-2xl border border-border/60 bg-white p-2 shadow-[0_4px_16px_rgba(71,51,39,0.04)]">
+    <Link
+      to={`/booking?${new URLSearchParams({ serviceId: service.id })}`}
+      aria-label={`${service.name} — Đặt lịch`}
+      className="group transition-[translate,box-shadow,border-color] duration-300 motion-safe:hover:-translate-y-1 hover:border-terracotta/40 hover:shadow-lg motion-reduce:transition-none flex h-full min-w-0 flex-col rounded-2xl border border-border/60 bg-white p-2 shadow-[0_4px_16px_rgba(71,51,39,0.04)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-terracotta"
+    >
       <div className="aspect-[2.25] overflow-hidden rounded-xl bg-soft-surface">
         {failedImageUrl === service.imageUrl ? (
           <div role="img" aria-label={`Chưa tải được ảnh ${service.name}`} className="flex h-full flex-col items-center justify-center gap-2 p-3 text-center text-xs text-muted">
@@ -22,6 +27,6 @@ export default function ServiceCard({ service }) {
           <p className="text-[0.65rem] text-muted">{formatDuration(service.durationMinutes)}</p>
         </div>
       </div>
-    </article>
+    </Link>
   )
 }
