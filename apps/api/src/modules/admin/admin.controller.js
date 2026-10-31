@@ -1,5 +1,6 @@
 import * as authService from '../auth/auth.service.js'
 import * as servicesService from '../services/services.service.js'
+import * as adminService from './admin.service.js'
 import { getAdminTokenFromRequest } from './admin.middleware.js'
 
 export async function renderLogin(req, res) {
@@ -81,6 +82,38 @@ export async function handleLogout(req, res) {
   return res.redirect('/admin/login')
 }
 
+export async function renderDashboard(req, res) {
+  try {
+    const data = await adminService.getDashboardData()
+
+    const formatVnd = (num) => {
+      if (typeof num !== 'number' || isNaN(num)) return '0 đ'
+      return num.toLocaleString('vi-VN') + ' đ'
+    }
+
+    const formatTime = (date) => {
+      if (!date) return '--:--'
+      return new Intl.DateTimeFormat('vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).format(new Date(date))
+    }
+
+    return res.render('admin/dashboard', {
+      title: 'Tổng quan Hoạt động Salon — Sol Hair Studio Admin',
+      activeTab: 'dashboard',
+      identity: req.identity,
+      formatVnd,
+      formatTime,
+      ...data,
+    })
+  } catch (error) {
+    return res.status(500).send(`Lỗi hệ thống: ${error.message}`)
+  }
+}
+
 export async function renderServices(req, res) {
   try {
     const allServices = await servicesService.listManageServices(req.identity)
@@ -120,6 +153,7 @@ export async function renderServices(req, res) {
 
     return res.render('admin/services', {
       title: 'Quản lý Dịch vụ — Sol Hair Studio Admin',
+      activeTab: 'services',
       services: filtered,
       allServices,
       stats,
