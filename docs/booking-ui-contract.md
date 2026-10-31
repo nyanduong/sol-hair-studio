@@ -4,6 +4,11 @@ Web `/booking`: customer và owner. Native `Booking`: chỉ customer, không có
 Dùng session M1, danh mục M2 và [availability SOL-030](availability-api.md). Giao diện không tính lại slot,
 giá/thời lượng từ khoảng min–max hoặc tự chọn stylist. Không có mock/fixture trong code chạy sản phẩm.
 
+Web customer SOL-041: bấm trực tiếp thẻ dịch vụ trên homepage mở `/booking?serviceId=<id>`.
+Trang đặt lịch chọn sẵn dịch vụ khi mã còn trong danh mục công khai; mã không tồn tại/đã ẩn được bỏ qua.
+URL giữ lựa chọn khi tải lại hoặc đăng nhập tại trang; khách có thể bỏ chọn và chọn thêm dịch vụ như bình thường.
+Đi thẳng `/booking` vẫn bắt đầu với lựa chọn trống. Không đổi hợp đồng API hoặc mobile.
+
 ## Endpoint đang có
 
 - `GET /api/services`: DTO 8 field hiện có, danh sách công khai.

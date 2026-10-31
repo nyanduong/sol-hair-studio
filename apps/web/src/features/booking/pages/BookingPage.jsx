@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { apiBaseUrl } from '../../../config/env.js'
 import { useAuth } from '../../auth/hooks/useAuth.js'
 import SiteHeader from '../../home/components/SiteHeader.jsx'
@@ -24,6 +24,8 @@ const button =
 
 export default function BookingPage() {
   const { token, account, isAuthenticated, openLoginModal } = useAuth()
+  const [searchParams] = useSearchParams()
+  const initialServiceId = searchParams.get('serviceId') ?? ''
   // Remount all private draft/request state when the session changes.
   return (
     <>
@@ -57,7 +59,11 @@ export default function BookingPage() {
             Tài khoản stylist không có quyền đặt lịch. Vui lòng dùng tài khoản khách hàng.
           </p>
         ) : (
-          <BookingForm key={token} token={token} />
+          <BookingForm
+            key={`${token}:${initialServiceId}`}
+            token={token}
+            initialServiceId={initialServiceId}
+          />
         )}
       </main>
       <SiteFooter />
@@ -65,7 +71,7 @@ export default function BookingPage() {
   )
 }
 
-function BookingForm({ token }) {
+function BookingForm({ token, initialServiceId }) {
   const catalog = useServices()
   const profile = useBookingQuery('profile', token, {})
   const owner = profile.value?.roles?.includes('owner') ?? false
@@ -73,7 +79,12 @@ function BookingForm({ token }) {
     profile.kind === 'success' &&
     profile.value?.status === 'active' &&
     profile.value?.roles?.some((role) => ['customer', 'owner'].includes(role))
-  const [serviceIds, setServiceIds] = useState([])
+  const [chosenServiceIds, setServiceIds] = useState(null)
+  // Apply the homepage choice once the public catalog loads, until the user edits it.
+  // Stale links must not select services absent from the current catalog.
+  const serviceIds = chosenServiceIds ?? (
+    catalog.state.data?.filter((service) => service.id === initialServiceId).map((service) => service.id) ?? []
+  )
   const [localDate, setLocalDate] = useState(salonDate)
   const [mode, setMode] = useState('scheduled')
   const [staffId, setStaffId] = useState('')
@@ -124,7 +135,7 @@ function BookingForm({ token }) {
       setNotice('Mỗi lịch hẹn chọn tối đa 5 dịch vụ.')
       return
     }
-    setServiceIds((ids) => (ids.includes(id) ? ids.filter((value) => value !== id) : [...ids, id]))
+    setServiceIds(serviceIds.includes(id) ? serviceIds.filter((value) => value !== id) : [...serviceIds, id])
     resetSlot()
   }
   async function saveProfile() {
