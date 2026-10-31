@@ -32,7 +32,7 @@ appointmentsRouter.post('/appointments/:appointmentId/reschedule', requireAuth, 
 appointmentsRouter.post('/appointments/:appointmentId/start', requireAuth, requireRoles('stylist', 'owner'), startAppointmentController)
 appointmentsRouter.post('/appointments/:appointmentId/complete', requireAuth, requireRoles('stylist', 'owner'), completeAppointmentController)
 appointmentsRouter.post('/appointments/:appointmentId/eta', requireAuth, requireRoles('stylist', 'owner'), updateAppointmentEtaController)
-appointmentsRouter.post('/appointments/:appointmentId/correct-start', requireAuth, requireRoles('owner'), correctAppointmentStartController)
-appointmentsRouter.post('/appointments/:appointmentId/correct-complete', requireAuth, requireRoles('owner'), correctAppointmentCompletionController)
+appointmentsRouter.post('/appointments/:appointmentId/correct-start', requireAuth, requireRoles('stylist', 'owner'), correctAppointmentStartController)
+appointmentsRouter.post('/appointments/:appointmentId/correct-complete', requireAuth, requireRoles('stylist', 'owner'), correctAppointmentCompletionController)
 
 appointmentsRouter.get('/appointments/:appointmentId/audit', requireAuth, requireRoles('owner'), getAppointmentAuditController)

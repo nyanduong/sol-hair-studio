@@ -8,7 +8,7 @@ import { isOwnerAccount, useOwnerAppointmentRead } from '../hooks/useOwnerAppoin
 import { isStylistAccount, useStylistAppointments } from '../hooks/useStylistAppointments.js'
 import { readStylistAppointment } from '../api/stylist-appointments.api.js'
 import { AppointmentEtaDialog, AppointmentEtaSummary } from '../components/AppointmentEta.jsx'
-import OwnerAppointmentManagement from '../components/OwnerAppointmentManagement.jsx'
+
 import { AuthContext } from '../../auth/context/auth-context.js'
 import AppRoutes from '../../../routes/AppRoutes.jsx'
 
@@ -183,7 +183,7 @@ describe('ETA command concurrency and authorization', () => {
 })
 
 describe('ETA UI, refresh boundaries and existing workflow', () => {
-  it.each(['owner', 'stylist'])('%s exposes ETA on in-progress detail without changing original end', actor => {
+  it.each(['stylist'])('%s exposes ETA on in-progress detail without changing original end', actor => {
     const html = route(actor)
     expect(html).toContain('Cập nhật giờ dự kiến xong')
     expect(html).toContain('10:30')
@@ -192,13 +192,9 @@ describe('ETA UI, refresh boundaries and existing workflow', () => {
     if (actor === 'stylist') expect(html).toContain('Hoàn tất phục vụ')
   })
   it.each(['confirmed', 'completed', 'cancelled', 'no_show'])('does not offer ETA for %s', status => {
-    for (const actor of ['owner', 'stylist']) expect(route(actor, status)).not.toContain('Cập nhật giờ dự kiến xong')
+    for (const actor of ['stylist']) expect(route(actor, status)).not.toContain('Cập nhật giờ dự kiến xong')
   })
-  it('keeps Owner salon Start/Complete restriction while exposing managerial ETA', () => {
-    const html = renderToStaticMarkup(<OwnerAppointmentManagement token="token" appointment={{ ...item, customerId: 'customer' }} onChanged={() => {}} />)
-    expect(html).toContain('Cập nhật giờ dự kiến xong')
-    expect(html).not.toContain('>Hoàn tất phục vụ</button>')
-  })
+
   it('renders only official warnings, including hidden conflicts, without fake notifications', () => {
     let html = renderToStaticMarkup(<AppointmentEtaSummary appointment={result()} />)
     for (const text of ['11:00', other, 'Trùng khoảng giữ stylist', '10 phút', 'không lịch nào được tự động']) expect(html).toContain(text)

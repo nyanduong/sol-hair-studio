@@ -1459,10 +1459,10 @@ describe('Owner correction of accidental start', () => {
     expect((await AppointmentModel.findById(mine._id)).startAt).toEqual(mine.startAt)
   })
 
-  it.each(['stylist', 'customer'])('rejects %s without exposing conflict details', async role => {
+  it('rejects customer without exposing conflict details', async () => {
     const mine = await serving()
     await appointment({ customerId: otherClient.customer._id, startAt: at(30) })
-    const result = await correct(mine._id, role === 'stylist' ? stylist : client).expect(403)
+    const result = await correct(mine._id, client).expect(403)
     expect(result.body).not.toHaveProperty('details')
     await unchanged(mine)
   })
@@ -1613,7 +1613,7 @@ describe('Owner correction of accidental start', () => {
 
   it('checks Owner permission again inside the transaction', async () => {
     const mine = await serving()
-    vi.spyOn(appointmentRepository, 'findAppointmentCommandActor').mockResolvedValueOnce({ accountId: String(owner.account._id), roles: ['stylist'], authRevision: owner.account.authRevision })
+    vi.spyOn(appointmentRepository, 'findAppointmentCommandActor').mockResolvedValueOnce({ accountId: String(owner.account._id), roles: ['customer'], authRevision: owner.account.authRevision })
     await correct(mine._id).expect(403)
     await unchanged(mine)
   })
@@ -1746,9 +1746,9 @@ describe('Owner correction of accidental completion', () => {
     expect((await AppointmentModel.findById(mine._id)).occupiedUntil.getTime()).toBe(NOW.getTime() + 600_001)
   })
 
-  it.each(['stylist', 'customer'])('denies %s with no correction details', async role => {
+  it('denies customer with no correction details', async () => {
     const mine = await completed()
-    const result = await correct(mine._id, role === 'stylist' ? stylist : client).expect(403)
+    const result = await correct(mine._id, client).expect(403)
     expect(result.body).not.toHaveProperty('details')
     await unchanged(mine)
   })
@@ -1955,7 +1955,7 @@ describe('Owner correction of accidental completion', () => {
 
   it('checks Owner permission again inside the transaction', async () => {
     const mine = await completed()
-    vi.spyOn(appointmentRepository, 'findAppointmentCommandActor').mockResolvedValueOnce({ accountId: String(owner.account._id), roles: ['stylist'], authRevision: owner.account.authRevision })
+    vi.spyOn(appointmentRepository, 'findAppointmentCommandActor').mockResolvedValueOnce({ accountId: String(owner.account._id), roles: ['customer'], authRevision: owner.account.authRevision })
     await correct(mine._id).expect(403)
     await unchanged(mine)
   })
@@ -2170,5 +2170,45 @@ describe('Owner appointment audit API', () => {
     const after = (await get(auditPath(mine._id), owner).expect(200)).body.data.items
     expect(after.slice(1)).toEqual(before)
     expect(after[0]).toMatchObject({ kind: 'corrected', reason: 'Actual service was misreported', revision: expectedRevision + 1 })
+  })
+})
+
+
+describe('Stylist corrections restricted to assigned appointments', () => {
+  const at = minutes => new Date(NOW.getTime() + minutes * MINUTE)
+  beforeEach(async () => { await shift(stylist.staff._id); await shift(otherStylist.staff._id) })
+  const cases = [
+    ['correct-start', 'in_progress', 'confirmed', 'serviceNotStarted'],
+    ['correct-complete', 'completed', 'in_progress', 'serviceNotCompleted'],
+  ]
+  function fixture(status) {
+    return appointment({ status, startAt: at(-10), startedAt: at(-10), occupiedFrom: at(-10),
+      ...(status === 'completed' ? { completedAt: at(-5), occupiedUntil: at(5) } : {}) })
+  }
+  it.each(cases)('%s permits assigned Stylist, records actor and replays once', async (operation, status, target, flag) => {
+    const mine = await fixture(status)
+    const body = { expectedRevision: 0, reason: 'Pressed by mistake', [flag]: true }
+    await command(mine._id, operation, stylist, body).expect(200)
+    await command(mine._id, operation, stylist, body).expect(200)
+    expect(await AppointmentModel.findById(mine._id).lean()).toMatchObject({ status: target, revision: 1 })
+    expect(await AppointmentEventModel.countDocuments({ appointmentId: mine._id })).toBe(1)
+    expect(await AppointmentEventModel.findOne({ appointmentId: mine._id }).lean()).toMatchObject({ actorId: stylist.account._id, kind: 'corrected', reason: body.reason })
+  })
+  it.each(cases)('%s rejects another Stylist without writes or details', async (operation, status, target, flag) => {
+    const mine = await fixture(status)
+    const result = await command(mine._id, operation, otherStylist, { expectedRevision: 0, reason: 'Not assigned', [flag]: true }).expect(404)
+    expect(result.body).not.toHaveProperty('details')
+    expect((await AppointmentModel.findById(mine._id)).revision).toBe(0)
+    expect(await AppointmentEventModel.countDocuments()).toBe(0)
+  })
+  it('does not reveal a conflicting appointment assigned to another Stylist', async () => {
+    const mine = await fixture('completed')
+    const hidden = await appointment({ staffId: otherStylist.staff._id, startAt: at(5) })
+    const result = await command(mine._id, 'correct-complete', stylist, { expectedRevision: 0, reason: 'Still serving', serviceNotCompleted: true }).expect(409)
+    expect(result.body.code).toBe('CORRECTION_CONFLICT')
+    expect(result.body.details).toMatchObject({ ownerReviewRequired: true, conflictingAppointments: [] })
+    expect(JSON.stringify(result.body)).not.toContain(String(hidden._id))
+    expect((await AppointmentModel.findById(mine._id)).status).toBe('completed')
+    expect(await AppointmentEventModel.countDocuments()).toBe(0)
   })
 })

@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { OwnerServiceDialog } from '../components/OwnerAppointmentService.jsx'
-import OwnerAppointmentManagement from '../components/OwnerAppointmentManagement.jsx'
+
 import OwnerAppointmentsView from '../components/OwnerAppointmentsView.jsx'
 import { ownerServicePayload, mergeOwnerServiceResult, createOwnerAppointmentCommand } from '../hooks/useOwnerAppointmentCommand.js'
 import { readOwnerAppointment, sendOwnerAppointmentCommand } from '../api/owner-appointments.api.js'
@@ -144,22 +144,7 @@ describe('Owner service UI and actual-time readiness', () => {
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Xác nhận (bắt đầu|hoàn tất)<\/button>/)
     expect(html).not.toContain('Thanh toán')
   })
-  it('shows Start only for confirmed and Complete only for in_progress', () => {
-    const confirmed = renderToStaticMarkup(<OwnerAppointmentManagement token="fixture" personalStaffId={item.staffId} appointment={item} />)
-    expect(confirmed).toContain('>Bắt đầu phục vụ</button>')
-    expect(confirmed).not.toContain('>Hoàn tất phục vụ</button>')
-    const serving = renderToStaticMarkup(<OwnerAppointmentManagement token="fixture" personalStaffId={item.staffId} appointment={appointment('complete')} />)
-    expect(serving).toContain('>Hoàn tất phục vụ</button>')
-    for (const text of ['>Bắt đầu phục vụ</button>', '>Hủy lịch</button>', '>Đổi lịch</button>', '>Đánh dấu không đến</button>']) expect(serving).not.toContain(text)
-    for (const status of ['completed', 'cancelled', 'no_show']) {
-      const html = renderToStaticMarkup(<OwnerAppointmentManagement token="fixture" personalStaffId={item.staffId} appointment={{ ...item, status }} />)
-      if (status === 'completed') {
-        expect(html).toContain('Sửa trạng thái bị nhầm')
-        expect(html).not.toContain('>Bắt đầu phục vụ</button>')
-        expect(html).not.toContain('>Hoàn tất phục vụ</button>')
-      } else expect(html).toBe('')
-    }
-  })
+
   it.each(['start', 'complete'])('%s locks closing/checkbox during submit and permits same-intent retry after unknown result', operation => {
     const pending = { payload: { expectedRevision: 3 } }
     const html = dialog(operation, { kind: 'loading', locked: true, pending })

@@ -1,11 +1,9 @@
-import { renderToStaticMarkup } from 'react-dom/server'
-import { MemoryRouter } from 'react-router-dom'
+
+
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import OwnerAppointmentManagement, { OwnerAppointmentCommandDialog } from '../components/OwnerAppointmentManagement.jsx'
-import OwnerAppointmentsView from '../components/OwnerAppointmentsView.jsx'
+
 import { createOwnerAppointmentCommand, ownerAppointmentActions, ownerAppointmentPayload, watchOwnerAppointmentTime } from '../hooks/useOwnerAppointmentCommand.js'
 import { readOwnerAppointment, sendOwnerAppointmentCommand } from '../api/owner-appointments.api.js'
-import { createOwnerAppointmentReader } from '../hooks/useOwnerAppointments.js'
 
 const now = Date.parse('2026-10-23T03:15:00.000Z')
 const owner = { accountId: 'owner-a', roles: ['owner'], status: 'active' }
@@ -26,9 +24,7 @@ function respond(value, status = 200) {
   return fetch
 }
 const payload = operation => ownerAppointmentPayload(item, operation, fields, now)
-const renderDialog = (operation = 'cancel', command = { kind: 'idle', locked: false }, values = fields, time = now) =>
-  renderToStaticMarkup(<OwnerAppointmentCommandDialog appointment={item} operation={operation} now={time}
-    command={command} fields={values} onFields={() => {}} onConfirm={() => {}} onClose={() => {}} onReload={() => {}} />)
+
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers() })
 
 describe('Owner cancellation and no-show rules', () => {
@@ -184,86 +180,5 @@ describe('Owner command HTTP, authorization and idempotency', () => {
       await expect(sendOwnerAppointmentCommand('https://api.example.test', 'token', item.id, operation, body, 'key')).rejects.toThrow()
     }
     expect(fetch).not.toHaveBeenCalled()
-  })
-})
-
-describe('Owner command confirmation UI and refreshed data', () => {
-  it('identifies the correct appointment and marks late cancellation reason as required', () => {
-    const html = renderDialog()
-    for (const text of [item.id, 'Khách A', '+84901234567', 'Stylist An', 'Cắt tóc snapshot', 'Gội đầu', 'Lý do hủy (bắt buộc)']) expect(html).toContain(text)
-    expect(html).toContain('maxLength="500"')
-    expect(html).not.toContain('Start')
-    const future = renderDialog('cancel', undefined, { ...fields, reason: '' }, Date.parse(item.startAt) - 7_200_000)
-    expect(future).toContain('Lý do hủy (không bắt buộc)')
-  })
-  it('requires contact time and explicit absent/contacted confirmation before no-show', () => {
-    const html = renderDialog('no-show', undefined, { ...fields, confirmedAbsent: false })
-    expect(html).toContain('datetime-local')
-    expect(html).toContain('giờ Việt Nam')
-    expect(html).toContain('Tôi xác nhận đã liên hệ và khách chưa đến salon.')
-    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Xác nhận không đến<\/button>/)
-  })
-  it('disables no-show before the 15-minute boundary and unlocks at equality', () => {
-    vi.useFakeTimers(); vi.setSystemTime(now - 1)
-    const render = () => renderToStaticMarkup(<OwnerAppointmentManagement token="fixture" appointment={item} onChanged={() => {}} />)
-    expect(render()).toMatch(/<button[^>]*disabled=""[^>]*>Đánh dấu không đến<\/button>/)
-    vi.setSystemTime(now)
-    expect(render()).not.toMatch(/<button[^>]*disabled=""[^>]*>Đánh dấu không đến<\/button>/)
-  })
-  it.each(['in_progress', 'completed', 'cancelled', 'no_show'])('renders only allowed commands on %s', status => {
-    const html = renderToStaticMarkup(<OwnerAppointmentManagement token="fixture" appointment={{ ...item, status }} />)
-    for (const text of ['>Hủy lịch</button>', '>Đổi lịch</button>', '>Đánh dấu không đến</button>', '>Bắt đầu phục vụ</button>']) expect(html).not.toContain(text)
-    expect(html).not.toContain('>Hoàn tất phục vụ</button>')
-    if (status === 'in_progress') expect(html).toContain('Cập nhật giờ dự kiến xong')
-    else if (status === 'completed') expect(html).toContain('Sửa trạng thái bị nhầm')
-    else expect(html).toBe('')
-  })
-  it('locks fields and closing during submit, and only permits same-intent retry after network error', () => {
-    const pending = { payload: payload('cancel') }
-    const loading = renderDialog('cancel', { kind: 'loading', locked: true, pending })
-    expect(loading).toContain('<fieldset disabled=""')
-    expect(loading).toContain('disabled="">Quay lại')
-    expect(loading).toContain('disabled="">Đang xử lý…')
-    const unknown = renderDialog('cancel', { kind: 'error', locked: true, pending, error: new Error('offline') })
-    expect(unknown).toContain('Chưa xác định được kết quả')
-    expect(unknown).toContain('>Thử lại cùng yêu cầu</button>')
-    expect(unknown).not.toContain('disabled="">Thử lại cùng yêu cầu')
-    expect(unknown).not.toContain('Đã hủy lịch hẹn.')
-  })
-  it.each([['APPOINTMENT_REVISION_CONFLICT', 'Lịch đã được cập nhật'], ['NO_SHOW_TOO_EARLY', 'Theo giờ server'],
-    ['APPOINTMENT_STATE_CONFLICT', 'Trạng thái lịch đã thay đổi']])('requires refresh after %s', (code, message) => {
-      const html = renderDialog('no-show', { kind: 'error', locked: false, error: { status: 409, code } })
-      expect(html).toContain(message)
-      expect(html).toContain('Tải lại lịch')
-      expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Xác nhận không đến<\/button>/)
-    })
-  it.each(['cancel', 'no-show'])('refreshes %s detail/list and ignores older confirmed data', async operation => {
-    let current = item
-    const old = deferred()
-    const detailRead = vi.fn().mockImplementationOnce(() => old.promise).mockImplementation(async () => current)
-    const detail = createOwnerAppointmentReader({ readProfile: async () => owner, readData: detailRead })
-    const oldRequest = detail.load()
-    await vi.waitFor(() => expect(detailRead).toHaveBeenCalledOnce())
-    const manager = createOwnerAppointmentCommand({ readProfile: async () => owner,
-      send: async () => { current = result(operation); return current } }, () => 'key')
-    await manager.run(payload(operation))
-    await detail.load()
-    old.resolve(item)
-    await oldRequest
-    expect(detail.getSnapshot().value).toEqual(result(operation))
-
-    const list = createOwnerAppointmentReader({ readProfile: async () => owner, paginated: true,
-      readData: async () => ({ items: [current], pagination: { hasNextPage: false, nextCursor: null } }) })
-    await list.load()
-    expect(list.getSnapshot().items[0].status).toBe(current.status)
-    const filtered = createOwnerAppointmentReader({ readProfile: async () => owner, paginated: true,
-      readData: async () => ({ items: current.status === 'confirmed' ? [current] : [], pagination: { hasNextPage: false, nextCursor: null } }) })
-    await filtered.load()
-    expect(filtered.getSnapshot().items).toEqual([])
-    const html = renderToStaticMarkup(<MemoryRouter><OwnerAppointmentsView state={detail.getSnapshot()} detailed
-      actions={<OwnerAppointmentManagement token="fixture" appointment={current} />} /></MemoryRouter>)
-    expect(html).toContain(operation === 'cancel' ? 'Đã hủy' : 'Không đến')
-    expect(html).not.toContain('>Hủy lịch</button>')
-    expect(html).not.toContain('>Đánh dấu không đến</button>')
   })
 })

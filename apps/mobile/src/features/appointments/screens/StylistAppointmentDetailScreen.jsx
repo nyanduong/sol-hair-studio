@@ -8,6 +8,7 @@ import { isAppointmentStylist } from '../appointment-presentation.js'
 import { selectStylistEtaSummary } from '../appointment-eta.js'
 import { useStylistAppointments } from '../hooks/useStylistAppointments.js'
 import StylistServiceActions from '../components/StylistServiceActions.jsx'
+import StylistCorrectionActions from '../components/StylistCorrectionActions.jsx'
 import StylistEtaManagement, { StylistEtaSummary } from '../components/StylistEtaManagement.jsx'
 import { StylistAppointmentCard, StylistGate, StylistHeader, StylistLoading, StylistReadError } from '../components/StylistAppointmentView.jsx'
 import { styles } from '../styles/appointments.styles.js'
@@ -78,6 +79,8 @@ function PersonalDetail({ token, accountId, appointmentId, navigation }) {
         appointment={state.kind === 'success' ? state.appointment : null}
         onChanged={onServiceChanged}
       />
+      <StylistCorrectionActions token={token} accountId={accountId} appointmentId={appointmentId}
+        appointment={state.kind === 'success' ? state.appointment : null} onChanged={onServiceChanged} />
     </>
   )
 }
