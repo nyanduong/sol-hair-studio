@@ -1,4 +1,6 @@
 import { app } from './app.js'
+import { createServer } from 'node:http'
+import { attachBookingRealtime } from './modules/availability/availability.realtime.js'
 import { config } from './config/env.js'
 import { prepareBookingStorage } from './modules/appointments/booking.repository.js'
 import { connectToDatabase, disconnectFromDatabase } from './config/database.js'
@@ -7,7 +9,9 @@ async function start() {
   await connectToDatabase(config.mongoUri)
   if (config.mongoUri) await prepareBookingStorage()
 
-  const server = app.listen(config.port, '0.0.0.0', () => {
+  const server = createServer(app)
+  const realtime = attachBookingRealtime(server, app)
+  server.listen(config.port, '0.0.0.0', () => {
     console.log(`Sol Hair API đang chạy tại http://localhost:${config.port} (${config.nodeEnv}).`)
     if (!config.mongoUri) {
       console.log('Chưa cấu hình MONGODB_URI; chức năng truy cập cơ sở dữ liệu đang tắt.')
@@ -16,7 +20,7 @@ async function start() {
 
   const shutdown = async (signal) => {
     console.log(`Đã nhận ${signal}; đang dừng API.`)
-    server.close(async () => {
+    realtime.close(async () => {
       await disconnectFromDatabase()
       process.exit(0)
     })

@@ -123,7 +123,19 @@ function BookingForm({ token, initialServiceId }) {
           ...(owner && selectedCustomer ? { customerId: selectedCustomer.id } : {}),
         }
       : null
-  const availability = useBookingQuery('availability', token, params)
+  const availability = useBookingQuery('availability', token, params, (value) => {
+    if (
+      !locked &&
+      startAt &&
+      !value.stylists.some(
+        (item) => item.staffId === staffId && item.slots.some((slot) => slot.startAt === startAt),
+      )
+    ) {
+      setStartAt('')
+      setNotice('Giờ bạn chọn vừa thay đổi hoặc đã có người đặt. Vui lòng chọn giờ khác.')
+      if (!owner) goToStep(2)
+    }
+  })
   const data = availability.kind === 'success' ? availability.value : null
   const stylist = data?.stylists.find((item) => item.staffId === staffId)
   const slot = stylist?.slots.find((item) => item.startAt === startAt)
@@ -448,6 +460,11 @@ function BookingForm({ token, initialServiceId }) {
               {!serviceIds.length && (
                 <p className="mt-4 text-sm">Chọn dịch vụ để xem stylist và giờ trống.</p>
               )}
+              <p role="status" className="mt-3 text-xs text-muted">
+                {availability.live
+                  ? 'Đang cập nhật giờ trống trực tiếp.'
+                  : 'Chưa có kết nối trực tiếp. Giờ trống được kiểm tra lại định kỳ.'}
+              </p>
               <BookingStatus query={availability} label="giờ trống" />
               {data && !data.stylists.length && (
                 <p className="mt-4 text-sm">Chưa có stylist phù hợp. Hãy đổi dịch vụ hoặc ngày.</p>
@@ -477,7 +494,10 @@ function BookingForm({ token, initialServiceId }) {
                     type="button"
                     key={item.startAt}
                     aria-pressed={startAt === item.startAt}
-                    onClick={() => setStartAt(item.startAt)}
+                    onClick={() => {
+                      setStartAt(item.startAt)
+                      setNotice('')
+                    }}
                     className={`min-h-11 rounded-xl border text-sm ${startAt === item.startAt ? 'border-terracotta bg-terracotta text-white' : 'border-border'}`}
                   >
                     {mode === 'owner_walkin' ? 'Tới ngay' : slotTime(item.startAt)}
