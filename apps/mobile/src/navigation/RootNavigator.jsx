@@ -14,7 +14,6 @@ import ResetPasswordScreen from '../features/auth/screens/ResetPasswordScreen.js
 import HealthScreen from '../features/health/screens/HealthScreen.jsx'
 import HomeScreen from '../features/home/screens/HomeScreen.jsx'
 import ServicesScreen from '../features/services/screens/ServicesScreen.jsx'
-import OwnerServicesScreen from '../features/services/screens/OwnerServicesScreen.jsx'
 import { colors } from '../theme/tokens.js'
 import BookingScreen from '../features/booking/screens/BookingScreen.jsx'
 import StylistShiftsScreen from '../features/staff/screens/StylistShiftsScreen.jsx'
@@ -26,7 +25,6 @@ export default function RootNavigator() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Home" component={HomeScreen} />
       <Stack.Screen name="Services" component={ServicesScreen} />
-      <Stack.Screen name="OwnerServices" component={OwnerServicesScreen} />
       <Stack.Screen name="CustomerAppointments" component={CustomerAppointmentsScreen} />
       <Stack.Screen name="CustomerAppointmentDetail" component={CustomerAppointmentDetailScreen} getId={({ params }) => params?.appointmentId} />
       <Stack.Screen name="CustomerAppointmentReschedule" component={CustomerAppointmentRescheduleScreen} getId={({ params }) => params?.appointmentId} />
