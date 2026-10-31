@@ -73,3 +73,9 @@ SOL-034 nghiệm thu Web + Android với DB thật, tranh lịch và receipt. Gi
 - Layout StyleSheet, safe area từ provider hiện có, ScrollView/keyboard avoiding, nút tối thiểu 44dp,
   danh sách dịch vụ về một cột khi chữ lớn hoặc màn hẹp. Pending submit/unknown receipt giữ màn hình
   bằng usePreventRemove; retry cùng key. Không hứa khôi phục receipt sau app kill.
+
+## SOL-042 — Giao diện booking customer
+
+Customer Web chia thành ba bước Dịch vụ → Stylist & thời gian → Xác nhận. Chuyển bước chỉ thay trạng thái trình bày; các hook, endpoint, payload và shared booking manager giữ nguyên. Quay lại giữ lựa chọn; đổi dịch vụ/ngày vẫn xóa stylist/slot theo luồng cũ. Sau lưu hồ sơ hoặc conflict 409, UI trở về bước chọn giờ để chọn lại slot. Khi có pending intent hoặc đã thành công, điều hướng bước và lựa chọn bị khóa.
+
+Thẻ dùng ảnh, mô tả, giá và thời lượng danh mục; lỗi ảnh có fallback. Tóm tắt hiển thị tạm tính danh mục khi chưa có availability, ghi rõ là tham khảo. Khi availability thành công, tổng giá/thời lượng dùng nguyên giá trị API, không tính lại giờ trống ở client. Không ẩn bản ghi demo. Owner giữ form đặt hộ/tới ngay hiện tại, không chuyển sang wizard customer; không triển khai thêm admin React hoặc thay đổi EJS.
