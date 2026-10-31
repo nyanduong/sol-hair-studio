@@ -17,7 +17,10 @@ export default function ServicesList({ navigation, header, footer, showToolbar =
     const isOddLastCard = columns === 2 && services.length % 2 === 1 && index === services.length - 1
     return (
       <View style={{ flex: 1 / columns, minWidth: 0, marginRight: isOddLastCard ? 12 : 0 }}>
-        <ServiceCard service={item} />
+        <ServiceCard
+          service={item}
+          onPress={navigation ? () => navigation.navigate('ServiceDetail', { serviceId: item.id, service: item }) : undefined}
+        />
       </View>
     )
   }
