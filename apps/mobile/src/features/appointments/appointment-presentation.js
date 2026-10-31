@@ -1,4 +1,7 @@
 // Cùng thứ tự ưu tiên role của API: Owner > Stylist > Customer.
+export function isAppointmentOwner(account) {
+  return account?.status === 'active' && Array.isArray(account.roles) && account.roles.includes('owner')
+}
 export function isAppointmentCustomer(account) {
   return account?.status === 'active' && Array.isArray(account.roles) &&
     account.roles.includes('customer') && !account.roles.some(role => ['owner', 'stylist'].includes(role))
