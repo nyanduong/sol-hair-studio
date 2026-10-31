@@ -72,8 +72,8 @@ TTL expiresAt expireAfterSeconds:0 **chỉ dọn receipt**, không đảm bảo 
 | confirmed → in_progress | Stylist được giao hoặc owner; có khách/rảnh/trong ca/không ảnh hưởng lịch khác, có thể sớm |
 | in_progress → completed | Stylist được giao hoặc owner; thực tế làm xong, ghi completedAt; dọn 10 phút từ lúc xong |
 | confirmed → no_show | Chỉ owner, ≥start+15 phút, đã liên hệ, chưa đến/chưa startedAt |
-| in_progress → confirmed (corrected) | Chỉ owner, bấm bắt đầu nhầm, thực tế chưa phục vụ; lý do/audit/kiểm xung đột |
-| completed → in_progress (corrected) | Chỉ owner, bấm hoàn tất nhầm, thực tế chưa xong; lý do/audit/kiểm lại giờ đã được mở cho người khác |
+| in_progress → confirmed (corrected) | Owner hoặc Stylist được giao lịch, bấm bắt đầu nhầm, thực tế chưa phục vụ; lý do/audit/kiểm xung đột |
+| completed → in_progress (corrected) | Owner hoặc Stylist được giao lịch, bấm hoàn tất nhầm, thực tế chưa xong; lý do/audit/kiểm lại giờ đã được mở cho người khác |
 
 Không mở cancelled/no_show; tạo lịch mới nếu khách tới sau no-show. Không cập nhật đang phục vụ như thao tác reschedule, không khôi phục mọi trạng thái tùy ý. Khi correction cần giữ lại thời gian, phải xác định khoảng cần giữ, kiểm ca/nghỉ/lịch mới; có xung đột thì không lưu, trả danh sách để chủ xử lý trước. Nếu cần ETA để biết khoảng giữ khi mở lại lịch quá giờ, phải cung cấp ETA hợp lệ trong cùng lệnh. Mọi correction lưu actor/time/reason/before/after; không xóa event cũ.
 

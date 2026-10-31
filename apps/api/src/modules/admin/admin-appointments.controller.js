@@ -194,14 +194,21 @@ export async function showOwnerReschedule(req, res, next) {
   }
 
   try {
+    const appointment = await getAppointmentDetail(req.identity, req.params.appointmentId)
     const options = await getAppointmentRescheduleOptions(
       req.identity,
       req.params.appointmentId,
       query,
     )
+    if (appointment.revision !== options.revision) {
+      throw new AppointmentError('Lịch đã thay đổi. Hãy tải lại chi tiết trước khi đổi lịch.', {
+        code: 'APPOINTMENT_REVISION_CONFLICT', status: 409,
+      })
+    }
 
     return res.render('admin/appointments/appointment-reschedule', {
       ...view,
+      appointment,
       options,
       rescheduleKey: randomUUID(),
       error: '',
@@ -211,6 +218,7 @@ export async function showOwnerReschedule(req, res, next) {
 
     return res.status(error.status).render('admin/appointments/appointment-reschedule', {
       ...view,
+      appointment: null,
       options: null,
       rescheduleKey: '',
       error: error.message,

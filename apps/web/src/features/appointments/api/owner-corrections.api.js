@@ -20,7 +20,7 @@ export function correctionPayload(appointment, operation, fields, now = Date.now
   return body
 }
 
-export async function sendOwnerCorrection(baseUrl, token, id, operation, body, key, signal) {
+export async function sendOwnerCorrection(baseUrl, token, id, operation, body, key, signal, actor = 'owner') {
   const rule = operations[operation]
   const allowed = ['expectedRevision', 'reason', rule?.[2], ...(operation === 'correct-complete' ? ['estimatedEndAt'] : [])]
   if (!rule || !/^[a-fA-F0-9]{24}$/.test(id ?? '') || !body || Object.keys(body).some(field => !allowed.includes(field)) ||
@@ -39,7 +39,7 @@ export async function sendOwnerCorrection(baseUrl, token, id, operation, body, k
   }
   // Correction trả ETA nhưng chưa kèm impact; GET sau thành công đọc lại cảnh báo.
   const { estimatedEndAt, ...snapshot } = data
-  return { ...appointmentStaffDto(snapshot), ...(estimatedEndAt ? { estimatedEndAt } : {}) }
+  return { ...appointmentStaffDto(snapshot, actor), ...(estimatedEndAt ? { estimatedEndAt } : {}) }
 }
 
 export function correctionConflicts(details) {

@@ -1,8 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { AuthContext } from '../../auth/context/auth-context.js'
-import LegacyAppointmentsFixture from './legacy-owner-page.fixture.jsx'
+
 import OwnerAppointmentsView from '../components/OwnerAppointmentsView.jsx'
 import { createOwnerAppointmentReader } from '../hooks/useOwnerAppointments.js'
 import { listOwnerAppointments, readOwnerAppointment } from '../api/owner-appointments.api.js'
@@ -28,13 +27,7 @@ function respond(data, status = 200) {
   vi.stubGlobal('fetch', fetch)
   return fetch
 }
-function route(account = owner, path = '/quan-ly/lich-hen') {
-  return renderToStaticMarkup(<MemoryRouter initialEntries={[path]}>
-    <AuthContext.Provider value={{ account, token: account ? 'fixture-token' : null, isAuthenticated: Boolean(account), openLoginModal() {}, logout() {} }}>
-      <LegacyAppointmentsFixture />
-    </AuthContext.Provider>
-  </MemoryRouter>)
-}
+
 function view(state, detailed = false) {
   return renderToStaticMarkup(<MemoryRouter><OwnerAppointmentsView state={{ items: [], retry() {}, ...state }} detailed={detailed} search="?localDate=2026-10-23" /></MemoryRouter>)
 }
@@ -184,35 +177,7 @@ describe('Owner request lifecycle', () => {
 })
 
 describe('Owner routes and read-only views', () => {
-  it('requires sign-in on both list and direct detail URLs', () => {
-    for (const path of ['/quan-ly/lich-hen', '/quan-ly/lich-hen/' + id]) {
-      const html = route(null, path)
-      expect(html).toContain('Đăng nhập để xem lịch')
-      expect(html).not.toContain('Bộ lọc lịch hẹn')
-    }
-  })
-  it.each([
-    { roles: ['customer'], status: 'active' }, { roles: ['stylist'], status: 'active' },
-    { roles: ['owner'], status: 'disabled' },
-  ])('does not mount Owner data for unauthorized accounts', account => {
-    const html = route(account)
-    expect(html).toContain('chỉ dành cho Owner')
-    expect(html).not.toContain('Bộ lọc lịch hẹn')
-  })
-  it('defaults to the salon date and renders all status filters and Owner header links', () => {
-    vi.useFakeTimers(); vi.setSystemTime('2026-10-22T19:30:00.000Z')
-    const html = route()
-    expect(html).toContain('value="2026-10-23"')
-    expect(html).toContain('Tất cả stylist')
-    for (const status of ['confirmed', 'in_progress', 'completed', 'cancelled', 'no_show']) expect(html).toContain('value="' + status + '"')
-    expect(html).toContain('Lịch salon')
-  })
-  it('preserves day/staff/status filters in URL inputs', () => {
-    const html = route(owner, '/quan-ly/lich-hen?localDate=2026-10-24&staffId=staff-a&status=completed')
-    expect(html).toContain('value="2026-10-24"')
-    expect(html).toContain('value="staff-a" selected=""')
-    expect(html).toContain('value="completed" selected=""')
-  })
+
   it('renders all required fields and a scoped detail link with the selected day', () => {
     const html = view({ kind: 'success', items: [item] })
     for (const value of ['09:00', 'Khách A', '+84901234567', 'Stylist An', 'Cắt tóc snapshot', 'Gội đầu', '60 phút', 'Đã xác nhận']) expect(html).toContain(value)
@@ -222,7 +187,6 @@ describe('Owner routes and read-only views', () => {
     const html = view({ kind: 'success', value: item }, true)
     for (const value of [id, 'Khách A', '150.000', '40 phút', '20 phút']) expect(html).toContain(value)
     for (const value of ['Hủy lịch', 'Đổi lịch', 'Bắt đầu', 'Hoàn tất phục vụ', 'Thanh toán']) expect(html).not.toContain(value)
-    expect(route(owner, '/quan-ly/lich-hen/' + id + '?localDate=2026-10-24')).toContain('/quan-ly/lich-hen?localDate=2026-10-24')
   })
   it('shows loading, empty, error/retry and load-more states', () => {
     expect(view({ kind: 'loading' })).toContain('Đang tải lịch hẹn')

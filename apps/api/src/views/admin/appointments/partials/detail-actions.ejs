@@ -4,6 +4,12 @@
   const late = Date.parse(appointment.startAt) - Date.now() < 7_200_000
   const assigned = ownerPersonal && personalStaff?.staffId === appointment.staffId
   const correctingComplete = appointment.status === 'completed'
+  const plannedEnd = Date.parse(appointment.endAt)
+  const existingEta = Date.parse(appointment.estimatedEndAt ?? '')
+  const defaultEta = Number.isFinite(existingEta) && existingEta > Date.now() && existingEta > plannedEnd
+    ? existingEta
+    : Math.ceil((Math.max(Date.now(), plannedEnd) + 900_000) / 300_000) * 300_000
+  const defaultEtaLocal = new Date(defaultEta + 25_200_000).toISOString().slice(0, 16)
   if (confirmed) {
     if (assigned) actions.push({ operation: 'start', label: 'Bắt đầu phục vụ', key: startKey, description: Date.now() < Date.parse(appointment.startAt) ? 'Bạn đang bắt đầu sớm. Chỉ xác nhận khi khách đã đến và thực sự bắt đầu phục vụ.' : 'Chỉ xác nhận khi khách đã đến và thực sự bắt đầu phục vụ.' })
     actions.push({ operation: 'cancel', label: 'Hủy lịch', key: cancelKey, description: 'Lịch đã hủy không thể mở lại. Hãy kiểm tra đúng khách và giờ hẹn trước khi xác nhận.' })
@@ -21,26 +27,28 @@
 %>
 <% if (actions.length) { %>
   <div class="border-t border-[#e7e2da] bg-[#f4f0ea]/50 px-6 py-5 sm:px-8">
-    <% if (!Number.isSafeInteger(appointment.revision) || appointment.revision >= Number.MAX_SAFE_INTEGER) { %>
+    <% if (!Number.isSafeInteger(appointment.revision) || appointment.revision < 0 || appointment.revision >= Number.MAX_SAFE_INTEGER) { %>
       <p role="alert" class="text-sm text-terracotta">Cần tải lại revision hợp lệ trước khi thao tác.</p>
     <% } else { %>
       <div data-owner-action-bar class="flex flex-wrap justify-end gap-3">
-        <% if (confirmed) { %><a href="<%= ownerUrl('/admin/appointments/' + appointment.id + '/reschedule') %>" class="<%= button %>">Đổi lịch</a><% } %>
+        <% if (confirmed) { %><a data-open-reschedule="<%= appointment.id %>" href="<%= ownerUrl('/admin/appointments/' + appointment.id + '/reschedule') %>" class="<%= button %>">Đổi lịch</a><% } %>
         <% for (const action of actions) { %>
-          <% if (action.disabled) { %>
-            <button disabled class="<%= button %> cursor-not-allowed opacity-50"><%= action.label %></button>
-          <% } else { %>
-            <details data-owner-panel class="w-full rounded-2xl border border-border bg-white p-4">
+            <details data-owner-panel data-ready-at="<%= action.operation === 'no-show' ? Date.parse(appointment.startAt) + 900_000 : 0 %>" class="w-full rounded-2xl border border-border bg-white p-4">
               <summary class="cursor-pointer text-sm font-semibold text-terracotta"><%= action.label %></summary>
               <div data-panel-content>
                 <p class="mt-3 text-sm leading-6 text-muted"><%= action.description %></p>
-                <p class="mt-2 text-xs text-muted">Khách: <%= appointment.customerSnapshot.displayName %> · <%= dateTime.format(new Date(appointment.startAt)) %></p>
+                <dl class="mt-4 space-y-2 rounded-2xl border border-border bg-soft-surface p-4 text-sm">
+                  <div><dt class="text-xs text-muted">Mã lịch</dt><dd class="break-all font-mono text-xs"><%= appointment.id %></dd></div>
+                  <div><dt class="text-xs text-muted">Khách hàng</dt><dd><%= appointment.customerSnapshot.displayName %> · <%= appointment.customerSnapshot.phone %></dd></div>
+                  <div><dt class="text-xs text-muted">Giờ hẹn (Việt Nam)</dt><dd><%= dateTime.format(new Date(appointment.startAt)) %></dd></div>
+                  <div><dt class="text-xs text-muted">Stylist / dịch vụ</dt><dd><%= appointment.staffNameSnapshot %> · <%= appointment.items.map(item => item.name).join(' · ') %></dd></div>
+                </dl>
                 <form method="post" action="<%= ownerUrl('/admin/appointments/' + appointment.id + '/' + action.operation) %>" class="mt-4 space-y-4">
                   <input type="hidden" name="expectedRevision" value="<%= appointment.revision %>" />
                   <input type="hidden" name="commandKey" value="<%= action.key %>" />
                   <% if (action.operation === 'cancel' || action.operation.startsWith('correct-')) { %>
-                    <label class="block text-sm font-semibold">Lý do <%= action.operation === 'cancel' ? (late ? '(bắt buộc khi sát giờ)' : '(không bắt buộc)') : '(bắt buộc)' %>
-                      <textarea name="reason" rows="3" maxlength="500" <%= late || action.operation.startsWith('correct-') ? 'required' : '' %> class="<%= field %>"></textarea>
+                    <label class="block text-sm font-semibold">Lý do <span <%- action.operation === 'cancel' ? 'data-cancel-reason-label' : '' %>><%= action.operation === 'cancel' ? (late ? '(bắt buộc khi sát giờ)' : '(không bắt buộc)') : '(bắt buộc)' %></span>
+                      <textarea name="reason" rows="3" maxlength="500" <%- action.operation === 'cancel' ? 'data-require-after="' + (Date.parse(appointment.startAt) - 7_200_000 + 1) + '"' : '' %> <%= late || action.operation.startsWith('correct-') ? 'required' : '' %> class="<%= field %>"></textarea>
                     </label>
                   <% } %>
                   <% if (action.operation === 'no-show') { %>
@@ -51,9 +59,12 @@
                   <% } %>
                   <% if (action.operation === 'eta' || action.operation === 'correct-complete') { %>
                     <label class="block text-sm font-semibold">ETA mới (giờ Việt Nam)
-                      <input type="datetime-local" name="estimatedEndLocal" step="60" <%= action.operation === 'eta' || Date.now() >= Date.parse(appointment.endAt) ? 'required' : '' %> class="<%= field %>" />
+                      <input type="datetime-local" name="estimatedEndLocal" step="60" value="<%= action.operation === 'eta' ? defaultEtaLocal : '' %>" <%- action.operation === 'correct-complete' ? 'data-require-after="' + Date.parse(appointment.endAt) + '"' : '' %> <%= action.operation === 'eta' || Date.now() >= Date.parse(appointment.endAt) ? 'required' : '' %> class="<%= field %>" />
                     </label>
                     <p class="text-xs leading-6 text-muted">ETA phải ở tương lai và sau giờ kết thúc theo kế hoạch. Sửa hoàn tất nhầm sau giờ kế hoạch bắt buộc có ETA.</p>
+                  <% } %>
+                  <% if (action.operation === 'eta') { %>
+                    <label class="flex items-start gap-2 text-sm"><input type="checkbox" name="etaConfirmed" value="true" required class="mt-1" />Tôi xác nhận giờ dự kiến mới; lịch khác không tự động được dời hoặc hủy.</label>
                   <% } %>
                   <% if (['start', 'complete'].includes(action.operation)) { %>
                     <label class="flex items-start gap-2 text-sm"><input type="checkbox" name="serviceConfirmed" value="true" required class="mt-1" /><%= action.operation === 'start' ? 'Tôi xác nhận khách đã đến và bắt đầu phục vụ.' : 'Tôi xác nhận đã thực sự phục vụ xong.' %></label>
@@ -68,10 +79,9 @@
                 </form>
               </div>
             </details>
-          <% } %>
         <% } %>
       </div>
-      <% if (confirmed && Date.now() < Date.parse(appointment.startAt) + 900_000) { %><p class="mt-3 text-right text-xs text-muted">Không đến: chỉ ghi nhận từ 15 phút sau giờ hẹn, khi đã liên hệ và khách chưa đến. Tải lại trang khi đến mốc này.</p><% } %>
+      <% if (confirmed) { %><p data-no-show-hint data-ready-at="<%= Date.parse(appointment.startAt) + 900_000 %>" class="mt-3 text-right text-xs text-muted" <%= Date.now() >= Date.parse(appointment.startAt) + 900_000 ? 'hidden' : '' %>>Không đến: chỉ ghi nhận từ 15 phút sau giờ hẹn, khi đã liên hệ và khách chưa đến.</p><% } %>
       <% if (!ownerPersonal && ['confirmed', 'in_progress'].includes(appointment.status)) { %><p class="mt-3 text-right text-xs text-muted">Bắt đầu/hoàn tất phục vụ ở tab “Lịch của tôi” khi lịch được giao cho bạn.</p><% } %>
     <% } %>
   </div>

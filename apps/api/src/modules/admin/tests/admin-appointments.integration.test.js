@@ -102,6 +102,18 @@ async function stored(id) { return AppointmentModel.findById(id).lean() }
 async function eventCount(id) { return AppointmentEventModel.countDocuments({ appointmentId: id }) }
 
 describe('SOL-037 EJS with real Login, Services and isolated MongoDB transactions', () => {
+  it('accepts the existing React token handoff, cleans the URL and continues with the Admin cookie', async () => {
+    const visitor = request.agent(app)
+    const handoff = await visitor.get('/admin/appointments')
+      .query({ token, localDate: '2026-10-31' }).expect(302)
+    expect(handoff.headers.location).toBe('/admin/appointments?localDate=2026-10-31')
+    expect(handoff.headers['set-cookie'][0]).toContain('sol_admin_token=')
+    expect(handoff.headers['set-cookie'][0]).toContain('HttpOnly')
+    const page = await visitor.get(handoff.headers.location).expect(200)
+    expect(page.text).toContain('Lịch toàn salon')
+    expect(page.text).not.toContain(token)
+  })
+
   it('renders list/personal filters and detail using the real Admin cookie', async () => {
     const mine = await booking()
     await booking({ startAt: '2026-10-31T06:00:00.000Z', staffId: otherStaff._id, guest: true })
@@ -117,6 +129,8 @@ describe('SOL-037 EJS with real Login, Services and isolated MongoDB transaction
 
   it('reschedules both time and Stylist, keeps snapshots, records audit and replays only once', async () => {
     const id = await booking()
+    const unrelated = await booking({ startAt: '2026-10-31T08:00:00.000Z', staffId: otherStaff._id, guest: true })
+    const unrelatedBefore = await stored(unrelated)
     const before = await stored(id)
     const choices = await browser.get(`/admin/appointments/${id}/reschedule?localDate=2026-10-31`).expect(200)
     expect(choices.text).toContain(String(otherStaff._id))
@@ -132,6 +146,40 @@ describe('SOL-037 EJS with real Login, Services and isolated MongoDB transaction
     expect(after.revision).toBe(1)
     expect(await eventCount(id)).toBe(2)
     expect(await AppointmentEventModel.findOne({ appointmentId: id, kind: 'rescheduled' }).lean()).toMatchObject({ reason: fields.reason })
+    expect(await stored(unrelated)).toEqual(unrelatedBefore)
+    expect(await eventCount(unrelated)).toBe(1)
+  })
+
+  it('opens a scoped reschedule dialog with one command form and refreshes only its appointment', async () => {
+    const id = await booking()
+    const other = await booking({ startAt: '2026-10-31T08:00:00.000Z', staffId: otherStaff._id, guest: true })
+    const otherBefore = await stored(other)
+    const detail = await browser.get(`/admin/appointments/${id}?view=mine`).expect(200)
+    expect(detail.text).toContain(`data-open-reschedule="${id}"`)
+    expect(detail.text).toContain(`data-appointment-detail="${id}"`)
+    const choices = await browser.get(`/admin/appointments/${id}/reschedule?view=mine&localDate=2026-10-31`)
+      .set('X-Appointment-Dialog', 'true').expect(200)
+    expect(choices.text).toContain(`data-appointment-response="${id}"`)
+    expect(choices.text).toContain('data-command-state="form"')
+    expect(choices.text).toContain('Lịch đang đổi')
+    expect(choices.text.match(/<form method="post"/g)).toHaveLength(1)
+    expect(choices.text).toContain(`/${id}/reschedule?view=mine`)
+    expect(choices.text).toContain('data-unchanged="true"')
+    expect(choices.text).not.toContain('Trang Quản Trị Salon')
+    expect(choices.text).not.toContain('Lịch toàn salon')
+    expect(choices.text).not.toContain(other)
+    const key = choices.text.match(/name="commandKey" value="([^"]+)"/)[1]
+    const response = await submit(id, 'reschedule', {
+      startAt: '2026-10-31T06:00:00.000Z', staffId: String(otherStaff._id),
+      reason: 'Only this appointment', customerAgreementConfirmed: 'true',
+    }, key).set('X-Appointment-Dialog', 'true').expect(200)
+    expect(response.text).toContain(`data-appointment-response="${id}"`)
+    expect(response.text).toContain('data-command-state="success"')
+    expect(response.text).toContain(`data-result-staff-id="${otherStaff._id}"`)
+    expect(response.text).not.toContain('<html')
+    expect((await stored(id)).revision).toBe(1)
+    expect(await stored(other)).toEqual(otherBefore)
+    expect(await eventCount(other)).toBe(1)
   })
 
   it('rejects a conflicting reschedule without changing the original appointment', async () => {

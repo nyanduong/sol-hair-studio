@@ -15,7 +15,7 @@
           <p class="mt-2 text-sm text-muted"><%= error %></p>
         </section>
       <% } else if (appointment) { %>
-        <article class="mt-6 overflow-hidden rounded-3xl border border-[#e7e2da] bg-white shadow-sm">
+        <article data-appointment-detail="<%= appointment.id %>" data-personal-staff-id="<%= personalStaff?.staffId ?? '' %>" class="mt-6 overflow-hidden rounded-3xl border border-[#e7e2da] bg-white shadow-sm">
           <%- include('partials/detail-summary', { dateTime, date, time, money }) %>
           <%- include('partials/detail-actions', { dateTime }) %>
         </article>

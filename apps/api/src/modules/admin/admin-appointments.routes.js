@@ -18,6 +18,7 @@ export const adminAppointmentsRouter = Router()
 
 adminAppointmentsRouter.use((req, res, next) => {
     res.set('Cache-Control', 'no-store')
+    res.locals.appointmentDialog = req.get('X-Appointment-Dialog') === 'true'
     res.locals.ownerPersonal = req.query.view === 'mine'
     res.locals.ownerContext = Object.fromEntries(
         ['view', 'localDate', 'staffId', 'status']

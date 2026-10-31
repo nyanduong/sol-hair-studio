@@ -1,8 +1,4 @@
-<%- include('../layout-header', { title, identity: locals.identity, activeTab: 'appointments' }) %>
-<script src="/admin-assets/js/admin-appointments.js" defer></script>
-
-      <%- include('partials/page-header') %>
-      <a href="<%= ownerUrl('/admin/appointments/' + appointmentId) %>" class="mt-4 inline-flex min-h-10 items-center rounded-xl border border-border bg-white px-4 py-2 text-xs font-semibold text-terracotta hover:bg-soft-surface">← Về chi tiết lịch</a>
+<%- include('partials/action-page-start') %>
 
             <section class="mt-6 rounded-2xl border border-[#e7e2da] bg-white p-6 shadow-sm sm:p-8">
                 <% if (result) { %>
@@ -112,5 +108,5 @@
                     </a>
                 </div>
             </section>
-        
-<%- include('../layout-footer') %>
+
+<%- include('partials/action-page-end') %>

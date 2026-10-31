@@ -1,9 +1,7 @@
-import { renderToStaticMarkup } from 'react-dom/server'
-import { MemoryRouter } from 'react-router-dom'
+
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { AuthContext } from '../../auth/context/auth-context.js'
-import LegacyAppointmentsFixture from './legacy-owner-page.fixture.jsx'
-import OwnerAppointmentManagement from '../components/OwnerAppointmentManagement.jsx'
+
 import { assertOwnerAssignedAppointment, resolveOwnerStaff, readOwnerAppointmentScope, createOwnerAppointmentReader, useOwnerAppointmentRead } from '../hooks/useOwnerAppointments.js'
 import { createOwnerAppointmentCommand } from '../hooks/useOwnerAppointmentCommand.js'
 
@@ -35,11 +33,7 @@ function respond(staff = people, appointments = page()) {
   vi.stubGlobal('fetch', fetch)
   return fetch
 }
-function route(url = '/quan-ly/lich-hen', account = owner) {
-  return renderToStaticMarkup(<MemoryRouter initialEntries={[url]}><AuthContext.Provider value={{
-    account, token: account ? 'owner-token' : null, isAuthenticated: Boolean(account), openLoginModal() {}, logout() {},
-  }}><LegacyAppointmentsFixture /></AuthContext.Provider></MemoryRouter>)
-}
+
 const callbacks = { retry() {}, loadMore() {} }
 let profileState
 beforeEach(() => {
@@ -138,60 +132,5 @@ describe('Owner Staff identity and scoped HTTP reads', () => {
     await next.load(); resolveOld(page()); await job
     expect(reader.getSnapshot().items).toEqual([])
     expect(next.getSnapshot().items).toEqual([])
-  })
-})
-
-describe('Owner salon and personal tab UX', () => {
-  it('renders two scopes and preserves date/status/Staff filters in navigation', () => {
-    const html = route('/quan-ly/lich-hen?localDate=2026-10-24&status=confirmed&staffId=' + otherStaff)
-    expect(html).toContain('Lịch toàn salon')
-    expect(html).toContain('Lịch của tôi')
-    expect(html).toContain('view=mine')
-    expect(html).toContain('localDate=2026-10-24')
-    expect(html).toContain('status=confirmed')
-    expect(html).toContain('Tất cả stylist')
-  })
-  it('locks personal scope and removes the selectable Stylist filter', () => {
-    const html = route('/quan-ly/lich-hen?view=mine&localDate=2026-10-24&staffId=' + otherStaff)
-    expect(html).not.toContain('Tất cả stylist')
-    expect(html).toContain('Lịch được giao cho Owner stylist')
-    expect(html).toContain('Không có lịch hẹn phù hợp')
-    const query = vi.mocked(useOwnerAppointmentRead).mock.calls.find(([, kind]) => kind === 'list')[2]
-    expect(query).toMatchObject({ staffId, mineStaffId: staffId, localDate: '2026-10-24' })
-  })
-  it('keeps personal detail links/back navigation scoped and shows personal Start', () => {
-    const html = route('/quan-ly/lich-hen/' + item.id + '?view=mine&localDate=2026-10-24')
-    expect(html).toContain('view=mine')
-    expect(html).toContain('>Bắt đầu phục vụ</button>')
-    expect(html).toContain('/quan-ly/lich-hen?localDate=2026-10-24')
-  })
-  it('does not expose Start/Complete in all-salon detail, retaining management commands', () => {
-    const html = route('/quan-ly/lich-hen/' + item.id)
-    expect(html).toContain('>Đổi lịch</button>')
-    expect(html).toContain('>Hủy lịch</button>')
-    expect(html).not.toContain('>Bắt đầu phục vụ</button>')
-    expect(html).not.toContain('>Hoàn tất phục vụ</button>')
-  })
-  it('separates missing profile, lookup error and loading from an empty appointment list', () => {
-    for (const [state, text] of [[{ kind: 'loading' }, 'Đang xác định hồ sơ'], [{ kind: 'error' }, 'Không xác định được hồ sơ'], [{ kind: 'success', value: null }, 'chưa có hồ sơ stylist']]) {
-      profileState = { ...state, ...callbacks }
-      const html = route('/quan-ly/lich-hen?view=mine')
-      expect(html).toContain(text)
-      expect(html).not.toContain('Không có lịch hẹn phù hợp')
-      expect(vi.mocked(useOwnerAppointmentRead).mock.calls.filter(([, kind]) => kind === 'list')).toHaveLength(0)
-      vi.clearAllMocks()
-    }
-  })
-  it('keeps login/Owner role gates for both tabs', () => {
-    expect(route('/quan-ly/lich-hen?view=mine', null)).toContain('Đăng nhập để xem lịch')
-    expect(route('/quan-ly/lich-hen?view=mine', { ...owner, roles: ['stylist'] })).toContain('chỉ dành cho Owner')
-  })
-  it.each(['confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'])('shows service commands for assigned %s only in personal scope', status => {
-    const personal = renderToStaticMarkup(<OwnerAppointmentManagement token="fixture" appointment={{ ...item, status }} personalStaffId={staffId} />)
-    expect(personal.includes('>Bắt đầu phục vụ</button>')).toBe(status === 'confirmed')
-    expect(personal.includes('>Hoàn tất phục vụ</button>')).toBe(status === 'in_progress')
-    const wrong = renderToStaticMarkup(<OwnerAppointmentManagement token="fixture" appointment={{ ...item, status, staffId: otherStaff }} personalStaffId={staffId} />)
-    expect(wrong).not.toContain('>Bắt đầu phục vụ</button>')
-    expect(wrong).not.toContain('>Hoàn tất phục vụ</button>')
   })
 })
