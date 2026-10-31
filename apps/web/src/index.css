@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@source "../../api/src/views";
 @theme {
   --color-canvas: #faf7f1;
   --color-ink: #24211f;

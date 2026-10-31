@@ -7,42 +7,21 @@
     })
 %>
 
-<!DOCTYPE html>
-<html lang="vi">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title><%= title %> — Sol Hair Studio</title>
+<%- include('../layout-header', { title, identity: locals.identity, activeTab: 'appointments' }) %>
+<script src="/admin-assets/js/admin-appointments.js" defer></script>
 
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link
-        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
-        rel="stylesheet"
-        />
-        <link rel="stylesheet" href="/owner-assets/css/owner.css" />
-    </head>
-
-    <body class="min-h-screen bg-canvas font-sans text-ink">
-        <main class="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-        <p class="text-sm font-semibold text-terracotta">Sol Hair Studio</p>
-
-        <a
-            href="/owner/appointments/<%= appointmentId %>"
-            class="mt-4 inline-flex min-h-11 items-center text-sm text-terracotta hover:underline"
-        >
-            Về chi tiết lịch
-        </a>
-
-        <h1 class="mt-2 font-display text-4xl font-semibold">
-            Đổi lịch hẹn
-        </h1>
+      <%- include('partials/page-header') %>
+      <a href="<%= ownerUrl('/admin/appointments/' + appointmentId) %>" class="mt-4 inline-flex min-h-10 items-center rounded-xl border border-border bg-white px-4 py-2 text-xs font-semibold text-terracotta hover:bg-soft-surface">← Về chi tiết lịch</a>
 
         <form
             method="get"
-            action="/owner/appointments/<%= appointmentId %>/reschedule"
-            class="mt-6 rounded-3xl border border-border bg-white p-6"
+            action="<%= ownerUrl('/admin/appointments/' + appointmentId + '/reschedule') %>"
+            class="mt-6 rounded-2xl border border-[#e7e2da] bg-white p-6 shadow-sm"
         >
+            <% if (ownerPersonal) { %><input type="hidden" name="view" value="mine" /><% } %>
+            <% for (const key of ['staffId', 'status']) {
+                if (ownerContext[key]) { %><input type="hidden" name="<%= key %>" value="<%= ownerContext[key] %>" /><% }
+            } %>
             <label class="block text-sm font-semibold">
                 Ngày muốn đổi
             <input
@@ -56,7 +35,7 @@
 
             <button
             type="submit"
-            class="mt-4 min-h-11 rounded-full bg-terracotta px-6 py-2 text-sm font-semibold text-white hover:bg-terracotta-dark"
+            class="mt-4 min-h-11 rounded-xl bg-terracotta px-6 py-2 text-sm font-semibold text-white hover:bg-terracotta-hover"
             >
             Xem giờ trống
             </button>
@@ -65,18 +44,18 @@
         <% if (error) { %>
             <section
                 role="alert"
-                class="mt-6 rounded-3xl border border-border bg-white p-6"
+                class="mt-6 rounded-2xl border border-[#e7e2da] bg-white p-6 shadow-sm"
             >
                 <p class="text-sm text-muted"><%= error %></p>
             </section>
         <% } else if (options) { %>
             <p class="mt-6 text-sm text-muted">
                 Giờ hiển thị theo múi giờ Việt Nam. Dịch vụ, giá và thời lượng
-                giữ theo lịch đã đặt. Đổi sát giờ cần nhập lý do.
+                giữ theo lịch đã đặt. Cần nhập lý do và xác nhận đã thống nhất lịch mới với khách.
             </p>
 
             <% if (!options.stylists.some(stylist => stylist.slots.length > 0)) { %>
-                <section class="mt-4 rounded-3xl border border-border bg-white p-6">
+                <section class="mt-4 rounded-2xl border border-[#e7e2da] bg-white p-6 shadow-sm">
                     <p class="text-sm text-muted">
                     Chưa có giờ trống phù hợp trong ngày này. Hãy chọn ngày khác.
                     </p>
@@ -86,12 +65,13 @@
             <% for (const stylist of options.stylists) {
                 if (!stylist.slots.length) continue
             %>
-                <section class="mt-4 rounded-3xl border border-border bg-white p-6">
+                <section class="mt-4 rounded-2xl border border-[#e7e2da] bg-white p-6 shadow-sm">
                     <h2 class="text-lg font-semibold"><%= stylist.displayName %></h2>
 
                     <form
+                    data-reschedule-form
                     method="post"
-                    action="/owner/appointments/<%= appointmentId %>/reschedule"
+                    action="<%= ownerUrl('/admin/appointments/' + appointmentId + '/reschedule') %>"
                     class="mt-4 space-y-4"
                     >
                     <input
@@ -128,11 +108,12 @@
                     </label>
 
                     <label class="block text-sm font-semibold">
-                        Lý do đổi lịch
+                        Lý do đổi lịch (bắt buộc)
                         <textarea
                             name="reason"
                             rows="3"
                             maxlength="500"
+                            required
                             class="mt-2 block w-full rounded-xl border border-border bg-white px-3 py-2 font-normal"
                         ></textarea>
                     </label>
@@ -142,9 +123,14 @@
                         Backend sẽ kiểm tra lại giờ trống khi xác nhận.
                     </p>
 
+                    <label class="flex items-start gap-2 text-sm">
+                        <input type="checkbox" name="customerAgreementConfirmed" value="true" required class="mt-1" />
+                        Tôi đã trao đổi và thống nhất ngày, giờ, stylist mới với khách.
+                    </label>
+
                     <button
                         type="submit"
-                        class="min-h-11 rounded-full bg-terracotta px-6 py-2 text-sm font-semibold text-white hover:bg-terracotta-dark"
+                        class="min-h-11 rounded-xl bg-terracotta px-6 py-2 text-sm font-semibold text-white hover:bg-terracotta-hover"
                     >
                         Xác nhận đổi sang Stylist này
                     </button>
@@ -152,6 +138,5 @@
                 </section>
             <% } %>
         <% } %>
-        </main>
-    </body>
-</html>
+        
+<%- include('../layout-footer') %>

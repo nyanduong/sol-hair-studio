@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthContext } from '../../auth/context/auth-context.js'
-import AppRoutes from '../../../routes/AppRoutes.jsx'
+import LegacyAppointmentsFixture from './legacy-owner-page.fixture.jsx'
 import OwnerAppointmentManagement from '../components/OwnerAppointmentManagement.jsx'
 import { assertOwnerAssignedAppointment, resolveOwnerStaff, readOwnerAppointmentScope, createOwnerAppointmentReader, useOwnerAppointmentRead } from '../hooks/useOwnerAppointments.js'
 import { createOwnerAppointmentCommand } from '../hooks/useOwnerAppointmentCommand.js'
@@ -38,7 +38,7 @@ function respond(staff = people, appointments = page()) {
 function route(url = '/quan-ly/lich-hen', account = owner) {
   return renderToStaticMarkup(<MemoryRouter initialEntries={[url]}><AuthContext.Provider value={{
     account, token: account ? 'owner-token' : null, isAuthenticated: Boolean(account), openLoginModal() {}, logout() {},
-  }}><AppRoutes /></AuthContext.Provider></MemoryRouter>)
+  }}><LegacyAppointmentsFixture /></AuthContext.Provider></MemoryRouter>)
 }
 const callbacks = { retry() {}, loadMore() {} }
 let profileState

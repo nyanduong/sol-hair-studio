@@ -10,7 +10,7 @@ import { OwnerCorrectionDialog } from '../components/OwnerAppointmentCorrection.
 import { OwnerAuditView } from '../components/OwnerAppointmentAudit.jsx'
 import OwnerAppointmentManagement from '../components/OwnerAppointmentManagement.jsx'
 import { AuthContext } from '../../auth/context/auth-context.js'
-import AppRoutes from '../../../routes/AppRoutes.jsx'
+import LegacyAppointmentsFixture from './legacy-owner-page.fixture.jsx'
 
 vi.mock('../hooks/useOwnerAppointments.js', async original => ({ ...await original(), useOwnerAppointmentRead: vi.fn() }))
 vi.mock('../hooks/useStylistAppointments.js', async original => ({ ...await original(), useStylistAppointments: vi.fn() }))
@@ -53,7 +53,7 @@ afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks() })
 function route(url, account = owner) {
   return renderToStaticMarkup(<MemoryRouter initialEntries={[url]}><AuthContext.Provider value={{
     token: 'token', isAuthenticated: true, account, openLoginModal() {}, logout() {},
-  }}><AppRoutes /></AuthContext.Provider></MemoryRouter>)
+  }}><LegacyAppointmentsFixture /></AuthContext.Provider></MemoryRouter>)
 }
 
 describe('Owner correction payload', () => {

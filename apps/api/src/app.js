@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { config } from './config/env.js'
 import { errorHandler } from './middlewares/error-handler.js'
 import { notFound } from './middlewares/not-found.js'
-import { ownerWebRouter } from './modules/owner-web/owner-web.routes.js'
+import { adminAppointmentsRouter } from './modules/admin/admin-appointments.routes.js'
 import { apiRouter } from './routes/index.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -24,7 +24,7 @@ export function createApp({ routes = apiRouter, logStream } = {}) {
   app.set('view engine', 'ejs')
   app.set('views', path.join(__dirname, 'views'))
 
-  app.use('/owner-assets', express.static(path.join(__dirname, '../public')))
+  app.use('/admin-assets', express.static(path.join(__dirname, '../public')))
 
   // Log HTTP ra terminal; không ghi query, body hoặc Authorization.
   app.use(morgan((tokens, req, res) => [
@@ -39,7 +39,11 @@ export function createApp({ routes = apiRouter, logStream } = {}) {
   app.use(express.json({ limit: '15mb' }))
   app.use(express.urlencoded({ extended: true, limit: '15mb' }))
   app.use(routes)
-  app.use('/owner', ownerWebRouter)
+  app.use('/admin', adminAppointmentsRouter)
+  // Giữ link lịch có sẵn của dashboard mà không sửa module Admin của thành viên khác.
+  app.use('/owner/appointments', (req, res) => {
+    return res.redirect(308, '/admin/appointments' + req.url)
+  })
   app.use(notFound)
   app.use(errorHandler)
 

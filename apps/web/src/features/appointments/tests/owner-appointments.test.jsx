@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AuthContext } from '../../auth/context/auth-context.js'
-import AppRoutes from '../../../routes/AppRoutes.jsx'
+import LegacyAppointmentsFixture from './legacy-owner-page.fixture.jsx'
 import OwnerAppointmentsView from '../components/OwnerAppointmentsView.jsx'
 import { createOwnerAppointmentReader } from '../hooks/useOwnerAppointments.js'
 import { listOwnerAppointments, readOwnerAppointment } from '../api/owner-appointments.api.js'
@@ -31,7 +31,7 @@ function respond(data, status = 200) {
 function route(account = owner, path = '/quan-ly/lich-hen') {
   return renderToStaticMarkup(<MemoryRouter initialEntries={[path]}>
     <AuthContext.Provider value={{ account, token: account ? 'fixture-token' : null, isAuthenticated: Boolean(account), openLoginModal() {}, logout() {} }}>
-      <AppRoutes />
+      <LegacyAppointmentsFixture />
     </AuthContext.Provider>
   </MemoryRouter>)
 }

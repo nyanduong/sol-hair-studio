@@ -10,7 +10,7 @@ import { readStylistAppointment } from '../api/stylist-appointments.api.js'
 import { AppointmentEtaDialog, AppointmentEtaSummary } from '../components/AppointmentEta.jsx'
 import OwnerAppointmentManagement from '../components/OwnerAppointmentManagement.jsx'
 import { AuthContext } from '../../auth/context/auth-context.js'
-import AppRoutes from '../../../routes/AppRoutes.jsx'
+import LegacyAppointmentsFixture from './legacy-owner-page.fixture.jsx'
 
 vi.mock('../hooks/useOwnerAppointments.js', async original => ({ ...await original(), useOwnerAppointmentRead: vi.fn() }))
 vi.mock('../hooks/useStylistAppointments.js', async original => ({ ...await original(), useStylistAppointments: vi.fn() }))
@@ -61,7 +61,7 @@ function route(actor, status = 'in_progress') {
   vi.mocked(useOwnerAppointmentRead).mockReturnValue({ kind: 'success', value: { ...item, status, customerId: 'customer' }, ...callbacks })
   vi.mocked(useStylistAppointments).mockReturnValue({ kind: 'success', value: { ...item, status }, ...callbacks })
   return renderToStaticMarkup(<MemoryRouter initialEntries={[(actor === 'owner' ? '/quan-ly/lich-hen/' : '/nhan-vien/lich-hen/') + id]}>
-    <AuthContext.Provider value={{ account, token: 'token', isAuthenticated: true, openLoginModal() {}, logout() {} }}><AppRoutes /></AuthContext.Provider>
+    <AuthContext.Provider value={{ account, token: 'token', isAuthenticated: true, openLoginModal() {}, logout() {} }}><LegacyAppointmentsFixture /></AuthContext.Provider>
   </MemoryRouter>)
 }
 
