@@ -296,7 +296,7 @@ function BookingForm({ token, initialServiceId }) {
                       setSearch(null)
                       resetSlot()
                     }}
-                    placeholder="+84901234567"
+                    placeholder="0912345678"
                     className={field}
                   />
                 </label>
@@ -305,8 +305,8 @@ function BookingForm({ token, initialServiceId }) {
                   className="mt-3 min-h-11 font-semibold text-terracotta"
                   onClick={() => {
                     try {
-                      contactInput('Tìm khách', phoneSearch)
-                      setSearch(phoneSearch.trim())
+                      const input = contactInput('Tìm khách', phoneSearch)
+                      setSearch(input.phone)
                       setSelectedCustomer(null)
                       setGuest(false)
                       setName(null)
@@ -726,11 +726,15 @@ function ContactFields({ name, phone, setName, setPhone }) {
           className={field}
           type="tel"
           value={phone}
-          maxLength={16}
-          placeholder="+84901234567"
+          maxLength={32}
+          placeholder="0912345678"
+          aria-describedby="booking-phone-hint"
           autoComplete="tel"
           onChange={(event) => setPhone(event.target.value)}
         />
+        <span id="booking-phone-hint" className="mt-2 block text-xs leading-5 text-muted">
+          Nhập số Việt Nam, ví dụ 0912345678, hoặc số quốc tế bắt đầu bằng +.
+        </span>
       </label>
     </div>
   )

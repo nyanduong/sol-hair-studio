@@ -13,7 +13,7 @@ URL giữ lựa chọn khi tải lại hoặc đăng nhập tại trang; khách 
 
 - `GET /api/services`: DTO 8 field hiện có, danh sách công khai.
 - `GET /api/auth/me`: profile active và customer (nếu đã có).
-- `PATCH /api/auth/me`: `{displayName,phone}`; phone E.164, tên 1–120 ký tự. Dùng M1 để lưu contact.
+- `PATCH /api/auth/me`: `{displayName,phone}`; phone gửi API vẫn là E.164, tên 1–120 ký tự. SOL-043: helper contactInput dùng chung chấp nhận số Việt Nam đầu 0 (di động 10 chữ số, cố định đầu 02 có 11 chữ số), chuẩn hóa sang +84; bỏ khoảng trắng/dấu chấm/gạch nối/ngoặc khi dán. Số +84 kiểm tra cùng độ dài; số quốc tế khác giữ kiểm tra E.164 hiện có. Web tìm khách dùng đúng số đã chuẩn hóa. Dùng M1 để lưu contact.
 - `GET /api/availability`: serviceIds phân cách dấu phẩy, localDate/mode, owner có thể truyền customerId đã chọn.
   Tổng giá/thời lượng/items và slot do server trả; UI không cộng thời gian/giá làm dữ liệu authoritative.
 
