@@ -5,7 +5,8 @@ import { useAuth } from '../../auth/hooks/useAuth.js'
 import SiteHeader from '../../home/components/SiteHeader.jsx'
 import SiteFooter from '../../home/components/SiteFooter.jsx'
 import { formatDuration } from '../../services/format-service.js'
-import BookingServiceCard, { BookingServiceImage } from '../components/BookingServiceCard.jsx'
+import { BookingServiceImage } from '../components/BookingServiceCard.jsx'
+import BookingServicePicker from '../components/BookingServicePicker.jsx'
 import { useServices } from '../../services/hooks/useServices.js'
 import { updateBookingProfile } from '../api/booking.api.js'
 import {
@@ -32,12 +33,12 @@ export default function BookingPage() {
   return (
     <>
       <SiteHeader />
-      <main id="main-content" className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <Link to="/" className="inline-flex min-h-11 items-center text-sm text-muted">
+      <main id="main-content" className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
+        <Link to="/" className="inline-flex min-h-9 items-center text-sm text-muted">
           ← Về trang chủ
         </Link>
-        <h1 className="mt-4 font-display text-4xl sm:text-5xl">Đặt lịch tại Sol</h1>
-        <p className="mt-3 text-sm leading-6 text-muted sm:text-base">
+        <h1 className="mt-2 font-display text-3xl sm:text-5xl">Đặt lịch tại Sol</h1>
+        <p className="mt-2 text-sm leading-6 text-muted sm:text-base">
           Chọn dịch vụ phù hợp, Sol chăm chút phần còn lại.
         </p>
         {!isAuthenticated ? (
@@ -72,6 +73,8 @@ export default function BookingPage() {
 
 function BookingForm({ token, initialServiceId }) {
   const [step, setStep] = useState(1)
+  const [summaryOpen, setSummaryOpen] = useState(false)
+  const summaryRef = useRef(null)
   const stepHeading = useRef(null)
   const catalog = useServices()
   const profile = useBookingQuery('profile', token, {})
@@ -145,6 +148,7 @@ function BookingForm({ token, initialServiceId }) {
     catalog.state.data?.filter((service) => serviceIds.includes(service.id)) ?? []
   function goToStep(next) {
     setStep(next)
+    setSummaryOpen(false)
     requestAnimationFrame(() => {
       stepHeading.current?.focus({ preventScroll: true })
       stepHeading.current?.scrollIntoView({
@@ -218,10 +222,45 @@ function BookingForm({ token, initialServiceId }) {
       setNotice(error.message)
     }
   }
+  function viewSummary() {
+    setSummaryOpen(true)
+    requestAnimationFrame(() => {
+      summaryRef.current?.focus({ preventScroll: true })
+      summaryRef.current?.scrollIntoView({ behavior: 'instant', block: 'start' })
+    })
+  }
+  const reviewing = !owner && step < 3 && !submission.pending && submission.kind !== 'success'
+  const actionDisabled = reviewing
+    ? !active || locked || (step === 1 ? !serviceIds.length : !slot)
+    : submission.kind === 'loading' ||
+      (!submission.pending &&
+        (!active ||
+          !slot ||
+          (!owner && !profileComplete) ||
+          (owner && !selectedCustomer && !guest)))
+  const actionLabel =
+    submission.kind === 'loading'
+      ? 'Đang xác nhận…'
+      : submission.pending
+        ? 'Thử lại cùng yêu cầu'
+        : reviewing
+          ? step === 1
+            ? 'Tiếp tục chọn giờ →'
+            : 'Kiểm tra cuộc hẹn →'
+          : 'Xác nhận đặt lịch'
+  const proceed = () => (reviewing ? goToStep(step + 1) : confirm())
+  const summaryVisible =
+    owner ||
+    summaryOpen ||
+    step === 3 ||
+    notice ||
+    submission.kind === 'error' ||
+    submission.kind === 'success'
+  const catalogTotal = selectedServices.reduce((sum, item) => sum + item.priceVnd, 0)
   return (
     <>
       {!owner && (
-        <nav aria-label="Các bước đặt lịch" className="mt-7">
+        <nav aria-label="Các bước đặt lịch" className="mt-4 sm:mt-7">
           <ol className="flex items-center gap-2 sm:gap-5">
             {['Dịch vụ', 'Stylist & thời gian', 'Xác nhận'].map((label, index) => (
               <li key={label} className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
@@ -250,7 +289,7 @@ function BookingForm({ token, initialServiceId }) {
       <div
         ref={stepHeading}
         tabIndex={-1}
-        className="mt-6 grid scroll-mt-28 items-start gap-5 outline-none lg:grid-cols-[minmax(0,1fr)_22rem]"
+        className="mt-4 grid scroll-mt-28 items-start gap-5 pb-32 outline-none lg:grid-cols-[minmax(0,1fr)_22rem] lg:pb-0"
       >
         <div className="min-w-0 space-y-5">
           <BookingStatus query={profile} label="tài khoản" />
@@ -262,9 +301,12 @@ function BookingForm({ token, initialServiceId }) {
               hidden={!owner && step !== 1}
               className="rounded-2xl border border-border bg-white p-4 sm:p-6"
             >
-              <h2 className="font-display text-2xl sm:text-3xl">Bạn muốn chăm sóc tóc thế nào?</h2>
+              <h2 className="font-display text-2xl sm:text-3xl">
+                <span className="sm:hidden">Chọn dịch vụ</span>
+                <span className="hidden sm:inline">Bạn muốn chăm sóc tóc thế nào?</span>
+              </h2>
               <p className="mb-4 mt-2 text-sm text-muted">
-                Chọn từ 1 đến 5 dịch vụ trong cùng một cuộc hẹn.
+                Chọn tối đa 5 dịch vụ, cùng một stylist chăm sóc.
               </p>
               {catalog.state.kind === 'loading' && <p role="status">Đang tải dịch vụ…</p>}
               {catalog.state.kind === 'error' && (
@@ -282,16 +324,14 @@ function BookingForm({ token, initialServiceId }) {
               {catalog.state.kind === 'success' && !catalog.state.data.length && (
                 <p>Chưa có dịch vụ để đặt hẹn.</p>
               )}
-              <div className="grid gap-3">
-                {catalog.state.data?.map((service) => (
-                  <BookingServiceCard
-                    key={service.id}
-                    service={service}
-                    selected={serviceIds.includes(service.id)}
-                    onChange={() => changeServices(service.id)}
-                  />
-                ))}
-              </div>
+              {catalog.state.kind === 'success' && (
+                <BookingServicePicker
+                  services={catalog.state.data}
+                  selectedIds={serviceIds}
+                  onChange={changeServices}
+                  onViewSelection={viewSummary}
+                />
+              )}
             </section>
             {owner ? (
               <section className="rounded-2xl border border-border bg-white p-5 sm:p-6">
@@ -571,9 +611,20 @@ function BookingForm({ token, initialServiceId }) {
           )}
         </div>
         <aside
-          className="rounded-2xl border border-border bg-white/60 p-5 sm:p-6 lg:sticky lg:top-28"
+          ref={summaryRef}
+          tabIndex={-1}
+          className={`${summaryVisible ? 'block' : 'hidden'} scroll-mt-28 rounded-2xl border border-border bg-white/60 p-5 outline-none sm:p-6 lg:sticky lg:top-28 lg:block`}
           aria-label="Xác nhận lịch hẹn"
         >
+          {!owner && step < 3 && (
+            <button
+              type="button"
+              onClick={() => setSummaryOpen(false)}
+              className="mb-3 min-h-11 text-xs text-terracotta lg:hidden"
+            >
+              Thu gọn tóm tắt ↑
+            </button>
+          )}
           <div className="flex items-center justify-between gap-3">
             <h2 className="font-display text-2xl">Cuộc hẹn của bạn</h2>
             <span className="shrink-0 rounded-full bg-terracotta/10 px-3 py-2 text-xs text-terracotta">
@@ -594,6 +645,15 @@ function BookingForm({ token, initialServiceId }) {
                       )}
                     </p>
                   </div>
+                  <button
+                    type="button"
+                    aria-label={`Bỏ chọn ${service.name} khỏi tóm tắt`}
+                    disabled={!active || locked}
+                    onClick={() => changeServices(service.id)}
+                    className="ml-auto flex size-11 shrink-0 items-center justify-center rounded-full text-xl text-muted hover:bg-terracotta/10 hover:text-terracotta disabled:opacity-40"
+                  >
+                    ×
+                  </button>
                 </li>
               ))}
             </ul>
@@ -675,23 +735,7 @@ function BookingForm({ token, initialServiceId }) {
               )}
             </div>
           )}
-          {!owner && step < 3 && !submission.pending && submission.kind !== 'success' ? (
-            <>
-              <button
-                type="button"
-                className={`${button} mt-6 w-full`}
-                disabled={!active || locked || (step === 1 ? !serviceIds.length : !slot)}
-                onClick={() => goToStep(step + 1)}
-              >
-                {step === 1 ? 'Tiếp tục chọn giờ →' : 'Kiểm tra cuộc hẹn →'}
-              </button>
-              <p className="mt-3 text-xs leading-5 text-muted">
-                {step === 1
-                  ? 'Bạn sẽ chọn stylist và giờ hẹn ở bước tiếp theo.'
-                  : 'Xem lại thông tin trước khi xác nhận đặt lịch.'}
-              </p>
-            </>
-          ) : submission.kind === 'success' ? (
+          {submission.kind === 'success' ? (
             <div role="status" className="mt-5">
               <h3 className="font-semibold">Đặt lịch thành công</h3>
               <p className="mt-2 break-all text-sm">Mã lịch: {submission.data.id}</p>
@@ -701,28 +745,68 @@ function BookingForm({ token, initialServiceId }) {
               </p>
             </div>
           ) : (
-            <button
-              type="button"
-              disabled={
-                submission.kind === 'loading' ||
-                (!submission.pending &&
-                  (!active ||
-                    !slot ||
-                    (!owner && !profileComplete) ||
-                    (owner && !selectedCustomer && !guest)))
-              }
-              className={`${button} mt-6 w-full`}
-              onClick={confirm}
-            >
-              {submission.kind === 'loading'
-                ? 'Đang xác nhận…'
-                : submission.pending
-                  ? 'Thử lại cùng yêu cầu'
-                  : 'Xác nhận đặt lịch'}
-            </button>
+            <>
+              <button
+                type="button"
+                disabled={actionDisabled}
+                className={`${button} mt-6 w-full`}
+                onClick={proceed}
+              >
+                {actionLabel}
+              </button>
+              {reviewing && (
+                <p className="mt-3 text-xs leading-5 text-muted">
+                  {step === 1
+                    ? 'Chọn stylist và giờ hẹn ở bước tiếp theo.'
+                    : 'Xem lại thông tin trước khi xác nhận đặt lịch.'}
+                </p>
+              )}
+            </>
           )}
         </aside>
       </div>
+      {!owner && submission.kind !== 'success' && (
+        <div
+          aria-label="Tiếp tục đặt lịch"
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-canvas px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(36,33,31,0.06)] lg:hidden"
+        >
+          {notice && <p className="mb-2 text-xs leading-5 text-terracotta">{notice}</p>}
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={viewSummary}
+              className="min-h-11 min-w-0 rounded-lg text-left"
+            >
+              <span className="block text-xs font-semibold">
+                {serviceIds.length} dịch vụ ·{' '}
+                <span className="text-terracotta">
+                  {money(data?.totalPriceVnd ?? catalogTotal)}
+                </span>
+              </span>
+              <span className="mt-1 block text-xs text-muted">
+                {data ? 'Xem tóm tắt' : 'Tạm tính · Xem tóm tắt'} ›
+              </span>
+            </button>
+            <button
+              type="button"
+              disabled={actionDisabled}
+              onClick={proceed}
+              aria-label={actionLabel}
+              className={`${button} max-w-[48%] shrink-0`}
+            >
+              {submission.kind === 'loading'
+                ? 'Đang gửi…'
+                : submission.pending
+                  ? 'Thử lại'
+                  : reviewing
+                    ? step === 1
+                      ? 'Tiếp tục →'
+                      : 'Kiểm tra →'
+                    : 'Xác nhận'}
+            </button>
+          </div>
+        </div>
+      )}
     </>
   )
 }

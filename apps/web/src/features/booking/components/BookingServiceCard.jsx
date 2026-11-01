@@ -33,7 +33,7 @@ export default function BookingServiceCard({ service, selected, onChange }) {
     >
       <BookingServiceImage
         service={service}
-        className="h-20 w-20 shrink-0 rounded-lg sm:h-24 sm:w-32"
+        className="h-20 w-20 shrink-0 rounded-lg sm:h-20 sm:w-28"
       />
       <span className="flex min-w-0 flex-1 flex-col gap-2 xl:flex-row xl:items-center xl:gap-4">
         <span className="min-w-0 flex-1">

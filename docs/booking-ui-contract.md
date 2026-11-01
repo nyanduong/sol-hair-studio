@@ -87,3 +87,9 @@ API gắn Socket.IO trên cùng HTTP server/port; handshake dùng token phiên q
 Booking Web mở kết nối khi có phiên và lựa chọn dịch vụ, gom tín hiệu trong 150ms rồi đọc lại GET availability. Giữ kết quả đang hiển thị khi refresh nền, latest-request bỏ kết quả cũ. Nếu slot đã chọn không còn hợp lệ, bỏ slot, báo rõ và trở về bước 2. Không tự chuyển lựa chọn khi đang gửi, pending retry hoặc đã thành công. Reconnect/focus đọc lại; kiểm tra định kỳ 60 giây khi kết nối và 15 giây khi mất socket để bù tín hiệu bỏ lỡ. Cleanup listener/timer/socket khi rời màn hình hoặc đổi phiên.
 
 Socket chỉ làm mới UI; transaction/guard/idempotency và 409 vẫn là nguồn bảo đảm chống trùng. Adapter hiện tại chạy trong một API process; nhiều instance cần adapter đồng bộ trước khi triển khai scale-out. Sửa DB trực tiếp không phát tín hiệu, được phản ánh khi đọc lại. Mobile giữ HTTP hiện tại.
+
+## SOL-043 — Refine danh mục đặt lịch theo mockup
+
+Bước chọn dịch vụ có tìm tên/nhóm không phân biệt dấu hoặc hoa thường, lọc nhóm từ category thực của catalog và nhóm Khác cho dữ liệu thiếu category. Bộ lọc chỉ thay danh sách hiển thị; selected serviceIds không bị mất khi đổi nhóm/tìm kiếm. Chip đã chọn và nút bỏ chọn trong tóm tắt đều đi qua changeServices hiện có để giữ giới hạn 5 và vô hiệu giờ cũ.
+
+Desktop giữ tóm tắt bên phải. Dưới breakpoint lg, customer có thanh tổng tiền/nút đi tiếp cố định đáy với safe area; tóm tắt thu gọn ở bước 1–2, mở từ Xem lựa chọn/Xem tóm tắt. Bước 3, lỗi hoặc kết quả thành công vẫn hiện đầy đủ. Cả hai vị trí CTA dùng chung action label, disabled và callback; giữ active/profile/slot gate và pending retry. Owner giữ form đầy đủ và không có thanh customer cố định. Không đổi endpoint, payload, socket, transaction, schema hay dữ liệu catalog.
