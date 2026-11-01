@@ -68,3 +68,25 @@ Người dùng đã yêu cầu commit và push các thay đổi màn thành côn
 - node --check apps/api/scripts/backfill-booking-references.js và git diff --check: PASS.
 - Thông báo cạnh ô ngày và DATE_OUT_OF_RANGE nêu rõ tối đa 7 ngày/168 giờ; khách tới ngay chỉ hôm nay. Không đổi logic tính giờ. Chưa kiểm lại trình duyệt hoặc native UI trong lần bàn giao này; bằng chứng Chrome trước đó nằm ở phần trên.
 - Đợt thêm ca riêng theo yêu cầu đã nạp 92 ca 09:00–20:00 ngày 08–30/11 cho 4 nhân sự vào DB local, kiểm lại ca/giờ trống và giữ nguyên lịch hẹn. Dữ liệu DB không nằm trong commit.
+
+## Sửa 5 điểm audit customer — 01/11/2026
+
+- Chặn điều hướng SPA khi gửi/chờ xác minh booking, giữ intent/key; liên hệ ở bước 1; empty slot có gợi ý và nhắc trùng lịch khách; tab Đến/quá giờ giữ confirmed; picker giới hạn ngày +7, API giữ horizon 168 giờ.
+- PASS npm run lint --workspace @sol-hair/web, npm run test --workspace @sol-hair/web (580 tests / 41 files), npm run build:web và git diff --check. Build còn cảnh báo chunk >500 kB.
+- Test React DOM trong happy-dom chạy router và hook thật: click Link/Back khi POST chưa trả giữ request sống; lỗi 503 rồi retry cùng key/payload; sau success/409 điều hướng được; liên hệ lưu ở bước 1 rồi chọn giờ một lần đến xác nhận; picker max và input ngoài phạm vi không gọi API; empty slot có gợi ý. Clock test kiểm phân nhóm ở đúng startAt, giữ status, link chi tiết/hỗ trợ và khóa đổi theo cutoff.
+- Test link chi tiết cũ dùng fixture tháng 10 được cố định đồng hồ trước lịch hẹn để kiểm đúng mục Sắp tới. Không bỏ kiểm tra link/action; thêm test riêng cho mục Đến/quá giờ.
+- Chỉ kiểm DOM tự động, chưa chạy lại Chrome hoặc native UI trong đợt này. Không ghi DB hoặc Google Sheet; thay đổi hiện local, chưa commit/push.
+
+## Kiểm lại Chrome trước commit/push — 01/11/2026
+
+Theo yêu cầu người dùng: kiểm Chrome rồi commit/push nếu ổn. Chrome thật trên localhost:5173, API localhost:4000 và DB local hiện có; không thay code sau bộ kiểm 580 test Web đã PASS.
+
+- API/DB thật: homepage chọn sẵn Cắt; chọn cả 3 dịch vụ rồi sang bước 2, chọn An: empty slot có gợi ý đổi ngày/stylist/giảm dịch vụ và nhắc giờ trùng lịch khách. Ảnh audit-empty-slot-chrome.jpg.
+- Picker thật có min 01/11 và max 08/11/2026. Phím ArrowUp đổi ngày 01 → 02 và tải lại slot; lặp qua giới hạn 08 thì native Chrome quay về ngày trong khoảng. Không gửi ngày 09 tới API. Công cụ fill() của browser chỉ thay giá trị DOM cho input date, chưa phát sự kiện React; không dùng kết quả fill đó làm bằng chứng validation. Test DOM tự động đã kiểm handler từ chối ngày ngoài phạm vi.
+- API/DB thật: Lịch của tôi có Sắp tới 3 / Đến-quá-giờ 2 / Lịch sử 1; 2 lịch confirmed cũ ở 14:00 ngày 01/11 và 17:00 ngày 31/10 chuyển đúng nhóm Đến/quá giờ, giữ badge Đã xác nhận, có Chi tiết/Hỗ trợ và không có đổi/hủy trực tuyến. Ảnh audit-overdue-chrome.jpg.
+- Chrome viewport override 390×844 (clientWidth 375 do scrollbar): ba tab xuống dòng, không tràn ngang (scrollWidth = clientWidth = 375). Ảnh audit-overdue-mobile-chrome.jpg. Đã reset viewport.
+- Kịch bản QA frontend trên chính BookingPage/router/hook thật: dùng CDP Fetch override riêng auth/me và POST appointments, không thay source, không gọi ghi DB. Hồ sơ giả thiếu phone hiện liên hệ ở bước 1, CTA disabled dù đã chọn Cắt. Gõ phone mẫu, phản hồi PATCH/GET giả thành công: vẫn bước 1, giữ Cắt và CTA enabled; sang bước 2 chọn An/09:00 ngày 02/11 một lần rồi tới xác nhận. Ảnh audit-contact-chrome.jpg. Không sửa hồ sơ tài khoản hiện tại.
+- POST QA được giữ ở tầng Fetch, click Link Lịch của tôi không rời booking. Trả 503 giả rồi bấm Back: vẫn booking, hiện lý do, giữ CTA Thử lại cùng yêu cầu. Ảnh audit-navigation-blocked-chrome.jpg. Retry POST thứ 2 có cùng Idempotency-Key và payload (chỉ đối chiếu boolean, không lưu token/key). Trả 201 fixture: màn thành công hiện, Link Lịch của tôi điều hướng được. Đây là kiểm frontend với phản hồi mô phỏng, không phải tạo lịch thật hoặc nghiệm thu lại transaction DB.
+- Một request hồ sơ bị timeout trong lúc thiết lập interception; UI báo lỗi/thử lại đúng, sau đó tiếp tục được. Không phát hiện lỗi app hoặc console error mới trong lượt kiểm.
+- Đã gỡ toàn bộ raw interception bằng Fetch.enable patterns=[], rời trang QA và mở lại booking với hồ sơ/API thật. Không còn dữ liệu QA trong UI. Không tạo/sửa/xóa lịch, không ghi DB hoặc Google Sheet trong lượt kiểm này. Các ảnh QA được ghi rõ ở trên; không chứa credential.
+- Tiếp tục dùng kết quả npm run lint --workspace @sol-hair/web, 580 test/41 files và build:web PASS ở lượt sửa trước vì source không đổi trong lượt browser; git diff --check được kiểm lại trước commit. Chưa native/thiết bị thật. PR #41 giữ Draft, không merge main.

@@ -47,7 +47,7 @@ UI không thay được các bảo đảm này. API hiện ghi guard, snapshot, 
 
 - Tải/rỗng/lỗi/thử lại cho catalog, profile và giờ trống; stale/aborted read không cập nhật màn hình.
 - Đổi dịch vụ/ngày/khách/chế độ vô hiệu lựa chọn stylist/giờ cũ; đổi stylist vô hiệu giờ cũ.
-- Khách thiếu contact bổ sung qua M1 trước xác nhận. Stylist-only không có form đặt lịch.
+- Khách thiếu contact bổ sung qua M1 ngay bước chọn dịch vụ trước khi được chuyển sang chọn giờ. Stylist-only không có form đặt lịch.
 - Một yêu cầu đang gửi chia sẻ cùng Promise/key cho double click. Mất mạng/timeout/5xx/response lỗi định dạng:
   khóa chỉnh lựa chọn, cho retry cùng intent/key. Chỉ HTTP 2xx có mã lịch mới báo thành công.
 - HTTP 409 loại lựa chọn cũ và tải lại availability; không giữ giờ bị tranh như một lần xác nhận hợp lệ.
@@ -76,7 +76,7 @@ SOL-034 nghiệm thu Web + Android với DB thật, tranh lịch và receipt. Gi
 
 ## SOL-042 — Giao diện booking customer
 
-Customer Web chia thành ba bước Dịch vụ → Stylist & thời gian → Xác nhận. Chuyển bước chỉ thay trạng thái trình bày; các hook, endpoint, payload và shared booking manager giữ nguyên. Quay lại giữ lựa chọn; đổi dịch vụ/ngày vẫn xóa stylist/slot theo luồng cũ. Sau lưu hồ sơ hoặc conflict 409, UI trở về bước chọn giờ để chọn lại slot. Khi có pending intent hoặc đã thành công, điều hướng bước và lựa chọn bị khóa.
+Customer Web chia thành ba bước Dịch vụ → Stylist & thời gian → Xác nhận. Chuyển bước chỉ thay trạng thái trình bày; các hook, endpoint, payload và shared booking manager giữ nguyên. Quay lại giữ lựa chọn; đổi dịch vụ/ngày vẫn xóa stylist/slot theo luồng cũ. Sau lưu hồ sơ ở bước 1, UI giữ bước và lựa chọn dịch vụ, không buộc chọn giờ lần nữa. Conflict 409 đưa UI về bước chọn giờ để chọn lại slot. Khi có pending intent hoặc đã thành công, điều hướng bước và lựa chọn bị khóa.
 
 Thẻ dùng ảnh, mô tả, giá và thời lượng danh mục; lỗi ảnh có fallback. Tóm tắt hiển thị tạm tính danh mục khi chưa có availability, ghi rõ là tham khảo. Khi availability thành công, tổng giá/thời lượng dùng nguyên giá trị API, không tính lại giờ trống ở client. Không ẩn bản ghi demo. Owner giữ form đặt hộ/tới ngay hiện tại, không chuyển sang wizard customer; không triển khai thêm admin React hoặc thay đổi EJS.
 
@@ -103,3 +103,12 @@ Refresh trang booking vẫn bắt đầu một draft mới như luồng hiện c
 ## SOL-043 — Thông báo giới hạn đặt trước
 
 Hướng dẫn cạnh ô ngày ghi rõ đặt trước tối đa 7 ngày tính từ giờ hiện tại. Lỗi DATE_OUT_OF_RANGE của API phân biệt đặt lịch thường (từ hôm nay, tối đa 168 giờ kể từ hiện tại) và khách tới ngay (chỉ hôm nay). Chỉ thay lời hướng dẫn/thông báo, không đổi quy tắc tính slot hoặc cửa sổ đặt lịch; các client tiếp tục nhận cùng code lỗi.
+
+## SOL-043 — Bổ sung an toàn điều hướng và hướng dẫn customer
+
+- App dùng createBrowserRouter/RouterProvider với root wildcard giữ AppRoutes/AuthProvider hiện có để hỗ trợ useBlocker chính thức. Khi manager còn pending intent, chặn Link/navigate/Back/Forward nội bộ, giữ payload/key/request và hiển thị lý do. Không tự chuyển trang sau khi có kết quả; khách có thể điều hướng lại khi thành công hoặc lỗi xác định. Beforeunload vẫn cảnh báo reload/đóng tab. Chưa có khôi phục intent sau force reload hoặc đổi phiên đăng nhập.
+- Contact thiếu nằm ở bước 1, chặn chuyển bước đến khi lưu xong. Không reset slot/chuyển bước khi lưu; luồng owner không đổi.
+- Picker ngày có min/max theo ngày Việt Nam hôm nay đến ngày thứ 7; handler từ chối ngày sai/quá giới hạn trước khi gọi availability. Ngày cuối vẫn chỉ có các slot nằm trong 168 giờ do API lọc.
+- Empty slot gợi ý đổi ngày, stylist hoặc giảm dịch vụ, nhắc các giờ trùng lịch của chính khách bị loại; không suy đoán nguyên nhân cụ thể của từng slot hoặc lộ lịch người khác.
+- Lịch của tôi có nhóm Đến/quá giờ cho confirmed có startAt <= now. Upcoming giữ confirmed tương lai và in_progress; History giữ completed/cancelled/no_show. Chỉ nhóm hiển thị thay đổi, không cập nhật DB/status. Đồng hồ cập nhật đúng mốc bắt đầu, định kỳ và khi focus; số lượng/rỗng vẫn chỉ kết luận sau trang cuối. Nhóm Đến/quá giờ giữ link chi tiết, khóa đổi/hủy theo cutoff hiện có và cho liên hệ tiệm.
+- happy-dom chỉ là dev dependency cho test React DOM/router thực; không đưa vào bundle sản phẩm.

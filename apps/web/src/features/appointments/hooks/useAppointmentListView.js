@@ -4,15 +4,16 @@ const TWO_HOURS = 2 * 60 * 60 * 1000
 const UPCOMING = new Set(['confirmed', 'in_progress'])
 const HISTORY = new Set(['completed', 'cancelled', 'no_show'])
 
-export function getAppointmentTabView(state, tab) {
-  const upcoming = state.items.filter(item => UPCOMING.has(item.status))
+export function getAppointmentTabView(state, tab, now = Date.now()) {
+  const attention = state.items.filter(item => item.status === 'confirmed' && new Date(item.startAt).getTime() <= now)
+  const upcoming = state.items.filter(item => UPCOMING.has(item.status) && !attention.includes(item))
   const history = state.items.filter(item => HISTORY.has(item.status))
   // Chỉ có tổng chính xác và kết luận rỗng sau trang cuối thành công.
   const complete = state.kind === 'success' && !state.hasNextPage
-  const items = tab === 'upcoming' ? upcoming : history
+  const items = tab === 'upcoming' ? upcoming : tab === 'attention' ? attention : history
   return {
     items,
-    counts: complete ? { upcoming: upcoming.length, history: history.length } : {},
+    counts: complete ? { upcoming: upcoming.length, attention: attention.length, history: history.length } : {},
     empty: complete && items.length === 0,
     incomplete: Boolean(state.hasNextPage) && state.kind !== 'loading',
   }
@@ -27,7 +28,7 @@ export function isAppointmentCutoffReached(appointment, now) {
 export function watchAppointmentCutoffs(items, update) {
   let timer
   const thresholds = items.filter(item => item.status === 'confirmed')
-    .map(item => new Date(item.startAt).getTime() - TWO_HOURS + 1)
+    .flatMap(item => [new Date(item.startAt).getTime() - TWO_HOURS + 1, new Date(item.startAt).getTime()])
     .filter(Number.isFinite)
   function tick() {
     clearTimeout(timer)
@@ -49,5 +50,5 @@ export function watchAppointmentCutoffs(items, update) {
 export function useAppointmentListView(state, tab) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => watchAppointmentCutoffs(state.items, setNow), [state.items])
-  return { ...getAppointmentTabView(state, tab), now }
+  return { ...getAppointmentTabView(state, tab, now), now }
 }

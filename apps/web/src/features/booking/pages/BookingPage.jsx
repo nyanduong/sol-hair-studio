@@ -16,6 +16,7 @@ import {
   salonDate,
   slotTime,
 } from '../../../../../../shared/booking.js'
+import { bookingDateRange, isBookingDateAllowed } from '../booking-date.js'
 import BookingSuccess from '../components/BookingSuccess.jsx'
 import BookingStatus from '../components/BookingStatus.jsx'
 import { useBookingQuery } from '../hooks/useBookingQuery.js'
@@ -127,7 +128,10 @@ function BookingForm({ token, initialServiceId }) {
   }, [])
   const submission = useBookingSubmission(token)
   const locked =
-    submission.kind === 'loading' || Boolean(submission.pending) || submission.kind === 'success'
+    savingProfile ||
+    submission.kind === 'loading' ||
+    Boolean(submission.pending) ||
+    submission.kind === 'success'
   const customers = useBookingQuery('customers', token, owner && search ? { phone: search } : null)
   const params =
     active && serviceIds.length && submission.kind !== 'success'
@@ -154,6 +158,7 @@ function BookingForm({ token, initialServiceId }) {
   const data = availability.kind === 'success' ? availability.value : null
   const stylist = data?.stylists.find((item) => item.staffId === staffId)
   const slot = stylist?.slots.find((item) => item.startAt === startAt)
+  const dateRange = bookingDateRange()
   const contact = profile.value?.customer
   const profileComplete = Boolean(contact?.displayName && contact?.phone)
   const selectedServices =
@@ -194,8 +199,7 @@ function BookingForm({ token, initialServiceId }) {
       if (mounted.current) {
         profile.retry()
         availability.retry()
-        resetSlot()
-        if (!owner) goToStep(2)
+        // Contact is collected before time selection; stay on the current step.
       }
     } catch (error) {
       if (mounted.current && error.name !== 'AbortError') setNotice(error.message)
@@ -243,7 +247,7 @@ function BookingForm({ token, initialServiceId }) {
   }
   const reviewing = !owner && step < 3 && !submission.pending && submission.kind !== 'success'
   const actionDisabled = reviewing
-    ? !active || locked || (step === 1 ? !serviceIds.length : !slot)
+    ? !active || locked || (step === 1 ? !serviceIds.length || !profileComplete : !slot)
     : submission.kind === 'loading' ||
       (!submission.pending &&
         (!active ||
@@ -307,11 +311,43 @@ function BookingForm({ token, initialServiceId }) {
         className="mt-4 grid scroll-mt-28 items-start gap-5 pb-32 outline-none lg:grid-cols-[minmax(0,1fr)_22rem] lg:pb-0"
       >
         <div className="min-w-0 space-y-5">
+          {submission.navigationBlocked && (
+            <p role="alert" className="rounded-xl border border-terracotta bg-white p-4 text-sm text-terracotta">
+              Chưa thể rời trang khi yêu cầu đặt lịch chưa có kết quả rõ ràng. Hãy chờ kết quả hoặc bấm Thử lại cùng yêu cầu để tránh đặt trùng.
+            </p>
+          )}
           <BookingStatus query={profile} label="tài khoản" />
           {profile.kind === 'success' && !active && (
             <p role="alert">Tài khoản chưa hoạt động. Vui lòng kích hoạt hoặc đăng nhập lại.</p>
           )}
           <fieldset disabled={!active || locked} className="min-w-0 space-y-5 disabled:opacity-70">
+            {!owner && active && !profileComplete && (
+              <section
+                hidden={step !== 1}
+                className="rounded-2xl border border-border bg-white p-5 sm:p-6"
+              >
+                <h2 className="font-display text-2xl">Thông tin liên hệ</h2>
+                <p className="mt-2 text-sm text-muted">
+                  Bổ sung và lưu tên, số điện thoại trước khi chọn giờ hẹn.
+                </p>
+                <ContactFields
+                  {...{
+                    name: name ?? contact?.displayName ?? '',
+                    phone: phone ?? contact?.phone ?? '',
+                    setName,
+                    setPhone,
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={savingProfile}
+                  onClick={saveProfile}
+                  className={`${button} mt-4`}
+                >
+                  {savingProfile ? 'Đang lưu…' : 'Lưu thông tin'}
+                </button>
+              </section>
+            )}
             <section
               hidden={!owner && step !== 1}
               className="rounded-2xl border border-border bg-white p-4 sm:p-6"
@@ -456,36 +492,7 @@ function BookingForm({ token, initialServiceId }) {
                   Khách tới ngay
                 </label>
               </section>
-            ) : (
-              active &&
-              !profileComplete && (
-                <section
-                  hidden={step !== 3}
-                  className="rounded-2xl border border-border bg-white p-5 sm:p-6"
-                >
-                  <h2 className="font-display text-2xl">Thông tin liên hệ</h2>
-                  <p className="mt-2 text-sm text-muted">
-                    Bổ sung tên và số điện thoại trước khi xác nhận.
-                  </p>
-                  <ContactFields
-                    {...{
-                      name: name ?? contact?.displayName ?? '',
-                      phone: phone ?? contact?.phone ?? '',
-                      setName,
-                      setPhone,
-                    }}
-                  />
-                  <button
-                    type="button"
-                    disabled={savingProfile}
-                    onClick={saveProfile}
-                    className={`${button} mt-4`}
-                  >
-                    {savingProfile ? 'Đang lưu…' : 'Lưu thông tin'}
-                  </button>
-                </section>
-              )
-            )}
+            ) : null}
             <section
               hidden={!owner && step !== 2}
               className="rounded-2xl border border-border bg-white p-5 sm:p-6"
@@ -498,8 +505,13 @@ function BookingForm({ token, initialServiceId }) {
                     className={field}
                     type="date"
                     value={localDate}
-                    min={salonDate()}
+                    min={dateRange.min}
+                    max={dateRange.max}
                     onChange={(event) => {
+                      if (!isBookingDateAllowed(event.target.value, dateRange)) {
+                        setNotice('Chọn ngày từ hôm nay đến tối đa 7 ngày tới. Giờ hẹn không quá 168 giờ kể từ hiện tại.')
+                        return
+                      }
                       setLocalDate(event.target.value)
                       resetSlot()
                     }}
@@ -541,7 +553,10 @@ function BookingForm({ token, initialServiceId }) {
                 ))}
               </div>
               {stylist && !stylist.slots.length && (
-                <p className="mt-4 text-sm">Stylist đã hết giờ trống trong ngày này.</p>
+                <p className="mt-4 text-sm">
+                  Không còn khoảng trống đủ dài cho các dịch vụ bạn chọn. Hãy đổi ngày, đổi stylist
+                  hoặc giảm dịch vụ. Giờ trùng với lịch hẹn hiện có của bạn cũng không thể chọn.
+                </p>
               )}
               <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
                 {stylist?.slots.map((item) => (

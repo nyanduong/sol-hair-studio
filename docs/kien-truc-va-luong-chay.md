@@ -253,3 +253,7 @@ Không cần tạo đủ mọi tệp trước khi tính năng cần chúng.
 | `apps/mobile/App.jsx` | `src/navigation/RootNavigator.jsx`, `features/health/screens/HealthScreen.jsx`, `components/HealthStatusCard.jsx`, `hooks/useHealth.js` |
 | `apps/mobile/src/api.js` | `src/features/health/api/health.api.js`, `src/lib/http.js`, `src/lib/latest-request.js`, `src/config/env.js` |
 | `apps/mobile/src/api.test.js` | `src/features/health/tests/health.api.test.js` và `src/lib/tests/` |
+
+### SOL-043 — Router và bảo vệ yêu cầu booking customer
+
+App.jsx dùng createBrowserRouter/RouterProvider với root wildcard chứa AuthProvider, AppRoutes và AuthModal. Đường dẫn trong AppRoutes giữ nguyên. useBookingSubmission dùng useBlocker đọc pending intent để ngăn điều hướng nội bộ khi chưa xác định kết quả, kết hợp beforeunload cho thao tác rời tài liệu. booking-date.js trong feature booking Web giới hạn ngày của picker, còn API vẫn quyết định slot trong horizon 168 giờ. useAppointmentListView nhóm confirmed đã đến giờ vào Đến/quá giờ ở client, không thay đổi trạng thái lưu ở API.

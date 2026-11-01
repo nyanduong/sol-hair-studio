@@ -203,6 +203,8 @@ describe('detail route and UI', () => {
     expect(renderState({ kind: 'error' })).not.toContain('Stylist An')
   })
   it('connects the list detail action to the new route and leaves reschedule unchanged', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-24T00:00:00Z'))
     const html = renderToStaticMarkup(
       <MemoryRouter><CustomerAppointmentList state={{ kind: 'success', items: [appointment], hasNextPage: false }} onLogin={() => {}} /></MemoryRouter>,
     )
