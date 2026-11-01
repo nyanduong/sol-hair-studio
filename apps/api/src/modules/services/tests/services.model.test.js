@@ -50,6 +50,25 @@ describe('serviceSchema', () => {
 
     await expect(service.validate()).rejects.toHaveProperty('errors.bookingDurationMinutes')
   })
+
+  it('hỗ trợ validator bookingDurationMinutes trong ngữ cảnh update query', () => {
+    const validator = ServiceModel.schema.path('bookingDurationMinutes').validators[0].validator
+    const queryContext = {
+      getUpdate() {
+        return { $set: { durationMinutes: { min: 30, max: 60 } } }
+      },
+    }
+    expect(validator.call(queryContext, 45)).toBe(true)
+    expect(validator.call(queryContext, 75)).toBe(false)
+    expect(validator.call(queryContext, undefined)).toBe(true)
+
+    const partialContext = {
+      getUpdate() {
+        return { $set: { imageUrl: 'https://res.cloudinary.com/demo/image/upload/sample.jpg' } }
+      },
+    }
+    expect(validator.call(partialContext, 45)).toBe(true)
+  })
 })
 
 describe('imageSchema', () => {

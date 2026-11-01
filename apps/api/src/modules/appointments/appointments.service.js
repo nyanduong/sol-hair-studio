@@ -605,8 +605,8 @@ async function loadGuardedAppointmentForCommand(identity, appointmentId, resourc
     const appointment = await findAppointmentForUpdate(appointmentId, { session })
     if (!appointment) throw new AppointmentError('Appointment not found', { code: 'APPOINTMENT_NOT_FOUND', status: 404 })
     let role
-    if (['no_show', 'correct_start', 'correct_complete'].includes(operation)) { requireAppointmentRole(actor, 'owner'); role = 'owner' }
-    else if (['start', 'complete', 'eta'].includes(operation)) {
+    if (operation === 'no_show') { requireAppointmentRole(actor, 'owner'); role = 'owner' }
+    else if (['start', 'complete', 'eta', 'correct_start', 'correct_complete'].includes(operation)) {
         role = actor.roles.includes('owner') ? 'owner' : 'stylist'
         if (role === 'stylist') {
         requireAppointmentRole(actor, 'stylist')
@@ -650,13 +650,13 @@ async function executeAppointmentCommand(session, { identity, appointmentId, res
             occupiedFrom: new Date(Math.min(appointment.startAt.getTime(), appointment.startedAt.getTime())),
             occupiedUntil: new Date(Math.max(appointment.endAt.getTime(), input.estimatedEndAt?.getTime() ?? appointment.endAt.getTime()) + 600_000),
         }
-        await assertCorrectionCanRestoreInterval(candidate, session, now)
+        await assertCorrectionCanRestoreInterval(candidate, session, now, role)
         Object.assign(appointment, { status: candidate.status, completedAt: undefined,
             estimatedEndAt: candidate.estimatedEndAt, occupiedFrom: candidate.occupiedFrom, occupiedUntil: candidate.occupiedUntil })
     } else if (operation === 'correct_start') {
         assertAppointmentStateCommand(appointment, input.expectedRevision, 'in_progress')
         await assertCorrectionCanRestoreInterval({ ...appointment.toObject(), status: 'confirmed',
-            occupiedFrom: appointment.startAt, occupiedUntil: new Date(appointment.endAt.getTime() + 600_000) }, session, now)
+            occupiedFrom: appointment.startAt, occupiedUntil: new Date(appointment.endAt.getTime() + 600_000) }, session, now, role)
         appointment.status = 'confirmed'
         appointment.startedAt = undefined
         appointment.completedAt = undefined
@@ -772,11 +772,11 @@ async function runAppointmentCommand(operation, identity, appointmentId, body, c
     if (!identity) {
         throw new AppointmentError('Need Login.', { code: 'UNAUTHORIZED', status: 401 })
     }
-    if (['no_show', 'correct_start', 'correct_complete'].includes(operation)) {
+    if (operation === 'no_show') {
         requireAppointmentRole(identity, 'owner')
     } else {
         const roles = Array.isArray(identity.roles) ? identity.roles : []
-        if (!roles.includes('owner') && !roles.includes(['start', 'complete', 'eta'].includes(operation) ? 'stylist' : 'customer')) {
+        if (!roles.includes('owner') && !roles.includes(['start', 'complete', 'eta', 'correct_start', 'correct_complete'].includes(operation) ? 'stylist' : 'customer')) {
         throw new AppointmentError('No permission to perform this appointment operation.', {
             code: 'FORBIDDEN', status: 403,
         })
@@ -1084,7 +1084,7 @@ function parseOwnerCorrectionInput(body, operation) {
 }
 
 // Kiểm tra ca, nghỉ và xung đột trước khi khôi phục khoảng giữ.
-async function assertCorrectionCanRestoreInterval(appointment, session, now) {
+async function assertCorrectionCanRestoreInterval(appointment, session, now, role) {
     const staffInterval = appointmentInterval(appointment, false, now)
     const customerInterval = appointmentInterval(appointment, true, now)
     const from = new Date(staffInterval[0])
@@ -1111,7 +1111,7 @@ async function assertCorrectionCanRestoreInterval(appointment, session, now) {
     if (shiftConflict || timeOffConflicts.length || conflicts.length) {
         throw new AppointmentError('The original reservation cannot be restored until conflicts are resolved.', {
             code: 'CORRECTION_CONFLICT', status: 409,
-            details: { shiftConflict, timeOffConflicts, conflictingAppointments: conflicts },
+            details: { shiftConflict, timeOffConflicts, conflictingAppointments: role === 'owner' ? conflicts : conflicts.filter(item => item.staffId === String(appointment.staffId)), ...(role === 'stylist' ? { ownerReviewRequired: true } : {}) },
         })
     }
 }

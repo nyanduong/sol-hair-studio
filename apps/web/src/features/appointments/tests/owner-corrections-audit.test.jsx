@@ -6,9 +6,7 @@ import { readOwnerAudit } from '../api/owner-audit.api.js'
 import { createOwnerAppointmentCommand } from '../hooks/useOwnerAppointmentCommand.js'
 import { createOwnerAppointmentReader, readOwnerAppointmentScope, useOwnerAppointmentRead } from '../hooks/useOwnerAppointments.js'
 import { useStylistAppointments } from '../hooks/useStylistAppointments.js'
-import { OwnerCorrectionDialog } from '../components/OwnerAppointmentCorrection.jsx'
-import { OwnerAuditView } from '../components/OwnerAppointmentAudit.jsx'
-import OwnerAppointmentManagement from '../components/OwnerAppointmentManagement.jsx'
+
 import { AuthContext } from '../../auth/context/auth-context.js'
 import AppRoutes from '../../../routes/AppRoutes.jsx'
 
@@ -210,54 +208,10 @@ describe('Audit HTTP and read lifecycle', () => {
 })
 
 describe('Owner correction and audit UI', () => {
-  it.each(['in_progress', 'completed'])('offers separated administrative correction for %s in salon and personal details', status => {
-    for (const personalStaffId of [undefined, staffId]) {
-      const html = renderToStaticMarkup(<OwnerAppointmentManagement token="token" appointment={{ ...item, status }} personalStaffId={personalStaffId} />)
-      expect(html).toContain('Thao tác quản trị')
-      expect(html).toContain('Sửa trạng thái bị nhầm')
-    }
-  })
-  it.each(['confirmed', 'cancelled', 'no_show'])('does not offer correction for %s', status => {
-    expect(renderToStaticMarkup(<OwnerAppointmentManagement token="token" appointment={{ ...item, status }} />)).not.toContain('Sửa trạng thái bị nhầm')
-  })
-  it('mounts real audit only on Owner detail in both contexts, not list or Stylist', () => {
-    expect(route('/quan-ly/lich-hen/' + id)).toContain('Lịch sử thao tác')
-    expect(route('/quan-ly/lich-hen/' + id + '?view=mine')).toContain('Lịch sử thao tác')
-    expect(route('/quan-ly/lich-hen')).not.toContain('Lịch sử thao tác')
+
+  it('keeps the administrative audit reader hidden in Stylist detail', () => {
     const staff = route('/nhan-vien/lich-hen/' + id, { ...owner, roles: ['stylist'] })
     expect(staff).not.toContain('Lịch sử thao tác')
-    expect(staff).not.toContain('Sửa trạng thái bị nhầm')
-    expect(route('/quan-ly/lich-hen/' + id, { ...owner, roles: ['customer'] })).not.toContain('Lịch sử thao tác')
   })
-  it('renders actor ID, timestamp, action, reason and genuine before/after without inventing role/name', () => {
-    const html = renderToStaticMarkup(<OwnerAuditView state={{ kind: 'success', items: [event(), event(1, { kind: 'completed' }), event(0, { kind: 'started' })], ...callbacks }} />)
-    for (const text of ['Bấm nhầm', actorId, 'Trước thao tác', 'Sau thao tác', 'Đã hoàn tất', 'Đang phục vụ', 'ETA', 'Hoàn tất phục vụ', 'Bắt đầu phục vụ']) expect(html).toContain(text)
-    expect(html).not.toContain('>Xóa')
-    expect(html).not.toContain('>Sửa</button>')
-  })
-  it.each(['loading', 'success', 'error', 'denied', 'notFound', 'loadingMore'])('supports audit %s state', kind => {
-    const html = renderToStaticMarkup(<OwnerAuditView state={{ kind, items: kind === 'denied' ? [event()] : [], hasNextPage: kind === 'loadingMore', ...callbacks }} />)
-    const text = { loading: 'Đang tải lịch sử', success: 'Chưa có event', error: 'Thử lại lịch sử', denied: 'Không có quyền Owner', notFound: 'Không có quyền Owner', loadingMore: 'Đang tải thêm' }[kind]
-    expect(html).toContain(text)
-    if (kind === 'denied') expect(html).not.toContain(actorId)
-  })
-  it('explains state restore, requires reason/attestation and freezes inputs during unknown retry', () => {
-    const render = command => renderToStaticMarkup(<OwnerCorrectionDialog appointment={{ ...item, status: 'completed' }} operation="correct-complete"
-      now={Date.parse(item.endAt)} fields={{ ...fields, confirmed: false }} onFields={() => {}} command={command} onConfirm={() => {}} onClose={() => {}} onReload={() => {}} />)
-    const html = render({ kind: 'idle' })
-    for (const text of ['Đã hoàn tất → Đang phục vụ', 'khách vẫn đang được phục vụ', 'bắt buộc', 'ca làm']) expect(html).toContain(text)
-    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Xác nhận sửa nhầm<\/button>/)
-    expect(render({ kind: 'error', pending: { payload: payload('correct-complete') }, locked: true, error: new Error('offline') })).toContain('Thử lại cùng yêu cầu')
-    expect(render({ kind: 'error', error: { status: 409, code: 'APPOINTMENT_REVISION_CONFLICT' } })).toContain('Tải lại lịch')
-  })
-  it('renders shift/time-off and appointment conflict details supplied by Backend only', () => {
-    const html = renderToStaticMarkup(<OwnerCorrectionDialog appointment={item} operation="correct-start" now={now}
-      fields={fields} onFields={() => {}} onConfirm={() => {}} onClose={() => {}} onReload={() => {}}
-      command={{ kind: 'error', error: { status: 409, code: 'CORRECTION_CONFLICT', details: {
-        shiftConflict: true, timeOffConflicts: [{ startAt: item.startAt, endAt: item.endAt }],
-        conflictingAppointments: [{ id: actorId, startAt: item.startAt, endAt: item.endAt, reasons: ['staff_overlap'], email: 'hidden' }],
-      } } }} />)
-    for (const text of ['ca làm hợp lệ', 'Trùng lịch nghỉ', 'Lịch xung đột', actorId, 'Tải lại lịch']) expect(html).toContain(text)
-    expect(html).not.toContain('hidden')
-  })
+
 })

@@ -67,13 +67,13 @@ export function useOwnerAppointmentCommand(token, id, operation, personalStaffId
   const manager = useMemo(() => createOwnerAppointmentCommand({
     readProfile: signal => getMe(apiBaseUrl, token, { signal }),
     authorize: actor === 'stylist' ? isStylistAccount : isOwnerAccount,
-    verify: ['start', 'complete', 'eta'].includes(operation) ? async (profile, signal) => {
+    verify: ['start', 'complete', 'eta', 'correct-start', 'correct-complete'].includes(operation) ? async (profile, signal) => {
       if (actor === 'stylist') { await readStylistAppointment(apiBaseUrl, token, id, signal); return }
-      if (operation === 'eta') return
+      if (['eta', 'correct-start', 'correct-complete'].includes(operation)) return
       if (!personalStaffId) throw Object.assign(new Error('Personal scope required'), { status: 403 })
       await readOwnerAppointmentScope({ baseUrl: apiBaseUrl, token, kind: 'detail', query: { id, mineStaffId: personalStaffId }, signal, profile })
     } : undefined,
-    send: (body, key, signal) => actor === 'owner' && ['correct-start', 'correct-complete'].includes(operation) ? sendOwnerCorrection(apiBaseUrl, token, id, operation, body, key, signal) : operation === 'eta' ? updateAppointmentEta(apiBaseUrl, token, id, body, key, signal, actor) : actor === 'stylist' ? sendStylistServiceCommand(apiBaseUrl, token, id, operation, body, key, signal) : sendOwnerAppointmentCommand(apiBaseUrl, token, id, operation, body, key, signal),
+    send: (body, key, signal) => ['correct-start', 'correct-complete'].includes(operation) ? sendOwnerCorrection(apiBaseUrl, token, id, operation, body, key, signal, actor) : operation === 'eta' ? updateAppointmentEta(apiBaseUrl, token, id, body, key, signal, actor) : actor === 'stylist' ? sendStylistServiceCommand(apiBaseUrl, token, id, operation, body, key, signal) : sendOwnerAppointmentCommand(apiBaseUrl, token, id, operation, body, key, signal),
   }, () => crypto.randomUUID()), [token, id, operation, personalStaffId, actor])
   const [result, setResult] = useState({ kind: 'idle' })
   useEffect(() => {

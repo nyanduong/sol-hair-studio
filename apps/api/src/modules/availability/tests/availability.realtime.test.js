@@ -18,6 +18,7 @@ async function setup() {
   app.use(availabilityInvalidation)
   app.post('/api/appointments', (req, res) => res.sendStatus(req.query.fail ? 409 : 201))
   app.post('/api/staff/a/shifts', (req, res) => res.sendStatus(201))
+  app.post(['/admin/appointments/a/cancel', '/admin/services/a/update', '/owner/services/a/toggle'], (req, res) => res.sendStatus(200))
   const server = createServer(app)
   realtime = attachBookingRealtime(server, app, {
     authenticateSocket: async (token) => {
@@ -64,4 +65,9 @@ it('invalidates both clients only after successful HTTP writes, with no private 
   const shiftSignal = once(b, 'availability:changed')
   await fetch(`${url}/api/staff/a/shifts`, { method: 'POST' })
   expect(await shiftSignal).toEqual([])
+  for (const path of ['/admin/appointments/a/cancel', '/admin/services/a/update', '/owner/services/a/toggle']) {
+    const signal = once(b, 'availability:changed')
+    expect((await fetch(url + path, { method: 'POST' })).status).toBe(200)
+    expect(await signal).toEqual([])
+  }
 })

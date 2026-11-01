@@ -8,7 +8,7 @@ export const AVAILABILITY_CHANGED = 'availability:changed'
 export function availabilityInvalidation(req, res, next) {
   if (
     ['POST', 'PATCH', 'PUT', 'DELETE'].includes(req.method) &&
-    /^\/(?:api\/(?:appointments|staff|services)|owner\/appointments)(?:\/|$)/.test(req.path)
+    /^\/(?:api\/(?:appointments|staff|services)|(?:admin|owner)\/(?:appointments|services))(?:\/|$)/.test(req.path)
   ) {
     res.once('finish', () => {
       if (res.statusCode >= 200 && res.statusCode < 400) {

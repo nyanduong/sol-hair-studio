@@ -17,14 +17,25 @@ const serviceSchema = new mongoose.Schema(
       type: Number,
       validate: {
         validator(value) {
-          return (
-            value === undefined ||
-            (Number.isInteger(value) &&
-              value >= 1 &&
-              value <= 480 &&
-              value >= this.durationMinutes.min &&
-              value <= this.durationMinutes.max)
-          )
+          if (value === undefined) return true
+          if (!Number.isInteger(value) || value < 1 || value > 480) return false
+          const update = typeof this?.getUpdate === 'function' ? this.getUpdate() : null
+          const duration =
+            this?.durationMinutes ||
+            update?.durationMinutes ||
+            update?.['$set']?.durationMinutes
+          const min =
+            duration?.min ??
+            update?.['durationMinutes.min'] ??
+            update?.['$set']?.['durationMinutes.min']
+          const max =
+            duration?.max ??
+            update?.['durationMinutes.max'] ??
+            update?.['$set']?.['durationMinutes.max']
+          if (typeof min !== 'number' || typeof max !== 'number') {
+            return true
+          }
+          return value >= min && value <= max
         },
         message: 'bookingDurationMinutes must be an integer within 1-480 and the display range',
       },

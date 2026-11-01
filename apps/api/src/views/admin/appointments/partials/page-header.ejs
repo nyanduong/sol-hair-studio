@@ -1,0 +1,15 @@
+<header class="flex flex-col gap-4 border-b border-[#e7e2da] pb-6 sm:flex-row sm:items-center sm:justify-between">
+  <div>
+    <h1 class="text-2xl font-bold tracking-tight text-ink"><%= title %></h1>
+    <p class="mt-1 text-sm text-[#7a7269]">Theo dõi lịch toàn salon · thời gian hiển thị theo giờ Việt Nam.</p>
+  </div>
+</header>
+<nav aria-label="Phạm vi lịch hẹn" class="mt-6 flex flex-wrap gap-2">
+  <% for (const [view, label] of [['salon', 'Lịch toàn salon'], ['mine', 'Lịch của tôi']]) {
+    const selected = ownerPersonal === (view === 'mine')
+  %>
+    <a href="<%= ownerUrl('/admin/appointments', { view: view === 'mine' ? 'mine' : '', staffId: '' }) %>"
+       <%- selected ? 'aria-current="page"' : '' %>
+       class="min-h-11 rounded-xl border px-5 py-2.5 text-sm font-semibold transition-colors <%= selected ? 'border-terracotta bg-terracotta text-white' : 'border-border bg-white text-ink hover:bg-soft-surface' %>"><%= label %></a>
+  <% } %>
+</nav>

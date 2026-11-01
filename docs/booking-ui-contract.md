@@ -82,7 +82,7 @@ Thẻ dùng ảnh, mô tả, giá và thời lượng danh mục; lỗi ảnh c�
 
 ## SOL-043 — Cập nhật giờ trống qua Socket.IO
 
-API gắn Socket.IO trên cùng HTTP server/port; handshake dùng token phiên qua auth.token và kiểm tra customer/owner bằng authenticate hiện có. Client dùng VITE_API_BASE_URL, không hardcode host. Tín hiệu availability:changed không có payload và không nhận sự kiện ghi từ client. Middleware phát tín hiệu sau response ghi thành công cho appointments/staff/services và owner appointments; bao gồm tạo, đổi/hủy, ca và thay đổi năng lực. Không gửi tên, số điện thoại, mã lịch hay token qua broadcast.
+API gắn Socket.IO trên cùng HTTP server/port; handshake dùng token phiên qua auth.token và kiểm tra customer/owner bằng authenticate hiện có. Client dùng VITE_API_BASE_URL, không hardcode host. Tín hiệu availability:changed không có payload và không nhận sự kiện ghi từ client. Middleware phát tín hiệu sau response ghi thành công cho appointments/staff/services và admin appointments/services (giữ alias owner tương thích); bao gồm tạo, đổi/hủy, ca và thay đổi năng lực. Không gửi tên, số điện thoại, mã lịch hay token qua broadcast.
 
 Booking Web mở kết nối khi có phiên và lựa chọn dịch vụ, gom tín hiệu trong 150ms rồi đọc lại GET availability. Giữ kết quả đang hiển thị khi refresh nền, latest-request bỏ kết quả cũ. Nếu slot đã chọn không còn hợp lệ, bỏ slot, báo rõ và trở về bước 2. Không tự chuyển lựa chọn khi đang gửi, pending retry hoặc đã thành công. Reconnect/focus đọc lại; kiểm tra định kỳ 60 giây khi kết nối và 15 giây khi mất socket để bù tín hiệu bỏ lỡ. Cleanup listener/timer/socket khi rời màn hình hoặc đổi phiên.
 

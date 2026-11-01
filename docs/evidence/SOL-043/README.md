@@ -25,3 +25,9 @@ Không nghiệm thu thiết bị native, Atlas hay nhiều API instance. Socket 
 - npm run test --workspace @sol-hair/web: PASS 611 test sau điều chỉnh cuối về refresh định kỳ và xóa thông báo khi chọn giờ mới.
 - npm run build: PASS API syntax, Web production, Android/iOS export; Web vẫn có cảnh báo chunk >500 kB.
 - git diff --check: PASS.
+
+## Ghép main — 01/11/2026
+
+Hoàn tất lần merge main a4b6b39 đang dở trên nhánh SOL-043. Resolve app.js bằng cách giữ admin EJS/router/assets/urlencoded của main và middleware availabilityInvalidation của SOL-043; bỏ import owner-web đã được main thay thế. Cập nhật matcher realtime cho /admin/appointments, /admin/services và alias /owner/services; test socket HTTP thật kiểm tra cả ba đường dẫn này vẫn phát tín hiệu không payload.
+
+Kiểm tra sau resolve: npm run lint PASS; npm test PASS 1821 (API 763, Mobile 495, Web 563); npm run build PASS API syntax, Web, Android/iOS export; git diff --check origin/main PASS. Có cảnh báo Mongoose new option deprecated và Web chunk >500 kB; không làm yếu test. Không chạy lại nghiệm thu browser/native/DB dữ liệu salon trong lần resolve này.
