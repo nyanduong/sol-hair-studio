@@ -7,6 +7,7 @@ import { AccountModel } from '../auth/accounts.model.js'
 
 const APPOINTMENT_LIST_FIELDS = {
         _id: 1,
+        referenceCode: 1,
         staffId: 1,
         staffNameSnapshot: 1,
         'items.serviceId': 1,

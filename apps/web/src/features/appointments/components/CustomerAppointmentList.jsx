@@ -281,45 +281,15 @@ function AppointmentCard({ appointment, isUpcomingSoon, now }) {
 function Toolbar({ activeTab, onTabChange, counts }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      {/* Cụm tab trái: Chỉ có "Sắp tới" và "Lịch sử" */}
-      <div className="flex items-center rounded-full bg-[#f3eee6] p-1">
-        <button
-          type="button"
-          onClick={() => onTabChange('upcoming')}
-          className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold transition-all ${
-            activeTab === 'upcoming'
-              ? 'bg-white text-ink shadow-sm'
-              : 'text-muted hover:text-ink'
-          }`}
-        >
-          <span>Sắp tới</span>
-          {counts.upcoming > 0 && (
-            <span className={`flex size-5 items-center justify-center rounded-full text-[11px] font-bold ${
-              activeTab === 'upcoming' ? 'bg-[#f4ebe6] text-terracotta' : 'bg-[#e7ded4] text-muted'
-            }`}>
-              {counts.upcoming}
-            </span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onTabChange('history')}
-          className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold transition-all ${
-            activeTab === 'history'
-              ? 'bg-white text-ink shadow-sm'
-              : 'text-muted hover:text-ink'
-          }`}
-        >
-          <span>Lịch sử</span>
-          {counts.history > 0 && (
-            <span className={`flex size-5 items-center justify-center rounded-full text-[11px] font-bold ${
-              activeTab === 'history' ? 'bg-[#f4ebe6] text-terracotta' : 'bg-[#e7ded4] text-muted'
-            }`}>
-              {counts.history}
-            </span>
-          )}
-        </button>
+      <div className="flex flex-wrap items-center rounded-2xl bg-[#f3eee6] p-1" aria-label="Nhóm lịch hẹn">
+        {[['upcoming', 'Sắp tới'], ['attention', 'Đến/quá giờ'], ['history', 'Lịch sử']].map(([key, label]) => (
+          <button key={key} type="button" aria-pressed={activeTab === key}
+            onClick={() => onTabChange(key)}
+            className={`inline-flex min-h-11 items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold ${activeTab === key ? 'bg-white text-ink shadow-sm' : 'text-muted hover:text-ink'}`}>
+            {label}
+            {counts[key] > 0 && <span className="rounded-full bg-white/60 px-2 text-xs">{counts[key]}</span>}
+          </button>
+        ))}
       </div>
 
       {/* Legend dot bên phải theo chuẩn trạng thái */}
@@ -472,6 +442,9 @@ export default function CustomerAppointmentList({ state, onLogin }) {
         </ul>
       )}
 
+      {tab === 'attention' && (
+        <p className="mt-4 text-sm text-muted">Lịch đã đến hoặc quá giờ nhưng tiệm chưa cập nhật kết quả. Trạng thái vẫn là Đã xác nhận; vui lòng liên hệ tiệm nếu cần hỗ trợ.</p>
+      )}
       {/* ── Empty State ── */}
       {isEmpty && <EmptyState hasOtherAppointments={state.items.length > 0} />}
 

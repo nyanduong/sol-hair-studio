@@ -5,7 +5,8 @@ import { useAuth } from '../../auth/hooks/useAuth.js'
 import SiteHeader from '../../home/components/SiteHeader.jsx'
 import SiteFooter from '../../home/components/SiteFooter.jsx'
 import { formatDuration } from '../../services/format-service.js'
-import BookingServiceCard, { BookingServiceImage } from '../components/BookingServiceCard.jsx'
+import { BookingServiceImage } from '../components/BookingServiceCard.jsx'
+import BookingServicePicker from '../components/BookingServicePicker.jsx'
 import { useServices } from '../../services/hooks/useServices.js'
 import { updateBookingProfile } from '../api/booking.api.js'
 import {
@@ -15,6 +16,8 @@ import {
   salonDate,
   slotTime,
 } from '../../../../../../shared/booking.js'
+import { bookingDateRange, isBookingDateAllowed } from '../booking-date.js'
+import BookingSuccess from '../components/BookingSuccess.jsx'
 import BookingStatus from '../components/BookingStatus.jsx'
 import { useBookingQuery } from '../hooks/useBookingQuery.js'
 import { useBookingSubmission } from '../hooks/useBookingSubmission.js'
@@ -32,14 +35,11 @@ export default function BookingPage() {
   return (
     <>
       <SiteHeader />
-      <main id="main-content" className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <Link to="/" className="inline-flex min-h-11 items-center text-sm text-muted">
-          ← Về trang chủ
-        </Link>
-        <h1 className="mt-4 font-display text-4xl sm:text-5xl">Đặt lịch tại Sol</h1>
-        <p className="mt-3 text-sm leading-6 text-muted sm:text-base">
-          Chọn dịch vụ phù hợp, Sol chăm chút phần còn lại.
-        </p>
+      <main id="main-content" className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
+        {(!isAuthenticated ||
+          !account?.roles?.some((role) => ['customer', 'owner'].includes(role))) && (
+          <BookingIntro />
+        )}
         {!isAuthenticated ? (
           <section className="mt-8 rounded-2xl border border-border bg-white p-6">
             <h2 className="font-display text-2xl">Bắt đầu bằng tài khoản của bạn</h2>
@@ -70,8 +70,24 @@ export default function BookingPage() {
   )
 }
 
+function BookingIntro() {
+  return (
+    <>
+      <Link to="/" className="inline-flex min-h-9 items-center text-sm text-muted">
+        ← Về trang chủ
+      </Link>
+      <h1 className="mt-2 font-display text-3xl sm:text-5xl">Đặt lịch tại Sol</h1>
+      <p className="mt-2 text-sm leading-6 text-muted sm:text-base">
+        Chọn dịch vụ phù hợp, Sol chăm chút phần còn lại.
+      </p>
+    </>
+  )
+}
+
 function BookingForm({ token, initialServiceId }) {
   const [step, setStep] = useState(1)
+  const [summaryOpen, setSummaryOpen] = useState(false)
+  const summaryRef = useRef(null)
   const stepHeading = useRef(null)
   const catalog = useServices()
   const profile = useBookingQuery('profile', token, {})
@@ -112,10 +128,13 @@ function BookingForm({ token, initialServiceId }) {
   }, [])
   const submission = useBookingSubmission(token)
   const locked =
-    submission.kind === 'loading' || Boolean(submission.pending) || submission.kind === 'success'
+    savingProfile ||
+    submission.kind === 'loading' ||
+    Boolean(submission.pending) ||
+    submission.kind === 'success'
   const customers = useBookingQuery('customers', token, owner && search ? { phone: search } : null)
   const params =
-    active && serviceIds.length
+    active && serviceIds.length && submission.kind !== 'success'
       ? {
           serviceIds,
           localDate: mode === 'owner_walkin' ? salonDate() : localDate,
@@ -123,16 +142,30 @@ function BookingForm({ token, initialServiceId }) {
           ...(owner && selectedCustomer ? { customerId: selectedCustomer.id } : {}),
         }
       : null
-  const availability = useBookingQuery('availability', token, params)
+  const availability = useBookingQuery('availability', token, params, (value) => {
+    if (
+      !locked &&
+      startAt &&
+      !value.stylists.some(
+        (item) => item.staffId === staffId && item.slots.some((slot) => slot.startAt === startAt),
+      )
+    ) {
+      setStartAt('')
+      setNotice('Giờ bạn chọn vừa thay đổi hoặc đã có người đặt. Vui lòng chọn giờ khác.')
+      if (!owner) goToStep(2)
+    }
+  })
   const data = availability.kind === 'success' ? availability.value : null
   const stylist = data?.stylists.find((item) => item.staffId === staffId)
   const slot = stylist?.slots.find((item) => item.startAt === startAt)
+  const dateRange = bookingDateRange()
   const contact = profile.value?.customer
   const profileComplete = Boolean(contact?.displayName && contact?.phone)
   const selectedServices =
     catalog.state.data?.filter((service) => serviceIds.includes(service.id)) ?? []
   function goToStep(next) {
     setStep(next)
+    setSummaryOpen(false)
     requestAnimationFrame(() => {
       stepHeading.current?.focus({ preventScroll: true })
       stepHeading.current?.scrollIntoView({
@@ -166,8 +199,7 @@ function BookingForm({ token, initialServiceId }) {
       if (mounted.current) {
         profile.retry()
         availability.retry()
-        resetSlot()
-        if (!owner) goToStep(2)
+        // Contact is collected before time selection; stay on the current step.
       }
     } catch (error) {
       if (mounted.current && error.name !== 'AbortError') setNotice(error.message)
@@ -206,10 +238,48 @@ function BookingForm({ token, initialServiceId }) {
       setNotice(error.message)
     }
   }
+  function viewSummary() {
+    setSummaryOpen(true)
+    requestAnimationFrame(() => {
+      summaryRef.current?.focus({ preventScroll: true })
+      summaryRef.current?.scrollIntoView({ behavior: 'instant', block: 'start' })
+    })
+  }
+  const reviewing = !owner && step < 3 && !submission.pending && submission.kind !== 'success'
+  const actionDisabled = reviewing
+    ? !active || locked || (step === 1 ? !serviceIds.length || !profileComplete : !slot)
+    : submission.kind === 'loading' ||
+      (!submission.pending &&
+        (!active ||
+          !slot ||
+          (!owner && !profileComplete) ||
+          (owner && !selectedCustomer && !guest)))
+  const actionLabel =
+    submission.kind === 'loading'
+      ? 'Đang xác nhận…'
+      : submission.pending
+        ? 'Thử lại cùng yêu cầu'
+        : reviewing
+          ? step === 1
+            ? 'Tiếp tục chọn giờ →'
+            : 'Kiểm tra cuộc hẹn →'
+          : 'Xác nhận đặt lịch'
+  const proceed = () => (reviewing ? goToStep(step + 1) : confirm())
+  const summaryVisible =
+    owner ||
+    summaryOpen ||
+    step === 3 ||
+    notice ||
+    submission.kind === 'error' ||
+    submission.kind === 'success'
+  const catalogTotal = selectedServices.reduce((sum, item) => sum + item.priceVnd, 0)
+  if (submission.kind === 'success')
+    return <BookingSuccess receipt={submission.data} services={catalog.state.data} owner={owner} />
   return (
     <>
+      <BookingIntro />
       {!owner && (
-        <nav aria-label="Các bước đặt lịch" className="mt-7">
+        <nav aria-label="Các bước đặt lịch" className="mt-4 sm:mt-7">
           <ol className="flex items-center gap-2 sm:gap-5">
             {['Dịch vụ', 'Stylist & thời gian', 'Xác nhận'].map((label, index) => (
               <li key={label} className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
@@ -238,21 +308,56 @@ function BookingForm({ token, initialServiceId }) {
       <div
         ref={stepHeading}
         tabIndex={-1}
-        className="mt-6 grid scroll-mt-28 items-start gap-5 outline-none lg:grid-cols-[minmax(0,1fr)_22rem]"
+        className="mt-4 grid scroll-mt-28 items-start gap-5 pb-32 outline-none lg:grid-cols-[minmax(0,1fr)_22rem] lg:pb-0"
       >
         <div className="min-w-0 space-y-5">
+          {submission.navigationBlocked && (
+            <p role="alert" className="rounded-xl border border-terracotta bg-white p-4 text-sm text-terracotta">
+              Chưa thể rời trang khi yêu cầu đặt lịch chưa có kết quả rõ ràng. Hãy chờ kết quả hoặc bấm Thử lại cùng yêu cầu để tránh đặt trùng.
+            </p>
+          )}
           <BookingStatus query={profile} label="tài khoản" />
           {profile.kind === 'success' && !active && (
             <p role="alert">Tài khoản chưa hoạt động. Vui lòng kích hoạt hoặc đăng nhập lại.</p>
           )}
           <fieldset disabled={!active || locked} className="min-w-0 space-y-5 disabled:opacity-70">
+            {!owner && active && !profileComplete && (
+              <section
+                hidden={step !== 1}
+                className="rounded-2xl border border-border bg-white p-5 sm:p-6"
+              >
+                <h2 className="font-display text-2xl">Thông tin liên hệ</h2>
+                <p className="mt-2 text-sm text-muted">
+                  Bổ sung và lưu tên, số điện thoại trước khi chọn giờ hẹn.
+                </p>
+                <ContactFields
+                  {...{
+                    name: name ?? contact?.displayName ?? '',
+                    phone: phone ?? contact?.phone ?? '',
+                    setName,
+                    setPhone,
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={savingProfile}
+                  onClick={saveProfile}
+                  className={`${button} mt-4`}
+                >
+                  {savingProfile ? 'Đang lưu…' : 'Lưu thông tin'}
+                </button>
+              </section>
+            )}
             <section
               hidden={!owner && step !== 1}
               className="rounded-2xl border border-border bg-white p-4 sm:p-6"
             >
-              <h2 className="font-display text-2xl sm:text-3xl">Bạn muốn chăm sóc tóc thế nào?</h2>
+              <h2 className="font-display text-2xl sm:text-3xl">
+                <span className="sm:hidden">Chọn dịch vụ</span>
+                <span className="hidden sm:inline">Bạn muốn chăm sóc tóc thế nào?</span>
+              </h2>
               <p className="mb-4 mt-2 text-sm text-muted">
-                Chọn từ 1 đến 5 dịch vụ trong cùng một cuộc hẹn.
+                Chọn tối đa 5 dịch vụ, cùng một stylist chăm sóc.
               </p>
               {catalog.state.kind === 'loading' && <p role="status">Đang tải dịch vụ…</p>}
               {catalog.state.kind === 'error' && (
@@ -270,16 +375,14 @@ function BookingForm({ token, initialServiceId }) {
               {catalog.state.kind === 'success' && !catalog.state.data.length && (
                 <p>Chưa có dịch vụ để đặt hẹn.</p>
               )}
-              <div className="grid gap-3">
-                {catalog.state.data?.map((service) => (
-                  <BookingServiceCard
-                    key={service.id}
-                    service={service}
-                    selected={serviceIds.includes(service.id)}
-                    onChange={() => changeServices(service.id)}
-                  />
-                ))}
-              </div>
+              {catalog.state.kind === 'success' && (
+                <BookingServicePicker
+                  services={catalog.state.data}
+                  selectedIds={serviceIds}
+                  onChange={changeServices}
+                  onViewSelection={viewSummary}
+                />
+              )}
             </section>
             {owner ? (
               <section className="rounded-2xl border border-border bg-white p-5 sm:p-6">
@@ -296,7 +399,7 @@ function BookingForm({ token, initialServiceId }) {
                       setSearch(null)
                       resetSlot()
                     }}
-                    placeholder="+84901234567"
+                    placeholder="0912345678"
                     className={field}
                   />
                 </label>
@@ -305,8 +408,8 @@ function BookingForm({ token, initialServiceId }) {
                   className="mt-3 min-h-11 font-semibold text-terracotta"
                   onClick={() => {
                     try {
-                      contactInput('Tìm khách', phoneSearch)
-                      setSearch(phoneSearch.trim())
+                      const input = contactInput('Tìm khách', phoneSearch)
+                      setSearch(input.phone)
                       setSelectedCustomer(null)
                       setGuest(false)
                       setName(null)
@@ -389,36 +492,7 @@ function BookingForm({ token, initialServiceId }) {
                   Khách tới ngay
                 </label>
               </section>
-            ) : (
-              active &&
-              !profileComplete && (
-                <section
-                  hidden={step !== 3}
-                  className="rounded-2xl border border-border bg-white p-5 sm:p-6"
-                >
-                  <h2 className="font-display text-2xl">Thông tin liên hệ</h2>
-                  <p className="mt-2 text-sm text-muted">
-                    Bổ sung tên và số điện thoại trước khi xác nhận.
-                  </p>
-                  <ContactFields
-                    {...{
-                      name: name ?? contact?.displayName ?? '',
-                      phone: phone ?? contact?.phone ?? '',
-                      setName,
-                      setPhone,
-                    }}
-                  />
-                  <button
-                    type="button"
-                    disabled={savingProfile}
-                    onClick={saveProfile}
-                    className={`${button} mt-4`}
-                  >
-                    {savingProfile ? 'Đang lưu…' : 'Lưu thông tin'}
-                  </button>
-                </section>
-              )
-            )}
+            ) : null}
             <section
               hidden={!owner && step !== 2}
               className="rounded-2xl border border-border bg-white p-5 sm:p-6"
@@ -431,8 +505,13 @@ function BookingForm({ token, initialServiceId }) {
                     className={field}
                     type="date"
                     value={localDate}
-                    min={salonDate()}
+                    min={dateRange.min}
+                    max={dateRange.max}
                     onChange={(event) => {
+                      if (!isBookingDateAllowed(event.target.value, dateRange)) {
+                        setNotice('Chọn ngày từ hôm nay đến tối đa 7 ngày tới. Giờ hẹn không quá 168 giờ kể từ hiện tại.')
+                        return
+                      }
                       setLocalDate(event.target.value)
                       resetSlot()
                     }}
@@ -443,11 +522,16 @@ function BookingForm({ token, initialServiceId }) {
                 Giờ Việt Nam ·{' '}
                 {mode === 'owner_walkin'
                   ? 'Giờ tới ngay được xác định khi đặt thành công.'
-                  : 'Chọn một giờ trống phù hợp với bạn.'}
+                  : 'Đặt trước tối đa 7 ngày, tính từ giờ hiện tại. Chọn một giờ trống phù hợp với bạn.'}
               </p>
               {!serviceIds.length && (
                 <p className="mt-4 text-sm">Chọn dịch vụ để xem stylist và giờ trống.</p>
               )}
+              <p role="status" className="mt-3 text-xs text-muted">
+                {availability.live
+                  ? 'Đang cập nhật giờ trống trực tiếp.'
+                  : 'Chưa có kết nối trực tiếp. Giờ trống được kiểm tra lại định kỳ.'}
+              </p>
               <BookingStatus query={availability} label="giờ trống" />
               {data && !data.stylists.length && (
                 <p className="mt-4 text-sm">Chưa có stylist phù hợp. Hãy đổi dịch vụ hoặc ngày.</p>
@@ -469,7 +553,10 @@ function BookingForm({ token, initialServiceId }) {
                 ))}
               </div>
               {stylist && !stylist.slots.length && (
-                <p className="mt-4 text-sm">Stylist đã hết giờ trống trong ngày này.</p>
+                <p className="mt-4 text-sm">
+                  Không còn khoảng trống đủ dài cho các dịch vụ bạn chọn. Hãy đổi ngày, đổi stylist
+                  hoặc giảm dịch vụ. Giờ trùng với lịch hẹn hiện có của bạn cũng không thể chọn.
+                </p>
               )}
               <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
                 {stylist?.slots.map((item) => (
@@ -477,7 +564,10 @@ function BookingForm({ token, initialServiceId }) {
                     type="button"
                     key={item.startAt}
                     aria-pressed={startAt === item.startAt}
-                    onClick={() => setStartAt(item.startAt)}
+                    onClick={() => {
+                      setStartAt(item.startAt)
+                      setNotice('')
+                    }}
                     className={`min-h-11 rounded-xl border text-sm ${startAt === item.startAt ? 'border-terracotta bg-terracotta text-white' : 'border-border'}`}
                   >
                     {mode === 'owner_walkin' ? 'Tới ngay' : slotTime(item.startAt)}
@@ -551,9 +641,20 @@ function BookingForm({ token, initialServiceId }) {
           )}
         </div>
         <aside
-          className="rounded-2xl border border-border bg-white/60 p-5 sm:p-6 lg:sticky lg:top-28"
+          ref={summaryRef}
+          tabIndex={-1}
+          className={`${summaryVisible ? 'block' : 'hidden'} scroll-mt-28 rounded-2xl border border-border bg-white/60 p-5 outline-none sm:p-6 lg:sticky lg:top-28 lg:block`}
           aria-label="Xác nhận lịch hẹn"
         >
+          {!owner && step < 3 && (
+            <button
+              type="button"
+              onClick={() => setSummaryOpen(false)}
+              className="mb-3 min-h-11 text-xs text-terracotta lg:hidden"
+            >
+              Thu gọn tóm tắt ↑
+            </button>
+          )}
           <div className="flex items-center justify-between gap-3">
             <h2 className="font-display text-2xl">Cuộc hẹn của bạn</h2>
             <span className="shrink-0 rounded-full bg-terracotta/10 px-3 py-2 text-xs text-terracotta">
@@ -574,6 +675,15 @@ function BookingForm({ token, initialServiceId }) {
                       )}
                     </p>
                   </div>
+                  <button
+                    type="button"
+                    aria-label={`Bỏ chọn ${service.name} khỏi tóm tắt`}
+                    disabled={!active || locked}
+                    onClick={() => changeServices(service.id)}
+                    className="ml-auto flex size-11 shrink-0 items-center justify-center rounded-full text-xl text-muted hover:bg-terracotta/10 hover:text-terracotta disabled:opacity-40"
+                  >
+                    ×
+                  </button>
                 </li>
               ))}
             </ul>
@@ -655,23 +765,7 @@ function BookingForm({ token, initialServiceId }) {
               )}
             </div>
           )}
-          {!owner && step < 3 && !submission.pending && submission.kind !== 'success' ? (
-            <>
-              <button
-                type="button"
-                className={`${button} mt-6 w-full`}
-                disabled={!active || locked || (step === 1 ? !serviceIds.length : !slot)}
-                onClick={() => goToStep(step + 1)}
-              >
-                {step === 1 ? 'Tiếp tục chọn giờ →' : 'Kiểm tra cuộc hẹn →'}
-              </button>
-              <p className="mt-3 text-xs leading-5 text-muted">
-                {step === 1
-                  ? 'Bạn sẽ chọn stylist và giờ hẹn ở bước tiếp theo.'
-                  : 'Xem lại thông tin trước khi xác nhận đặt lịch.'}
-              </p>
-            </>
-          ) : submission.kind === 'success' ? (
+          {submission.kind === 'success' ? (
             <div role="status" className="mt-5">
               <h3 className="font-semibold">Đặt lịch thành công</h3>
               <p className="mt-2 break-all text-sm">Mã lịch: {submission.data.id}</p>
@@ -681,28 +775,68 @@ function BookingForm({ token, initialServiceId }) {
               </p>
             </div>
           ) : (
-            <button
-              type="button"
-              disabled={
-                submission.kind === 'loading' ||
-                (!submission.pending &&
-                  (!active ||
-                    !slot ||
-                    (!owner && !profileComplete) ||
-                    (owner && !selectedCustomer && !guest)))
-              }
-              className={`${button} mt-6 w-full`}
-              onClick={confirm}
-            >
-              {submission.kind === 'loading'
-                ? 'Đang xác nhận…'
-                : submission.pending
-                  ? 'Thử lại cùng yêu cầu'
-                  : 'Xác nhận đặt lịch'}
-            </button>
+            <>
+              <button
+                type="button"
+                disabled={actionDisabled}
+                className={`${button} mt-6 w-full`}
+                onClick={proceed}
+              >
+                {actionLabel}
+              </button>
+              {reviewing && (
+                <p className="mt-3 text-xs leading-5 text-muted">
+                  {step === 1
+                    ? 'Chọn stylist và giờ hẹn ở bước tiếp theo.'
+                    : 'Xem lại thông tin trước khi xác nhận đặt lịch.'}
+                </p>
+              )}
+            </>
           )}
         </aside>
       </div>
+      {!owner && submission.kind !== 'success' && (
+        <div
+          aria-label="Tiếp tục đặt lịch"
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-canvas px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(36,33,31,0.06)] lg:hidden"
+        >
+          {notice && <p className="mb-2 text-xs leading-5 text-terracotta">{notice}</p>}
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={viewSummary}
+              className="min-h-11 min-w-0 rounded-lg text-left"
+            >
+              <span className="block text-xs font-semibold">
+                {serviceIds.length} dịch vụ ·{' '}
+                <span className="text-terracotta">
+                  {money(data?.totalPriceVnd ?? catalogTotal)}
+                </span>
+              </span>
+              <span className="mt-1 block text-xs text-muted">
+                {data ? 'Xem tóm tắt' : 'Tạm tính · Xem tóm tắt'} ›
+              </span>
+            </button>
+            <button
+              type="button"
+              disabled={actionDisabled}
+              onClick={proceed}
+              aria-label={actionLabel}
+              className={`${button} max-w-[48%] shrink-0`}
+            >
+              {submission.kind === 'loading'
+                ? 'Đang gửi…'
+                : submission.pending
+                  ? 'Thử lại'
+                  : reviewing
+                    ? step === 1
+                      ? 'Tiếp tục →'
+                      : 'Kiểm tra →'
+                    : 'Xác nhận'}
+            </button>
+          </div>
+        </div>
+      )}
     </>
   )
 }
@@ -726,11 +860,15 @@ function ContactFields({ name, phone, setName, setPhone }) {
           className={field}
           type="tel"
           value={phone}
-          maxLength={16}
-          placeholder="+84901234567"
+          maxLength={32}
+          placeholder="0912345678"
+          aria-describedby="booking-phone-hint"
           autoComplete="tel"
           onChange={(event) => setPhone(event.target.value)}
         />
+        <span id="booking-phone-hint" className="mt-2 block text-xs leading-5 text-muted">
+          Nhập số Việt Nam, ví dụ 0912345678, hoặc số quốc tế bắt đầu bằng +.
+        </span>
       </label>
     </div>
   )

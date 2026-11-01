@@ -1,6 +1,6 @@
 import { MemoryRouter } from 'react-router-dom'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CustomerAppointmentList from '../components/CustomerAppointmentList.jsx'
 import { createCustomerAppointmentList } from '../hooks/useCustomerAppointments.js'
 import { getAppointmentTabView, isAppointmentCutoffReached, watchAppointmentCutoffs } from '../hooks/useAppointmentListView.js'
@@ -13,6 +13,8 @@ const item = {
 }
 const state = (items = [], extra = {}) => ({ kind: 'success', items, hasNextPage: false, ...extra })
 const render = value => renderToStaticMarkup(<MemoryRouter><CustomerAppointmentList state={value} onLogin={() => {}} /></MemoryRouter>)
+beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(NOW) })
+
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
 
 describe('tabs and incomplete pagination', () => {
@@ -32,7 +34,7 @@ describe('tabs and incomplete pagination', () => {
   it('shows exact counts and empty state only after the final successful page', () => {
     const value = state([{ ...item, status: 'completed' }])
     expect(getAppointmentTabView(value, 'upcoming')).toMatchObject({
-      counts: { upcoming: 0, history: 1 }, empty: true, incomplete: false,
+      counts: { upcoming: 0, attention: 0, history: 1 }, empty: true, incomplete: false,
     })
     expect(render(value)).toContain('Bạn chưa có lịch hẹn trong mục này')
     expect(render(value)).not.toContain('Bạn chưa có lịch hẹn nào')
@@ -42,9 +44,23 @@ describe('tabs and incomplete pagination', () => {
     expect(getAppointmentTabView(value, 'history')).toMatchObject({ counts: {}, empty: false })
     expect(render(value)).not.toContain('Bạn chưa có lịch hẹn')
   })
-  it('keeps confirmed appointments past their planned time in the active group', () => {
+  it('groups overdue confirmed appointments separately without changing their status', () => {
     const old = { ...item, startAt: '2020-01-01T00:00:00.000Z' }
-    expect(getAppointmentTabView(state([old]), 'upcoming').items).toEqual([old])
+    expect(getAppointmentTabView(state([old]), 'upcoming').items).toEqual([])
+    expect(getAppointmentTabView(state([old]), 'attention').items).toEqual([old])
+    expect(old.status).toBe('confirmed')
+  })
+  it('moves a confirmed appointment at its exact start while keeping in-progress and history separate', () => {
+    const running = { ...item, id: 'running', status: 'in_progress' }
+    const done = { ...item, id: 'done', status: 'completed' }
+    const value = state([item, running, done])
+    const start = Date.parse(item.startAt)
+    expect(getAppointmentTabView(value, 'upcoming', start - 1).items).toEqual([item, running])
+    expect(getAppointmentTabView(value, 'attention', start).items).toEqual([item])
+    expect(getAppointmentTabView(value, 'upcoming', start).items).toEqual([running])
+    expect(getAppointmentTabView(value, 'history', start).items).toEqual([done])
+    expect(getAppointmentTabView(value, 'attention', start).counts).toEqual({upcoming:1,attention:1,history:1})
+    expect(item.status).toBe('confirmed')
   })
   it('combines later pages without duplicate rows and retains backend order in each tab', async () => {
     const readPage = vi.fn()
@@ -60,7 +76,7 @@ describe('tabs and incomplete pagination', () => {
     expect(readPage.mock.calls.map(args => args[0])).toEqual([null, 'c1'])
     expect(getAppointmentTabView(list.getSnapshot(), 'upcoming').items.map(x => x.id)).toEqual(['a'])
     expect(getAppointmentTabView(list.getSnapshot(), 'history').items.map(x => x.id)).toEqual(['history'])
-    expect(getAppointmentTabView(list.getSnapshot(), 'history').counts).toEqual({ upcoming: 1, history: 1 })
+    expect(getAppointmentTabView(list.getSnapshot(), 'history').counts).toEqual({ upcoming: 1, attention: 0, history: 1 })
   })
 })
 
@@ -84,8 +100,8 @@ describe('service snapshots and cutoff display', () => {
     vi.setSystemTime(now)
     const html = render(state([item]))
     expect(html.includes('href="/lich-cua-toi/a?action=reschedule"')).toBe(!locked)
-    expect(html.includes('href="tel:19006828"')).toBe(locked)
-    if (offset >= 7200000) expect(html).toContain('Lịch hẹn đã đến hoặc quá giờ.')
+    expect(html.includes('href="tel:19006828"')).toBe(locked && offset < 7200000)
+    if (offset >= 7200000) expect(getAppointmentTabView(state([item]), 'attention', now).items).toEqual([item])
   })
   it.each(['in_progress', 'completed', 'cancelled', 'no_show'])('never permits reschedule for %s', status => {
     expect(isAppointmentCutoffReached({ ...item, status }, NOW.getTime())).toBe(false)
@@ -114,6 +130,18 @@ describe('service snapshots and cutoff display', () => {
     vi.advanceTimersByTime(120000)
     expect(update).toHaveBeenCalledTimes(calls)
     expect(vi.getTimerCount()).toBe(0)
+  })
+  it('refreshes grouping at the exact appointment start boundary', () => {
+    vi.setSystemTime(Date.parse(item.startAt) - 1)
+    vi.stubGlobal('window', new EventTarget())
+    vi.stubGlobal('document', new EventTarget())
+    const update = vi.fn()
+    const stop = watchAppointmentCutoffs([item], update)
+    vi.advanceTimersByTime(0)
+    expect(getAppointmentTabView(state([item]), 'attention', update.mock.lastCall[0]).items).toEqual([])
+    vi.advanceTimersByTime(1)
+    expect(getAppointmentTabView(state([item]), 'attention', update.mock.lastCall[0]).items).toEqual([item])
+    stop()
   })
   it('resynchronizes after the browser regains focus or visibility', () => {
     vi.useFakeTimers()

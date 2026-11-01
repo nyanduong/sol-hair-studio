@@ -103,6 +103,7 @@ const lastCommandSchema = new Schema(
 const appointmentSchema = new Schema(
     {
         // Tham chiếu hồ sơ khách, nhân viên và người tạo lịch.
+        referenceCode: { type: String, match: /^SOL-[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}$/, immutable: true },
         customerId: { type: Schema.Types.ObjectId, ref: 'Customer', required: true },
         staffId: { type: Schema.Types.ObjectId, ref: 'Staff', required: true },
         createdByAccountId: { type: Schema.Types.ObjectId, ref: 'Account', required: true },
@@ -296,6 +297,9 @@ appointmentSchema.pre('validate', function validateAppointment() {
         this.invalidate('occupiedUntil', 'Occupied end does not match appointment state')
     }
 })
+
+// Optional for legacy records; new bookings receive an immutable customer-facing reference.
+appointmentSchema.index({ referenceCode: 1 }, { unique: true, partialFilterExpression: { referenceCode: { $type: 'string' } } })
 
 // Index hỗ trợ truy vấn khoảng giữ.
 appointmentSchema.index({ staffId: 1, status: 1, occupiedFrom: 1 })

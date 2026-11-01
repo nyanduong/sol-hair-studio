@@ -8,6 +8,7 @@ import { errorHandler } from './middlewares/error-handler.js'
 import { notFound } from './middlewares/not-found.js'
 import { adminAppointmentsRouter } from './modules/admin/admin-appointments.routes.js'
 import { apiRouter } from './routes/index.js'
+import { availabilityInvalidation } from './modules/availability/availability.realtime.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -38,6 +39,7 @@ export function createApp({ routes = apiRouter, logStream } = {}) {
   app.use(cors({ origin: allowedOrigins }))
   app.use(express.json({ limit: '15mb' }))
   app.use(express.urlencoded({ extended: true, limit: '15mb' }))
+  app.use(availabilityInvalidation)
   app.use(routes)
   app.use('/admin', adminAppointmentsRouter)
   // Giữ link lịch có sẵn của dashboard mà không sửa module Admin của thành viên khác.

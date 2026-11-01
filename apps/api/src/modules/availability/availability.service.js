@@ -67,7 +67,9 @@ export function parseAvailabilityQuery(query, identity, now) {
   ) {
     throw new AvailabilityError(
       'DATE_OUT_OF_RANGE',
-      'Ngày phải nằm trong cửa sổ đặt lịch; khách tới ngay chỉ dùng hôm nay.',
+      mode === 'owner_walkin'
+        ? 'Khách tới ngay chỉ được đặt lịch trong hôm nay.'
+        : 'Bạn chỉ có thể đặt lịch từ hôm nay và đặt trước tối đa 7 ngày (168 giờ) kể từ thời điểm hiện tại. Vui lòng chọn ngày khác.',
     )
   }
   return {
