@@ -127,6 +127,80 @@ describe('SOL-037 EJS with real Login, Services and isolated MongoDB transaction
     expect(detail.text).toContain(`/${mine}/start?view=mine`)
   })
 
+  it('shows the same short reference on list, detail, reschedule and audit without changing route IDs', async () => {
+    const id = await booking()
+    const { referenceCode } = await stored(id)
+    const list = await browser.get('/admin/appointments?localDate=2026-10-31').expect(200)
+    expect(list.text).toContain('Mã lịch: ' + referenceCode)
+    expect(list.text).toContain('/admin/appointments/' + id)
+    for (const suffix of ['', '/reschedule', '/audit']) {
+      const page = await browser.get(`/admin/appointments/${id}${suffix}?localDate=2026-10-31&q=${referenceCode}`).expect(200)
+      expect(page.text).toContain(referenceCode)
+      expect(page.text).not.toContain('Mã lịch: ' + id)
+    }
+  })
+
+  it('searches globally by reference and local phone, while retaining date, status and cursor filters', async () => {
+    const first = await booking()
+    const second = await booking({ startAt: '2026-10-31T06:00:00.000Z' })
+    const unrelated = await booking({ startAt: '2026-10-31T08:00:00.000Z', staffId: otherStaff._id, guest: true })
+    await StaffShiftModel.create({ staffId: staff._id, localDate: '2026-11-01', startAt: new Date('2026-11-01T01:00:00Z'), endAt: new Date('2026-11-01T13:00:00Z') })
+    const tomorrow = await booking({ startAt: '2026-11-01T04:00:00.000Z' })
+    const referenceCode = (await stored(first)).referenceCode
+    const byCode = await browser.get('/admin/appointments').query({ q: referenceCode.toLowerCase(), localDate: '' }).expect(200)
+    expect(byCode.text).toContain(referenceCode)
+    expect(byCode.text).not.toContain(`/admin/appointments/${second}?`)
+    const firstPage = await request(app).get('/api/appointments').set('Authorization', `Bearer ${token}`)
+      .query({ q: '0900 000 037', limit: '1' }).expect(200)
+    expect(firstPage.body.data.items.map(item => item.id)).toEqual([first])
+    const nextPage = await request(app).get('/api/appointments').set('Authorization', `Bearer ${token}`)
+      .query({ q: '0900 000 037', limit: '1', cursor: firstPage.body.data.pagination.nextCursor }).expect(200)
+    expect(nextPage.body.data.items.map(item => item.id)).toEqual([second])
+    expect(nextPage.body.data.items.map(item => item.id)).not.toContain(unrelated)
+    const thirdPage = await request(app).get('/api/appointments').set('Authorization', `Bearer ${token}`)
+      .query({ q: '0900 000 037', limit: '1', cursor: nextPage.body.data.pagination.nextCursor }).expect(200)
+    expect(thirdPage.body.data.items.map(item => item.id)).toEqual([tomorrow])
+    const filtered = await browser.get('/admin/appointments').query({ q: 'EJS Customer', localDate: '2026-11-01' }).expect(200)
+    expect(filtered.text).toContain(`/admin/appointments/${tomorrow}?`)
+    expect(filtered.text).not.toContain(`/admin/appointments/${first}?`)
+    const cancelled = await request(app).get('/api/appointments').set('Authorization', `Bearer ${token}`)
+      .query({ q: referenceCode, status: 'cancelled' }).expect(200)
+    expect(cancelled.body.data.items).toEqual([])
+  })
+
+  it('escapes search metacharacters and rejects unbounded or malformed searches', async () => {
+    await CustomerModel.updateOne({ _id: customer._id }, { $set: { displayName: 'Ánh [QA].*' } })
+    const id = await booking()
+    const guestId = await booking({ startAt: '2026-10-31T06:00:00.000Z', guest: true })
+    const literal = await request(app).get('/api/appointments').set('Authorization', `Bearer ${token}`)
+      .query({ q: '[QA].*' }).expect(200)
+    expect(literal.body.data.items.map(item => item.id)).toEqual([id])
+    expect(literal.body.data.items.map(item => item.id)).not.toContain(guestId)
+    for (const q of [' ', 'x'.repeat(101), ['a', 'b']]) {
+      await request(app).get('/api/appointments').set('Authorization', `Bearer ${token}`).query({ q }).expect(400)
+    }
+    for (const email of ['customer-ejs@example.test', 'stylist-ejs@example.test']) {
+      const login = await request(app).post('/api/auth/login').send({ email, password: PASSWORD }).expect(200)
+      await request(app).get('/api/appointments').set('Authorization', `Bearer ${login.body.data.token}`)
+        .query({ q: 'Ánh', localDate: '2026-10-31' }).expect(400)
+    }
+  })
+
+  it('keeps date controls after an invalid reschedule date and recovers on a valid date without writing', async () => {
+    const id = await booking()
+    const before = await stored(id)
+    const invalid = await browser.get(`/admin/appointments/${id}/reschedule?localDate=2026-11-08`)
+      .set('X-Appointment-Dialog', 'true').expect(400)
+    expect(invalid.text).toContain('data-reschedule-date-form')
+    expect(invalid.text).toContain(before.referenceCode)
+    expect(invalid.text).toContain('max="2026-11-07"')
+    expect(invalid.text).toContain('value="2026-10-31"')
+    const valid = await browser.get(`/admin/appointments/${id}/reschedule?localDate=2026-10-31`).expect(200)
+    expect(valid.text).toContain('data-reschedule-form')
+    expect(await stored(id)).toEqual(before)
+    expect(await eventCount(id)).toBe(1)
+  })
+
   it('reschedules both time and Stylist, keeps snapshots, records audit and replays only once', async () => {
     const id = await booking()
     const unrelated = await booking({ startAt: '2026-10-31T08:00:00.000Z', staffId: otherStaff._id, guest: true })

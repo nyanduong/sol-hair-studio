@@ -270,8 +270,12 @@ export async function listStylistAppointments( identity, { localDate, limit = 50
 
 // Kiểm tra bộ lọc ngày, Stylist và trạng thái của Owner.
 export function parseOwnerAppointmentQuery(query = {}) {
-    const allowedKeys =['localDate', 'staffId', 'status', 'limit', 'cursor']
-    const options = parseAppointmentListQuery(query, allowedKeys, 50, 100, true)
+    const allowedKeys =['localDate', 'staffId', 'status', 'limit', 'cursor', 'q']
+    if (query.q !== undefined && (typeof query.q !== 'string' || !query.q.trim() || query.q.trim().length > 100)) {
+        throw new AppointmentError('Từ khóa tìm kiếm cần từ 1 đến 100 ký tự.', { code: 'INVALID_SEARCH', status: 400 })
+    }
+    const options = parseAppointmentListQuery(query, allowedKeys, 50, 100, !(query.q && query.localDate === undefined))
+    if (query.q !== undefined) options.q = query.q.trim()
 
     if(query.staffId !== undefined) {
         if(typeof query.staffId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(query.staffId)) {
@@ -296,12 +300,13 @@ export function parseOwnerAppointmentQuery(query = {}) {
 }
 
 // Lấy lịch toàn tiệm theo bộ lọc của Owner.
-export async function listOwnerAppointments(identity, { localDate, staffId, status, limit = 50, cursor} = {}) {
+export async function listOwnerAppointments(identity, { localDate, staffId, status, q, limit = 50, cursor} = {}) {
     requireAppointmentRole(identity, 'owner')
     const appointments = await findOwnerAppointments({
         localDate,
         staffId,
         status,
+        q,
         limit,
         cursor,
     })

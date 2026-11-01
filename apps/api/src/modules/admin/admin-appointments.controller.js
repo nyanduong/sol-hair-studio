@@ -19,7 +19,10 @@ import { salonDate } from '../../../../../shared/booking.js'
 import { randomUUID } from 'node:crypto'
 
 export async function showOwnerAppointments(req, res, next) {
-  const query = {...req.query,localDate: req.query.localDate ?? salonDate()}
+  const query = { ...req.query }
+  if (query.q === '') delete query.q
+  if (query.q && !query.localDate) delete query.localDate
+  else if (!query.localDate) query.localDate = salonDate()
   const personal = query.view === 'mine'
   delete query.view
 
@@ -28,9 +31,10 @@ export async function showOwnerAppointments(req, res, next) {
   }
 
   const filters = {
-    localDate: query.localDate,
+    localDate: query.localDate ?? '',
     staffId: query.staffId ?? '',
     status: query.status ?? '',
+    q: query.q ?? '',
   }
 
   try {
@@ -48,7 +52,7 @@ export async function showOwnerAppointments(req, res, next) {
       : await listAppointments(req.identity, query)
 
     return res.render('admin/appointments/appointments', {
-      title: 'Lịch hẹn trong ngày',
+      title: query.localDate ? 'Lịch hẹn trong ngày' : 'Tra cứu lịch hẹn',
       personalStaff,
       filters,
       staff,
@@ -186,6 +190,7 @@ export async function showOwnerReschedule(req, res, next) {
   delete query.view
   delete query.staffId
   delete query.status
+  delete query.q
 
   const view = {
     title: 'Đổi lịch hẹn',
@@ -193,8 +198,9 @@ export async function showOwnerReschedule(req, res, next) {
     localDate: query.localDate,
   }
 
+  let appointment = null
   try {
-    const appointment = await getAppointmentDetail(req.identity, req.params.appointmentId)
+    appointment = await getAppointmentDetail(req.identity, req.params.appointmentId)
     const options = await getAppointmentRescheduleOptions(
       req.identity,
       req.params.appointmentId,
@@ -218,7 +224,7 @@ export async function showOwnerReschedule(req, res, next) {
 
     return res.status(error.status).render('admin/appointments/appointment-reschedule', {
       ...view,
-      appointment: null,
+      appointment,
       options: null,
       rescheduleKey: '',
       error: error.message,
@@ -552,15 +558,17 @@ export async function showOwnerAudit(req, res, next) {
   }
 
   try {
+    const appointment = await getAppointmentDetail(req.identity, req.params.appointmentId)
     const page = await getAppointmentAudit(
       req.identity,
       req.params.appointmentId,
       Object.fromEntries(Object.entries(req.query).filter(([key]) =>
-        !['view', 'localDate', 'staffId', 'status'].includes(key))),
+        !['view', 'localDate', 'staffId', 'status', 'q'].includes(key))),
     )
 
     return res.render('admin/appointments/appointment-audit', {
       ...view,
+      referenceCode: appointment.referenceCode,
       events: page.items,
       pagination: page.pagination,
       error: '',

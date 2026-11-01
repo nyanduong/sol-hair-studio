@@ -114,10 +114,26 @@ export function findStylistAppointments( staffId, { localDate, limit = 50, curso
 }
 
 // Đọc lịch toàn tiệm theo ngày, Stylist và trạng thái.
-export function findOwnerAppointments({ localDate, staffId, status, limit = 50, cursor} = {}) {
-    assertLocalDate(localDate)
-
-    const filter = { localDate}
+export function findOwnerAppointments({ localDate, staffId, status, q, limit = 50, cursor} = {}) {
+    if (localDate !== undefined) assertLocalDate(localDate)
+    if (localDate === undefined && !q) throw new TypeError('A date or search term is required')
+    const filter = localDate === undefined ? {} : { localDate }
+    if (q !== undefined) {
+        if (typeof q !== 'string' || !q.trim() || q.length > 100) throw new TypeError('Invalid search term')
+        const literal = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        const text = { $regex: literal(q), $options: 'i' }
+        let phone = q
+        if (/^\+?[\d\s().-]+$/.test(q)) {
+            phone = q.replace(/[\s().-]/g, '')
+            if (phone.startsWith('0')) phone = '+84' + phone.slice(1)
+            else if (phone.startsWith('84')) phone = '+' + phone
+        }
+        // Keep search separate from the cursor's $or so pagination cannot bypass either filter.
+        filter.$and = [{ $or: [
+            { referenceCode: text }, { 'customerSnapshot.displayName': text },
+            { 'customerSnapshot.phone': { $regex: literal(phone), $options: 'i' } },
+        ] }]
+    }
     if(staffId !== undefined) {
         assertObjectId(staffId, 'staffId')
         filter.staffId = staffId

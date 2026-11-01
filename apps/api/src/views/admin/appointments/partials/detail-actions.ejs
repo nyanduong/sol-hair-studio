@@ -38,7 +38,7 @@
               <div data-panel-content>
                 <p class="mt-3 text-sm leading-6 text-muted"><%= action.description %></p>
                 <dl class="mt-4 space-y-2 rounded-2xl border border-border bg-soft-surface p-4 text-sm">
-                  <div><dt class="text-xs text-muted">Mã lịch</dt><dd class="break-all font-mono text-xs"><%= appointment.id %></dd></div>
+                  <div><dt class="text-xs text-muted">Mã lịch</dt><dd class="break-all font-mono text-xs"><%= appointment.referenceCode || 'Chưa cấp mã' %></dd></div>
                   <div><dt class="text-xs text-muted">Khách hàng</dt><dd><%= appointment.customerSnapshot.displayName %> · <%= appointment.customerSnapshot.phone %></dd></div>
                   <div><dt class="text-xs text-muted">Giờ hẹn (Việt Nam)</dt><dd><%= dateTime.format(new Date(appointment.startAt)) %></dd></div>
                   <div><dt class="text-xs text-muted">Stylist / dịch vụ</dt><dd><%= appointment.staffNameSnapshot %> · <%= appointment.items.map(item => item.name).join(' · ') %></dd></div>

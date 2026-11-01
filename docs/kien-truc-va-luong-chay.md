@@ -257,3 +257,7 @@ Không cần tạo đủ mọi tệp trước khi tính năng cần chúng.
 ### SOL-043 — Router và bảo vệ yêu cầu booking customer
 
 App.jsx dùng createBrowserRouter/RouterProvider với root wildcard chứa AuthProvider, AppRoutes và AuthModal. Đường dẫn trong AppRoutes giữ nguyên. useBookingSubmission dùng useBlocker đọc pending intent để ngăn điều hướng nội bộ khi chưa xác định kết quả, kết hợp beforeunload cho thao tác rời tài liệu. booking-date.js trong feature booking Web giới hạn ngày của picker, còn API vẫn quyết định slot trong horizon 168 giờ. useAppointmentListView nhóm confirmed đã đến giờ vào Đến/quá giờ ở client, không thay đổi trạng thái lưu ở API.
+
+### SOL-037 — Tìm và cập nhật lịch admin
+
+Owner list: q/localDate/staff/status/cursor → appointments service kiểm query → repository kết hợp tìm literal trên snapshot/mã lịch với bộ lọc và cursor → EJS. admin-appointment-list.js đọc lại cùng trang EJS bằng cookie mỗi 30 giây/focus hoặc nút tải lại, thay riêng vùng danh sách; giữ form lọc. admin-appointments.js tiếp tục quản lý dialog, giữ nháp khi GET options lỗi. Partial reschedule-dates.ejs dùng chung picker cho trạng thái có dữ liệu/lỗi. Không đổi đường dẫn cũ hoặc writer nghiệp vụ.

@@ -1,7 +1,7 @@
 <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#e7e2da] bg-[#f4f0ea]/50 px-6 py-4 sm:px-8">
   <div class="flex min-w-0 flex-wrap items-center gap-3">
     <span class="text-xs font-bold uppercase tracking-wider text-muted">Chi tiết lịch hẹn:</span>
-    <span class="break-all rounded-md border border-[#e7e2da] bg-white px-2.5 py-1 font-mono text-xs font-semibold shadow-sm">Mã lịch: <%= appointment.id %></span>
+    <span class="break-all rounded-md border border-[#e7e2da] bg-white px-2.5 py-1 font-mono text-xs font-semibold shadow-sm">Mã lịch: <%= appointment.referenceCode || 'Chưa cấp mã' %></span>
   </div>
   <%- include('status', { status: appointment.status }) %>
 </div>

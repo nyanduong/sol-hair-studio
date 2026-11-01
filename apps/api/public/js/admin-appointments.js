@@ -2,8 +2,9 @@
 
 const filters = document.querySelector('[data-owner-filters]')
 if (filters) {
-  filters.querySelector('[data-filter-submit]').hidden = true
-  filters.addEventListener('change', () => {
+  filters.addEventListener('change', event => {
+    if (event.target.name === 'q') return
+    if (!filters.querySelector('[name="localDate"]').value && !filters.querySelector('[name="q"]').value.trim()) return
     if (filters.reportValidity()) filters.requestSubmit()
   })
   const toggle = filters.querySelector('[data-filter-toggle]')
@@ -57,7 +58,7 @@ function createActionDialog(label, trigger, appointmentId, wide = false) {
   content.dataset.dialogContent = ''
   dialog.append(close, content)
   document.body.append(dialog)
-  dialogs.set(dialog, { appointmentId, content, close, trigger, pending: false, busy: false, command: null, reader: null })
+  dialogs.set(dialog, { referenceCode: detail?.dataset.appointmentReference || '', appointmentId, content, close, trigger, pending: false, busy: false, command: null, reader: null })
   dialog.addEventListener('cancel', event => {
     if (locked(dialogs.get(dialog))) event.preventDefault()
   })
@@ -139,7 +140,17 @@ async function requestAction(dialog, href, method = 'GET', body = null) {
     if (!result || result.dataset.appointmentResponse !== state.appointmentId) {
       throw new Error('Không xác định được kết quả cho lịch đang mở.')
     }
+    if (!writing && !response.ok && previousForm) {
+      state.content.querySelectorAll('[name="startAt"]').forEach(input => { input.checked = false; input.disabled = true })
+      state.content.querySelector('[name="customerAgreementConfirmed"]').checked = false
+      previousForm.querySelector('[type="submit"]').disabled = true
+      state.content.querySelector('[data-selection-summary]').textContent = 'Hãy tải lại giờ trống hợp lệ trước khi xác nhận.'
+      message(state.content, result.querySelector('[role="alert"]')?.textContent || 'Không tải được giờ trống. Hãy chọn ngày và thử lại.')
+      return
+    }
     state.content.replaceChildren(document.importNode(result, true))
+    const commandReference = state.content.querySelector('[data-command-reference]')
+    if (state.referenceCode && commandReference) commandReference.textContent = state.referenceCode
     const nextForm = state.content.querySelector('[data-reschedule-form]')
     if (draft && nextForm) {
       const staff = nextForm.querySelector('[name="staffId"]')
@@ -333,7 +344,7 @@ document.addEventListener('submit', event => {
 
 document.addEventListener('change', event => {
   const form = event.target.closest('[data-reschedule-date-form]')
-  if (form && event.target.name === 'localDate') form.requestSubmit()
+  if (form && event.target.name === 'localDate' && validateRescheduleDate(form)) form.requestSubmit()
 })
 
 document.addEventListener('input', event => {
@@ -351,6 +362,17 @@ window.addEventListener('beforeunload', event => {
     event.returnValue = ''
   }
 })
+
+function validateRescheduleDate(form) {
+  const input = form.querySelector('[name="localDate"]')
+  if (!input.validity.valid || !input.value ||
+      (input.min && input.value < input.min) || (input.max && input.value > input.max)) {
+    message(form.closest('[data-appointment-response]') || form, 'Chọn ngày từ hôm nay đến tối đa 7 ngày tới (168 giờ tính từ hiện tại).')
+    input.value = input.defaultValue
+    return false
+  }
+  return true
+}
 
 initializeReschedule(document)
 function updateTimeConditions() {

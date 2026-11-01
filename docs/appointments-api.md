@@ -45,10 +45,12 @@ All endpoints require an active Bearer session. Success is {status:"success",dat
 | --- | --- | --- | --- |
 | Customer | limit, cursor | 20 / 50 | startAt DESC, _id DESC |
 | Stylist | localDate (required), limit, cursor | 50 / 100 | startAt ASC, _id ASC |
-| Owner | localDate (required), staffId, status, limit, cursor | 50 / 100 | startAt ASC, _id ASC |
+| Owner | localDate (required unless q is present), q, staffId, status, limit, cursor | 50 / 100 | startAt ASC, _id ASC |
 
 localDate is a valid YYYY-MM-DD salon date. Unsupported filters are rejected, never allowed to expand identity scope. Stylist views only assigned confirmed/in_progress/completed appointments. Owner status filters accept the model enum. An empty list returns 200 with items:[], not 404.
 Response data: {items:[appointment DTO],pagination:{limit,hasNextPage,nextCursor}}. Cursor is opaque to clients and must be copied from the response, not constructed or reused across different filters. Invalid cursor/query/limit/date/filter returns 400.
+
+SOL-037 admin search adds optional Owner-only `q`: a nonblank string trimmed to 1–100 characters. It matches saved referenceCode, customerSnapshot.displayName or customerSnapshot.phone as escaped literal text, case-insensitively. Vietnamese phone input beginning with 0 is normalized to +84; phone separators are removed. Search uses saved appointment snapshots, not current profile fields. Without localDate, q searches all dates; with localDate it intersects that date. Staff, status and cursor filters still apply together; pagination cannot bypass search. Customer/Stylist query contracts remain unchanged and reject q. Existing date-only clients remain compatible. No index or schema change is introduced.
 
 ### Details: GET /api/appointments/:appointmentId
 
@@ -747,3 +749,9 @@ backfill is implemented. A missing event is not fabricated from current status.
 ## Stylist correction UI extension
 
 Stylist Web and Mobile detail expose correction only for in_progress/completed appointments with a valid revision. Both require a reason and explicit confirmation; completed-to-in_progress requires a future ETA when planned end has passed. They reuse the correction endpoints, preserve the original body/key for an unknown result, and refresh detail after success. Administrative audit remains Owner-only. No browser/device acceptance is claimed by automated tests or Expo export.
+
+## SOL-037 — Admin appointment usability fixes (01/11/2026)
+
+Admin list/detail/reschedule/audit display the persisted SOL reference (legacy records show a missing-reference label), while URLs and command targets retain MongoDB IDs. List search retains its context across paging/detail/back links. The EJS list refreshes its current filtered page every 30 seconds, on focus/visibility and by an explicit reload button; it keeps unsent filter edits, skips background refresh while typing or focusing a record link, ignores old responses and indicates failed refresh/session expiry. No automatic full-page reload occurs.
+
+Reschedule dates have min/max for the current salon date through day +7; the API still enforces the exact 168-hour horizon. A direct invalid-date GET retains date controls for recovery. Failed options reads inside the dialog keep the draft reason/staff/date controls, clear and disable old slots, and allow another read; command retry semantics are unchanged. The current-staff mode hides the other-staff select using a Tailwind hidden override. No service lifecycle, assignment policy, transaction guard, idempotency key or audit semantics change.

@@ -21,13 +21,13 @@ adminAppointmentsRouter.use((req, res, next) => {
     res.locals.appointmentDialog = req.get('X-Appointment-Dialog') === 'true'
     res.locals.ownerPersonal = req.query.view === 'mine'
     res.locals.ownerContext = Object.fromEntries(
-        ['view', 'localDate', 'staffId', 'status']
+        ['view', 'localDate', 'staffId', 'status', 'q']
             .filter(key => typeof req.query[key] === 'string')
             .map(key => [key, req.query[key]]),
     )
     res.locals.ownerUrl = (path, changes = {}) => {
         const query = new URLSearchParams()
-        for (const key of ['view', 'localDate', 'staffId', 'status']) {
+        for (const key of ['view', 'localDate', 'staffId', 'status', 'q']) {
             if (typeof req.query[key] === 'string' && req.query[key]) {
                 query.set(key, req.query[key])
             }
