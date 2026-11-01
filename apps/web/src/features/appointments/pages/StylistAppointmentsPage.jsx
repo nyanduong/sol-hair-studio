@@ -1,4 +1,5 @@
 import AppointmentEta from '../components/AppointmentEta.jsx'
+import StylistAppointmentCorrection from '../components/StylistAppointmentCorrection.jsx'
 import { mergeAppointmentEta } from '../api/appointment-eta.api.js'
 import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
@@ -19,23 +20,29 @@ function StylistWorkspace({ token, appointmentId, localDate, onLogin }) {
   const current = displayed.kind === 'success' ? displayed.value : null
   function changed(value, action) {
     if (value && action === 'eta') setEtaResult(value)
-    if (value) setNotice(action === 'eta' ? 'Đã cập nhật giờ dự kiến xong.' : action === 'start' ? 'Đã bắt đầu phục vụ.' : 'Đã hoàn tất phục vụ.')
+    if (value) setNotice(action?.startsWith('correct-') ? 'Đã sửa thao tác nhầm. Lịch sử cũ được giữ nguyên.' : action === 'eta' ? 'Đã cập nhật giờ dự kiến xong.' : action === 'start' ? 'Đã bắt đầu phục vụ.' : 'Đã hoàn tất phục vụ.')
+    if (action?.startsWith('correct-')) setEtaResult(null)
     setOperation(null)
     void state.retry()
   }
   const canServe = current && ['confirmed', 'in_progress'].includes(current.status) &&
     Number.isSafeInteger(current.revision) && current.revision >= 0 && current.revision < Number.MAX_SAFE_INTEGER
+  const canCorrect = current && ['in_progress', 'completed'].includes(current.status) &&
+    Number.isSafeInteger(current.revision) && current.revision >= 0 && current.revision < Number.MAX_SAFE_INTEGER
   return <>
     {notice && <p role="status" className="mt-4 text-sm text-terracotta">{notice}</p>}
     <OwnerAppointmentsView state={displayed} detailed={Boolean(appointmentId)} audience="stylist" basePath="/nhan-vien/lich-hen"
       search={'?' + new URLSearchParams({ localDate })} onLogin={onLogin}
-      actions={canServe ? <div className="flex flex-wrap justify-end gap-3 border-t border-[#f3eee6] bg-[#faf6f0]/50 px-6 py-5 sm:px-8">
-        <button className="min-h-11 rounded-full bg-terracotta hover:bg-terracotta-dark px-5 py-2 text-sm font-semibold text-white shadow-2xs hover:shadow transition-all"
+      actions={canServe || canCorrect ? <div className="flex flex-wrap justify-end gap-3 border-t border-[#f3eee6] bg-[#faf6f0]/50 px-6 py-5 sm:px-8">
+        {canServe && <button className="min-h-11 rounded-full bg-terracotta hover:bg-terracotta-dark px-5 py-2 text-sm font-semibold text-white shadow-2xs hover:shadow transition-all"
           onClick={() => setOperation(current.status === 'confirmed' ? 'start' : 'complete')}>
           {current.status === 'confirmed' ? 'Bắt đầu phục vụ' : 'Hoàn tất phục vụ'}
-        </button>
+        </button>}
+        {canCorrect && <button className="min-h-11 rounded-full border border-border bg-white px-5 py-2 text-sm font-semibold text-ink hover:bg-soft-surface" onClick={() => setOperation('correction')}>Sửa thao tác nhầm</button>}
         {current.status === 'in_progress' && <button className="min-h-11 rounded-full border border-border bg-white hover:bg-soft-surface px-5 py-2 text-sm font-semibold text-ink transition-colors" onClick={() => setOperation('eta')}>Cập nhật giờ dự kiến xong</button>}
       </div> : null} />
+    {current && operation === 'correction' && <StylistAppointmentCorrection key={current.id + ':' + current.revision}
+      token={token} appointment={current} onClose={() => setOperation(null)} onChanged={changed} />}
     {current && operation === 'eta' && <AppointmentEta actor="stylist" token={token} appointment={current}
       onClose={() => setOperation(null)} onChanged={changed} />}
     {current && ['start', 'complete'].includes(operation) && <OwnerAppointmentService key={current.id + ':' + current.revision + ':' + operation}

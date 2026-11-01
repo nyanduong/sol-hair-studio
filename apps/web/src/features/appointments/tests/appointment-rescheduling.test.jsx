@@ -6,8 +6,7 @@ import { sendAppointmentCommand, readRescheduleOptions } from '../api/appointmen
 import { sendOwnerAppointmentCommand } from '../api/owner-appointments.api.js'
 import { useRescheduleOptions } from '../hooks/useRescheduleOptions.js'
 import { RescheduleForm } from '../components/CustomerAppointmentManagement.jsx'
-import OwnerAppointmentReschedule from '../components/OwnerAppointmentReschedule.jsx'
-import OwnerAppointmentManagement from '../components/OwnerAppointmentManagement.jsx'
+
 import { createOwnerAppointmentReader } from '../hooks/useOwnerAppointments.js'
 import { createCustomerAppointmentDetail } from '../hooks/useCustomerAppointmentDetail.js'
 import { createCustomerAppointmentList } from '../hooks/useCustomerAppointments.js'
@@ -132,18 +131,6 @@ describe('Owner agreement gate', () => {
     expect(payload).toEqual({ expectedRevision: 3, staffId: item.staffId, startAt: later, reason: 'Đã trao đổi với khách' })
     expect(Object.keys(payload).sort()).toEqual(['expectedRevision', 'reason', 'staffId', 'startAt'])
   })
-  it('shows a required, initially unchecked Owner declaration even outside the late-change window', () => {
-    const html = renderToStaticMarkup(<OwnerAppointmentReschedule token="owner-token" appointment={ownerItem} now={now}
-      onClose={() => {}} onChanged={() => {}} />)
-    expect(html).toContain('Lý do đổi lịch (bắt buộc)')
-    expect(html).not.toContain('Lý do đổi lịch (không bắt buộc)')
-    expect(html).toContain('Tôi đã trao đổi và thống nhất ngày, giờ, stylist mới với khách.')
-    const checkbox = html.match(/<input[^>]*type="checkbox"[^>]*>/)?.[0]
-    expect(checkbox).toBeDefined()
-    expect(checkbox).toContain('required=""')
-    expect(checkbox).not.toContain('checked=""')
-    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Xác nhận đổi lịch hẹn →<\/button>/)
-  })
 
 })
 
@@ -175,18 +162,7 @@ describe('shared reschedule form and availability contract', () => {
       expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Xác nhận đổi lịch hẹn →<\/button>/)
     }
   })
-  it('reuses the same form for Owner while requiring a reason for a late appointment', () => {
-    const html = renderToStaticMarkup(<OwnerAppointmentReschedule token="owner-token"
-      appointment={{ ...ownerItem, startAt: new Date(now + 900_000).toISOString() }} now={now}
-      onClose={() => {}} onChanged={() => {}} />)
-    expect(html).toContain('Lý do đổi lịch (bắt buộc)')
-    expect(html).toContain('Khách A')
-    expect(html.indexOf('1. Chọn chuyên viên')).toBeLessThan(html.indexOf('2. Chọn thời gian mới'))
-    expect(html).toContain('Giữ chuyên viên hiện tại')
-    expect(html).toContain('Chọn chuyên viên khác')
-    const actions = renderToStaticMarkup(<OwnerAppointmentManagement token="owner-token" appointment={ownerItem} />)
-    expect(actions).toContain('>Đổi lịch</button>')
-  })
+
   it('retains the locked form and same-request retry after unknown outcome', () => {
     const html = renderForm({ locked: true, ambiguous: true, command: { kind: 'error', pending: { payload: body('customer') } },
       error: new Error('offline') })

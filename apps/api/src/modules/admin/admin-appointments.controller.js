@@ -20,6 +20,8 @@ import { randomUUID } from 'node:crypto'
 
 export async function showOwnerAppointments(req, res, next) {
   const query = {...req.query,localDate: req.query.localDate ?? salonDate()}
+  const personal = query.view === 'mine'
+  delete query.view
 
   for (const key of ['staffId', 'status', 'cursor']) {
     if (query[key] === '') delete query[key]
@@ -32,11 +34,22 @@ export async function showOwnerAppointments(req, res, next) {
   }
 
   try {
-    const page = await listAppointments(req.identity, query)
     const staff = await listStaff(req.identity)
+    const personalStaff = personal
+      ? staff.find(person => person.accountId === req.identity.accountId)
+      : null
+    if (personal) {
+      delete query.staffId
+      filters.staffId = ''
+      if (personalStaff) query.staffId = personalStaff.staffId
+    }
+    const page = personal && !personalStaff
+      ? { items: [], pagination: { hasNextPage: false, nextCursor: null } }
+      : await listAppointments(req.identity, query)
 
-    return res.render('owner/appointments', {
-      title: 'Lịch hẹn toàn salon',
+    return res.render('admin/appointments/appointments', {
+      title: 'Lịch hẹn trong ngày',
+      personalStaff,
       filters,
       staff,
       appointments: page.items,
@@ -46,8 +59,9 @@ export async function showOwnerAppointments(req, res, next) {
   } catch (error) {
     if (!(error instanceof AppointmentError)) return next(error)
 
-    return res.status(error.status).render('owner/appointments', {
+    return res.status(error.status).render('admin/appointments/appointments', {
       title: 'Lịch hẹn toàn salon',
+      personalStaff: null,
       filters,
       staff: [],
       appointments: [],
@@ -63,10 +77,21 @@ export async function showOwnerAppointments(req, res, next) {
 export async function showOwnerAppointmentDetail(req, res, next) {
   try {
     const appointment = await getAppointmentDetail(req.identity,req.params.appointmentId)
+    let personalStaff = null
+    if (req.query.view === 'mine') {
+      const staff = await listStaff(req.identity)
+      personalStaff = staff.find(person => person.accountId === req.identity.accountId)
+      if (!personalStaff || personalStaff.staffId !== appointment.staffId) {
+        throw new AppointmentError('Lịch này không được phân công cho bạn.', {
+          code: 'APPOINTMENT_NOT_ASSIGNED', status: 403,
+        })
+      }
+    }
 
-    return res.render('owner/appointment-detail', {
+    return res.render('admin/appointments/appointment-detail', {
       title: 'Chi tiết lịch hẹn',
       appointment,
+      personalStaff,
       cancelKey: randomUUID(),
       noShowKey: randomUUID(),
       startKey: randomUUID(),
@@ -79,9 +104,10 @@ export async function showOwnerAppointmentDetail(req, res, next) {
   } catch (error) {
     if (!(error instanceof AppointmentError)) return next(error)
 
-    return res.status(error.status).render('owner/appointment-detail', {
+    return res.status(error.status).render('admin/appointments/appointment-detail', {
       title: 'Chi tiết lịch hẹn',
       appointment: null,
+      personalStaff: null,
       error: error.message,
     })
   }
@@ -122,7 +148,7 @@ export async function submitOwnerCancellation(req, res) {
       commandKey,
     )
 
-    return res.render('owner/appointment-cancel-result', {
+    return res.render('admin/appointments/appointment-cancel-result', {
       ...view,
       result,
       error: '',
@@ -139,7 +165,7 @@ export async function submitOwnerCancellation(req, res) {
       })
     }
 
-    return res.status(status).render('owner/appointment-cancel-result', {
+    return res.status(status).render('admin/appointments/appointment-cancel-result', {
       ...view,
       result: null,
       pending,
@@ -156,6 +182,10 @@ export async function showOwnerReschedule(req, res, next) {
     ...req.query,
     localDate: req.query.localDate ?? salonDate(),
   }
+  // Chỉ localDate thuộc contract của Service lấy lựa chọn đổi lịch.
+  delete query.view
+  delete query.staffId
+  delete query.status
 
   const view = {
     title: 'Đổi lịch hẹn',
@@ -164,14 +194,21 @@ export async function showOwnerReschedule(req, res, next) {
   }
 
   try {
+    const appointment = await getAppointmentDetail(req.identity, req.params.appointmentId)
     const options = await getAppointmentRescheduleOptions(
       req.identity,
       req.params.appointmentId,
       query,
     )
+    if (appointment.revision !== options.revision) {
+      throw new AppointmentError('Lịch đã thay đổi. Hãy tải lại chi tiết trước khi đổi lịch.', {
+        code: 'APPOINTMENT_REVISION_CONFLICT', status: 409,
+      })
+    }
 
-    return res.render('owner/appointment-reschedule', {
+    return res.render('admin/appointments/appointment-reschedule', {
       ...view,
+      appointment,
       options,
       rescheduleKey: randomUUID(),
       error: '',
@@ -179,8 +216,9 @@ export async function showOwnerReschedule(req, res, next) {
   } catch (error) {
     if (!(error instanceof AppointmentError)) return next(error)
 
-    return res.status(error.status).render('owner/appointment-reschedule', {
+    return res.status(error.status).render('admin/appointments/appointment-reschedule', {
       ...view,
+      appointment: null,
       options: null,
       rescheduleKey: '',
       error: error.message,
@@ -216,11 +254,22 @@ export async function submitOwnerReschedule(req, res) {
       startAt: payload.startAt ?? '',
       staffId: payload.staffId ?? '',
       reason: payload.reason ?? '',
+      customerAgreementConfirmed: req.body?.customerAgreementConfirmed === 'true',
       commandKey: commandKey ?? '',
     },
   }
 
   try {
+    if (typeof payload.reason !== 'string' || !payload.reason.trim() || payload.reason.length > 500) {
+      throw new AppointmentError('Cần nhập lý do đổi lịch có nội dung, tối đa 500 ký tự.', {
+        code: 'INVALID_REASON', status: 400,
+      })
+    }
+    if (req.body?.customerAgreementConfirmed !== 'true') {
+      throw new AppointmentError('Cần xác nhận đã trao đổi và thống nhất lịch mới với khách.', {
+        code: 'CUSTOMER_AGREEMENT_REQUIRED', status: 400,
+      })
+    }
     const result = await rescheduleAppointment(
       req.identity,
       req.params.appointmentId,
@@ -228,7 +277,7 @@ export async function submitOwnerReschedule(req, res) {
       commandKey,
     )
 
-    return res.render('owner/appointment-reschedule-result', {
+    return res.render('admin/appointments/appointment-reschedule-result', {
       ...view,
       result,
       error: '',
@@ -245,7 +294,7 @@ export async function submitOwnerReschedule(req, res) {
       })
     }
 
-    return res.status(status).render('owner/appointment-reschedule-result', {
+    return res.status(status).render('admin/appointments/appointment-reschedule-result', {
       ...view,
       result: null,
       pending,
@@ -314,7 +363,7 @@ export async function submitOwnerNoShow(req, res) {
       commandKey,
     )
 
-    return res.render('owner/appointment-no-show-result', {
+    return res.render('admin/appointments/appointment-no-show-result', {
       ...view,
       result,
       error: '',
@@ -331,7 +380,7 @@ export async function submitOwnerNoShow(req, res) {
       })
     }
 
-    return res.status(status).render('owner/appointment-no-show-result', {
+    return res.status(status).render('admin/appointments/appointment-no-show-result', {
       ...view,
       result: null,
       pending,
@@ -381,7 +430,7 @@ async function submitOwnerServiceAction(req, res, operation, service) {
       commandKey,
     )
 
-    return res.render('owner/appointment-service-result', {
+    return res.render('admin/appointments/appointment-service-result', {
       ...view,
       result,
       error: '',
@@ -399,7 +448,7 @@ async function submitOwnerServiceAction(req, res, operation, service) {
       })
     }
 
-    return res.status(status).render('owner/appointment-service-result', {
+    return res.status(status).render('admin/appointments/appointment-service-result', {
       ...view,
       result: null,
       pending,
@@ -468,7 +517,7 @@ export async function submitOwnerEta(req, res) {
       commandKey,
     )
 
-    return res.render('owner/appointment-eta-result', {
+    return res.render('admin/appointments/appointment-eta-result', {
       ...view,
       result,
       error: '',
@@ -485,7 +534,7 @@ export async function submitOwnerEta(req, res) {
       })
     }
 
-    return res.status(status).render('owner/appointment-eta-result', {
+    return res.status(status).render('admin/appointments/appointment-eta-result', {
       ...view,
       result: null,
       pending,
@@ -506,10 +555,11 @@ export async function showOwnerAudit(req, res, next) {
     const page = await getAppointmentAudit(
       req.identity,
       req.params.appointmentId,
-      req.query,
+      Object.fromEntries(Object.entries(req.query).filter(([key]) =>
+        !['view', 'localDate', 'staffId', 'status'].includes(key))),
     )
 
-    return res.render('owner/appointment-audit', {
+    return res.render('admin/appointments/appointment-audit', {
       ...view,
       events: page.items,
       pagination: page.pagination,
@@ -518,7 +568,7 @@ export async function showOwnerAudit(req, res, next) {
   } catch (error) {
     if (!(error instanceof AppointmentError)) return next(error)
 
-    return res.status(error.status).render('owner/appointment-audit', {
+    return res.status(error.status).render('admin/appointments/appointment-audit', {
       ...view,
       events: [],
       pagination: {
@@ -625,7 +675,7 @@ async function submitOwnerCorrection(req, res, operation) {
       commandKey,
     )
 
-    return res.render('owner/appointment-correction-result', {
+    return res.render('admin/appointments/appointment-correction-result', {
       ...view,
       result,
       error: '',
@@ -643,9 +693,10 @@ async function submitOwnerCorrection(req, res, operation) {
       })
     }
 
-    return res.status(status).render('owner/appointment-correction-result', {
+    return res.status(status).render('admin/appointments/appointment-correction-result', {
       ...view,
       result: null,
+      conflicts: knownError && error.code === 'CORRECTION_CONFLICT' ? error.details : null,
       pending,
       error: pending
         ? 'Chưa xác định được kết quả sửa nhầm. Hãy kiểm tra và thử lại cùng yêu cầu.'

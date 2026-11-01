@@ -1,27 +1,6 @@
-<!DOCTYPE html>
-<html lang="vi">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title><%= title %> — Sol Hair Studio</title>
+<%- include('partials/action-page-start') %>
 
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link
-        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
-        rel="stylesheet"
-        />
-        <link rel="stylesheet" href="/owner-assets/css/owner.css" />
-    </head>
-
-    <body class="min-h-screen bg-canvas font-sans text-ink">
-        <main class="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-        <p class="text-sm font-semibold text-terracotta">Sol Hair Studio</p>
-        <h1 class="mt-2 font-display text-4xl font-semibold">
-            Kết quả đổi lịch
-        </h1>
-
-        <section class="mt-6 rounded-3xl border border-border bg-white p-6 sm:p-8">
+        <section class="mt-6 rounded-2xl border border-[#e7e2da] bg-white p-6 shadow-sm sm:p-8">
             <% if (result) { %>
                 <h2 class="text-lg font-semibold">Đã đổi lịch hẹn</h2>
                 <p class="mt-2 text-sm text-muted">
@@ -44,7 +23,7 @@
 
                     <form
                         method="post"
-                        action="/owner/appointments/<%= appointmentId %>/reschedule"
+                        action="<%= ownerUrl('/admin/appointments/' + appointmentId + '/reschedule') %>"
                         class="mt-4"
                     >
                         <input
@@ -72,17 +51,18 @@
                             name="reason"
                             value="<%= form.reason %>"
                         />
+                        <input type="hidden" name="customerAgreementConfirmed" value="<%= form.customerAgreementConfirmed ? 'true' : 'false' %>" />
 
                         <button
                             type="submit"
-                            class="min-h-11 rounded-full bg-terracotta px-6 py-2 text-sm font-semibold text-white hover:bg-terracotta-dark"
+                            class="min-h-11 rounded-xl bg-terracotta px-6 py-2 text-sm font-semibold text-white hover:bg-terracotta-hover"
                         >
                             Gửi lại cùng yêu cầu
                         </button>
                     </form>
                 <% } else { %>
                     <a
-                        href="/owner/appointments/<%= appointmentId %>/reschedule"
+                        href="<%= ownerUrl('/admin/appointments/' + appointmentId + '/reschedule') %>"
                         class="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-terracotta hover:underline"
                     >
                         Chọn lại lịch
@@ -92,19 +72,18 @@
 
             <div class="mt-6 flex flex-wrap gap-4">
             <a
-                href="/owner/appointments/<%= appointmentId %>"
+                href="<%= ownerUrl('/admin/appointments/' + appointmentId + '') %>"
                 class="text-sm font-semibold text-terracotta hover:underline"
             >
                 Xem chi tiết lịch
             </a>
             <a
-                href="/owner/appointments"
+                href="<%= ownerUrl('/admin/appointments') %>"
                 class="text-sm font-semibold text-terracotta hover:underline"
             >
                 Về danh sách lịch
             </a>
             </div>
         </section>
-        </main>
-    </body>
-</html>
+
+<%- include('partials/action-page-end') %>

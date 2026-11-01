@@ -6,10 +6,10 @@ const date = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', da
 const format = value => date.format(new Date(value))
 const button = 'min-h-11 rounded-full border border-border px-5 py-2 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed'
 
-export default function OwnerAppointmentCorrection({ token, appointment, onChanged, onClose }) {
+export default function StylistAppointmentCorrection({ token, appointment, onChanged, onClose }) {
   const dialog = useRef(null)
   const operation = appointment.status === 'in_progress' ? 'correct-start' : 'correct-complete'
-  const command = useOwnerAppointmentCommand(token, appointment.id, operation)
+  const command = useOwnerAppointmentCommand(token, appointment.id, operation, undefined, 'stylist')
   const [fields, setFields] = useState({ reason: '', confirmed: false, etaLocal: '' })
   const [localError, setLocalError] = useState('')
   const now = useOwnerAppointmentTime(appointment.endAt)
@@ -26,11 +26,11 @@ export default function OwnerAppointmentCorrection({ token, appointment, onChang
       if (result.kind === 'success') { onChanged(result.value, operation); onClose() }
     } catch (error) { setLocalError(error.message) }
   }
-  return <OwnerCorrectionDialog dialogRef={dialog} appointment={appointment} operation={operation} now={now} command={command}
+  return <StylistCorrectionDialog dialogRef={dialog} appointment={appointment} operation={operation} now={now} command={command}
     fields={fields} onFields={setFields} localError={localError} onConfirm={confirm} onClose={onClose} onReload={() => { onChanged(); onClose() }} />
 }
 
-export function OwnerCorrectionDialog({ dialogRef, appointment, operation, now, command, fields, onFields, localError, onConfirm, onClose, onReload }) {
+export function StylistCorrectionDialog({ dialogRef, appointment, operation, now, command, fields, onFields, localError, onConfirm, onClose, onReload }) {
   const starting = operation === 'correct-start'
   const eligible = (starting ? appointment.status === 'in_progress' : appointment.status === 'completed') &&
     Number.isSafeInteger(appointment.revision) && appointment.revision >= 0 && appointment.revision < Number.MAX_SAFE_INTEGER
@@ -51,11 +51,11 @@ export function OwnerCorrectionDialog({ dialogRef, appointment, operation, now, 
   const message = localError || (error && (ambiguous ? 'Chưa rõ kết quả. Thử lại cùng yêu cầu, không tạo thao tác khác.'
     : messages[error.code] ?? (reloadRequired ? 'Phiên, quyền hoặc lịch đã thay đổi. Hãy tải lại lịch.' : 'Không sửa được trạng thái. Vui lòng thử lại.')))
   const update = patch => onFields({ ...fields, ...patch, confirmed: false })
-  return <dialog ref={dialogRef} aria-labelledby="owner-correction-title"
+  return <dialog ref={dialogRef} aria-labelledby="stylist-correction-title"
     onCancel={event => { event.preventDefault(); if (!command.locked) onClose() }}
     className="fixed inset-0 m-auto max-h-[90svh] w-[calc(100%_-_2rem)] max-w-xl overflow-y-auto rounded-3xl border border-border bg-canvas p-6 text-ink shadow-xl backdrop:bg-ink/40 sm:p-8">
-    <h2 id="owner-correction-title" className="font-display text-2xl font-bold">Sửa trạng thái bị nhầm</h2>
-    <p className="mt-3 text-sm text-muted">Thao tác quản trị: Backend sẽ kiểm tra ca làm, nghỉ và lịch xung đột. Không tự dời/hủy lịch khác; lịch sử cũ được giữ nguyên.</p>
+    <h2 id="stylist-correction-title" className="font-display text-2xl font-bold">Sửa trạng thái bị nhầm</h2>
+    <p className="mt-3 text-sm text-muted">Chỉ sửa lịch được giao cho bạn. Backend kiểm tra ca làm, nghỉ và lịch xung đột. Không tự dời/hủy lịch khác; lịch sử cũ được giữ nguyên.</p>
     <dl className="mt-4 space-y-2 rounded-2xl border border-border bg-white p-4 text-sm">
       <div><dt>Khách hàng</dt><dd>{appointment.customerSnapshot.displayName} · {appointment.customerSnapshot.phone}</dd></div>
       <div><dt>Stylist</dt><dd>{appointment.staffNameSnapshot}</dd></div>

@@ -1,0 +1,16 @@
+<%- include('../layout-header', { title, identity: locals.identity, activeTab: 'appointments' }) %>
+<script src="/admin-assets/js/admin-appointments.js" defer></script>
+
+        <p class="text-xs font-semibold uppercase tracking-widest text-terracotta">
+            Sol Hair Studio
+        </p>
+
+        <h1 class="text-2xl font-bold">
+            <%= title %>
+        </h1>
+
+        <section class="mt-6 rounded-3xl border border-border bg-white p-6 sm:p-8">
+            <p class="text-sm leading-6 text-muted"><%= message %></p>
+        </section>
+        
+<%- include('../layout-footer') %>
