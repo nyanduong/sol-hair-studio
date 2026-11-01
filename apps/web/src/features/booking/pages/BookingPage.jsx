@@ -16,6 +16,7 @@ import {
   salonDate,
   slotTime,
 } from '../../../../../../shared/booking.js'
+import BookingSuccess from '../components/BookingSuccess.jsx'
 import BookingStatus from '../components/BookingStatus.jsx'
 import { useBookingQuery } from '../hooks/useBookingQuery.js'
 import { useBookingSubmission } from '../hooks/useBookingSubmission.js'
@@ -34,13 +35,10 @@ export default function BookingPage() {
     <>
       <SiteHeader />
       <main id="main-content" className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
-        <Link to="/" className="inline-flex min-h-9 items-center text-sm text-muted">
-          ← Về trang chủ
-        </Link>
-        <h1 className="mt-2 font-display text-3xl sm:text-5xl">Đặt lịch tại Sol</h1>
-        <p className="mt-2 text-sm leading-6 text-muted sm:text-base">
-          Chọn dịch vụ phù hợp, Sol chăm chút phần còn lại.
-        </p>
+        {(!isAuthenticated ||
+          !account?.roles?.some((role) => ['customer', 'owner'].includes(role))) && (
+          <BookingIntro />
+        )}
         {!isAuthenticated ? (
           <section className="mt-8 rounded-2xl border border-border bg-white p-6">
             <h2 className="font-display text-2xl">Bắt đầu bằng tài khoản của bạn</h2>
@@ -67,6 +65,20 @@ export default function BookingPage() {
         )}
       </main>
       <SiteFooter />
+    </>
+  )
+}
+
+function BookingIntro() {
+  return (
+    <>
+      <Link to="/" className="inline-flex min-h-9 items-center text-sm text-muted">
+        ← Về trang chủ
+      </Link>
+      <h1 className="mt-2 font-display text-3xl sm:text-5xl">Đặt lịch tại Sol</h1>
+      <p className="mt-2 text-sm leading-6 text-muted sm:text-base">
+        Chọn dịch vụ phù hợp, Sol chăm chút phần còn lại.
+      </p>
     </>
   )
 }
@@ -118,7 +130,7 @@ function BookingForm({ token, initialServiceId }) {
     submission.kind === 'loading' || Boolean(submission.pending) || submission.kind === 'success'
   const customers = useBookingQuery('customers', token, owner && search ? { phone: search } : null)
   const params =
-    active && serviceIds.length
+    active && serviceIds.length && submission.kind !== 'success'
       ? {
           serviceIds,
           localDate: mode === 'owner_walkin' ? salonDate() : localDate,
@@ -257,8 +269,11 @@ function BookingForm({ token, initialServiceId }) {
     submission.kind === 'error' ||
     submission.kind === 'success'
   const catalogTotal = selectedServices.reduce((sum, item) => sum + item.priceVnd, 0)
+  if (submission.kind === 'success')
+    return <BookingSuccess receipt={submission.data} services={catalog.state.data} owner={owner} />
   return (
     <>
+      <BookingIntro />
       {!owner && (
         <nav aria-label="Các bước đặt lịch" className="mt-4 sm:mt-7">
           <ol className="flex items-center gap-2 sm:gap-5">
@@ -495,7 +510,7 @@ function BookingForm({ token, initialServiceId }) {
                 Giờ Việt Nam ·{' '}
                 {mode === 'owner_walkin'
                   ? 'Giờ tới ngay được xác định khi đặt thành công.'
-                  : 'Chọn một giờ trống phù hợp với bạn.'}
+                  : 'Đặt trước tối đa 7 ngày, tính từ giờ hiện tại. Chọn một giờ trống phù hợp với bạn.'}
               </p>
               {!serviceIds.length && (
                 <p className="mt-4 text-sm">Chọn dịch vụ để xem stylist và giờ trống.</p>

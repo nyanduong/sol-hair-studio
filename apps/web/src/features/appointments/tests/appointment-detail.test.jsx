@@ -10,7 +10,7 @@ import { createCustomerAppointmentDetail } from '../hooks/useCustomerAppointment
 
 const id = '1234567890abcdef12345678'
 const appointment = {
-  id, status: 'confirmed', staffNameSnapshot: 'Stylist An',
+  id, referenceCode: 'SOL-23456789', status: 'confirmed', staffNameSnapshot: 'Stylist An',
   startAt: '2026-10-24T07:00:00.000Z', endAt: '2026-10-24T08:00:00.000Z',
   items: [
     { serviceId: 'cut', name: 'Cắt tóc lúc đặt', priceVnd: 100000, durationMinutes: 40 },
@@ -176,13 +176,18 @@ describe('detail route and UI', () => {
   })
   it('renders all real snapshot fields, Vietnam time and zero prices', () => {
     const html = renderState({ kind: 'success', value: appointment })
-    for (const value of [id, 'Đã xác nhận', '24/10/2026', '14:00', '15:00', 'Stylist An', 'Cắt tóc lúc đặt', 'Gội đầu', '40 phút', '20 phút', '60 phút', '100.000', '0', 'Tổng giá dự kiến']) {
+    for (const value of [appointment.referenceCode, 'Đã xác nhận', '24/10/2026', '14:00', '15:00', 'Stylist An', 'Cắt tóc lúc đặt', 'Gội đầu', '40 phút', '20 phút', '60 phút', '100.000', '0', 'Tổng giá dự kiến']) {
       expect(html).toContain(value)
     }
     expect(html).not.toContain('Thanh toán')
     expect(html).not.toContain('Hủy lịch')
     expect(html).not.toContain('Đổi lịch')
     expect(html).not.toContain('Master Stylist')
+  })
+  it('does not display a raw database ID as a code for a legacy appointment', () => {
+    const html = renderState({kind: 'success', value: {...appointment, referenceCode: undefined}})
+    expect(html).toContain('Chưa cấp mã')
+    expect(html).not.toContain(id)
   })
   it.each(['confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'])('renders %s without a payment inference', status => {
     const html = renderState({ kind: 'success', value: { ...appointment, status } })

@@ -84,3 +84,17 @@ availability chỉ thêm session optional cho writer. Dữ liệu thiếu thời
 không lấy min/max làm ngầm định và không sửa catalog thật (SOL-021).
 Kiểm thử Web + API + replica set thật với dữ liệu tổng hợp tại [bằng chứng](evidence/SOL-031/README.md).
 Android/iOS UI, thiết bị thật và Atlas/dữ liệu salon chưa nghiệm thu; tiếp tục ở SOL-034.
+
+## SOL-043 — Mã khách hàng và receipt thành công
+
+Lịch mới có referenceCode dạng SOL-XXXXXXXX (8 ký tự ngẫu nhiên từ alphabet bỏ I/O/0/1), immutable và unique partial index theo referenceCode string. ID MongoDB vẫn dùng trong route/payload/receipt; không cắt ID thành mã ngắn. Cấp mã một lần cho operation, giữ qua retry transaction; nếu collision unique index thì tạo mã khác và retry transaction tối đa ba attempt. Replay cùng idempotency key trả nguyên mã đã lưu, không tạo lịch mới.
+
+DTO POST booking bổ sung referenceCode (khi có), staffDisplayName, customerDisplayName và status từ snapshot/document đã lưu. GET lịch bổ sung referenceCode, không đổi quyền hoặc endpoint. Các field cũ/payload giữ tương thích Web/Mobile; số điện thoại không được thêm vào DTO mới. Mã hiển thị không phải credential và không thay kiểm tra quyền theo ID hiện có.
+
+Document cũ thiếu mã vẫn hợp lệ; index chỉ unique trên string. Backfill metadata độc lập, không đổi lịch/revision/event/receipt, không ghi đè mã đã có. Chạy thủ công từ root khi đã cấu hình môi trường:
+
+```powershell
+node --env-file=apps/api/.env apps/api/scripts/backfill-booking-references.js
+```
+
+Script chuẩn bị unique index trước, retry collision và có thể chạy lại. Không chạy backfill ngầm trong request đặt lịch hoặc tự đổi dữ liệu môi trường khác.

@@ -160,6 +160,7 @@ function buildAppointmentPage(appointments, limit, role, timeField = 'startAt') 
 function toAppointmentListItem(appointment, role) {
     const item = {
         id: String(appointment._id),
+        ...(appointment.referenceCode ? { referenceCode: appointment.referenceCode } : {}),
         staffId: String(appointment.staffId),
         staffNameSnapshot: appointment.staffNameSnapshot,
         items: appointment.items.map(service => ({

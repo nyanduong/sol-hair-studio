@@ -126,7 +126,7 @@ export default function CustomerAppointmentDetail({ state, onLogin, actions }) {
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <span className="text-xs font-bold uppercase tracking-wider text-muted">Mã hẹn:</span>
           <span className="font-mono text-sm font-semibold text-ink sm:text-base">
-            {appointment.id}
+            {appointment.referenceCode || 'Chưa cấp mã'}
           </span>
         </div>
 

@@ -93,3 +93,13 @@ Socket chỉ làm mới UI; transaction/guard/idempotency và 409 vẫn là ngu�
 Bước chọn dịch vụ có tìm tên/nhóm không phân biệt dấu hoặc hoa thường, lọc nhóm từ category thực của catalog và nhóm Khác cho dữ liệu thiếu category. Bộ lọc chỉ thay danh sách hiển thị; selected serviceIds không bị mất khi đổi nhóm/tìm kiếm. Chip đã chọn và nút bỏ chọn trong tóm tắt đều đi qua changeServices hiện có để giữ giới hạn 5 và vô hiệu giờ cũ.
 
 Desktop giữ tóm tắt bên phải. Dưới breakpoint lg, customer có thanh tổng tiền/nút đi tiếp cố định đáy với safe area; tóm tắt thu gọn ở bước 1–2, mở từ Xem lựa chọn/Xem tóm tắt. Bước 3, lỗi hoặc kết quả thành công vẫn hiện đầy đủ. Cả hai vị trí CTA dùng chung action label, disabled và callback; giữ active/profile/slot gate và pending retry. Owner giữ form đầy đủ và không có thanh customer cố định. Không đổi endpoint, payload, socket, transaction, schema hay dữ liệu catalog.
+
+## SOL-043 — Màn thành công riêng
+
+Sau submission success, BookingSuccess thay toàn bộ form/wizard/summary chỉnh sửa; availability params bị tắt để receipt không phụ thuộc slot vừa biến mất sau khi đã được đặt. Tên khách/stylist, tên dịch vụ, giá, thời lượng, ngày/giờ và referenceCode lấy từ response lịch đã lưu; ảnh chỉ là minh họa từ catalog và có fallback. Focus chuyển đến heading, cuộn đầu trang. Có sao chép mã, link chi tiết lịch bảo vệ quyền và về homepage, CTA cố định safe area trên mobile. Giá trị dịch vụ được phân biệt với xác nhận thanh toán.
+
+Refresh trang booking vẫn bắt đầu một draft mới như luồng hiện có; receipt không có đường dẫn công khai riêng. Khách xem lại lịch qua link chi tiết bảo vệ quyền. Lịch legacy thiếu mã không lộ ID dài dưới nhãn mã khách hàng; chạy backfill để cấp mã. Không đổi payload đặt lịch/transaction/idempotency hoặc tự gửi email.
+
+## SOL-043 — Thông báo giới hạn đặt trước
+
+Hướng dẫn cạnh ô ngày ghi rõ đặt trước tối đa 7 ngày tính từ giờ hiện tại. Lỗi DATE_OUT_OF_RANGE của API phân biệt đặt lịch thường (từ hôm nay, tối đa 168 giờ kể từ hiện tại) và khách tới ngay (chỉ hôm nay). Chỉ thay lời hướng dẫn/thông báo, không đổi quy tắc tính slot hoặc cửa sổ đặt lịch; các client tiếp tục nhận cùng code lỗi.

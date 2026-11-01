@@ -45,3 +45,26 @@ Theo mockup desktop/mobile đã duyệt: bổ sung tìm không dấu, lọc cate
 - Fixture tạm ngoài bundle: BookingPage thật với AuthContext/fetch tổng hợp, 30 dịch vụ / 3 nhóm. Lọc Nhuộm còn 10 checkbox; chọn mục 28 rồi lọc khác vẫn giữ chip; thử chọn mục thứ 6 bị từ chối, đúng 5 checkbox checked; 360px không tràn ngang và fixed bar đáy800px (viewport800). Fixture và tab được xóa sau khi kiểm, không insert DB/không để mock trong source sản phẩm.
 
 Đây là emulation responsive Web, chưa kiểm bàn phím/thiết bị mobile thật. Các đề xuất khác ở đợt audit (contact sớm, date/empty state, success và nhóm lịch quá giờ) chưa triển khai trong mockup chọn dịch vụ này. SOL-043 tiếp tục nghiệm thu; chưa merge PR.
+
+## Refine màn thành công — 01/11/2026 (local, chưa commit)
+
+Theo mockup đã duyệt: trang receipt riêng thay form; mã ngắn immutable/unique index, bản ghi snapshot, ngày/giờ bắt đầu-kết thúc, tổng dịch vụ và link chi tiết. Availability ngừng khi success, không còn Cần chọn lại giờ trống sau khi tạo thành công. Không dùng giá/tên/contact live làm receipt.
+
+- API 764 tests PASS, gồm cố ý collision mã rồi retry đúng, 2 appointments/2 receipts/2 events và replay giữ mã; test snapshot/replay sau sửa catalog/profile vẫn nguyên DTO. Mobile 495 PASS.
+- Lần npm test đầu có 1 test Web cũ mong ID dài; cập nhật fixture/expect sang referenceCode và thêm case legacy không hiển thị raw ID. Sau sửa, Web 568/37 files PASS; không bỏ test/không bỏ assertions snapshot/thời gian/giá.
+- npm run lint PASS sau thay đổi cuối; npm run build PASS API/Web/Android+iOS export (cảnh báo chunk >500 kB cũ), git diff --check PASS.
+- Backfill DB local: cấp mã cho 5 lịch cũ, chạy lại cập nhật 0. Không sửa giờ/trạng thái/dịch vụ. Kiểm DB sau browser QA: 6 appointments có mã/0 mã trùng/unique index tồn tại.
+- Chrome origin5174 với tài khoản QA mới Minh Anh QA: đặt Cắt, Stylist Linh, 01/11/2026 18:45–19:45 thành công, reference SOL-R4JJ7JUX; UI thực không còn wizard/cần chọn lại giờ; API thực, không mock POST. Tạo 1 lịch QA mới và giữ lại DB local. Link chi tiết thực hiển thị cùng mã.
+- Sau hot reload sửa focus, dùng wrapper tạm render chính BookingSuccess với receipt QA đọc từ DB để chụp success-desktop/mobile.jpg và kiểm responsive390px (không tràn). Wrapper/dữ liệu preview đã xóa, không có mock trong source sản phẩm. Nút sao chép trả feedback thành công từ Clipboard API; công cụ Browser Use dùng virtual clipboard nên không đối chiếu được OS clipboard qua thao tác paste. Không tuyên bố paste E2E đã đạt.
+- Chưa native/Atlas. Theo yêu cầu người dùng, toàn bộ sửa đang local, không commit/push/merge. Không cập nhật PR chứa code chưa push.
+
+## Kiểm tra trước commit/push — 01/11/2026
+
+Người dùng đã yêu cầu commit và push các thay đổi màn thành công/mã lịch hẹn và thông báo giới hạn đặt trước. Ghi chú chưa commit ở phần trên phản ánh thời điểm kiểm thử ban đầu. Bàn giao trên nhánh fix/SOL-043-vietnamese-phone, PR #41 tiếp tục Draft; không merge vào main.
+
+- npm run lint: PASS toàn repo.
+- npm test: PASS 1.827 tests (API 764, Mobile 495, Web 568).
+- npm run build: PASS API, Web và Expo export Android/iOS (984/989 modules). Còn cảnh báo Mongoose deprecated option, NO_COLOR/FORCE_COLOR và chunk Web >500 kB.
+- node --check apps/api/scripts/backfill-booking-references.js và git diff --check: PASS.
+- Thông báo cạnh ô ngày và DATE_OUT_OF_RANGE nêu rõ tối đa 7 ngày/168 giờ; khách tới ngay chỉ hôm nay. Không đổi logic tính giờ. Chưa kiểm lại trình duyệt hoặc native UI trong lần bàn giao này; bằng chứng Chrome trước đó nằm ở phần trên.
+- Đợt thêm ca riêng theo yêu cầu đã nạp 92 ca 09:00–20:00 ngày 08–30/11 cho 4 nhân sự vào DB local, kiểm lại ca/giờ trống và giữ nguyên lịch hẹn. Dữ liệu DB không nằm trong commit.
