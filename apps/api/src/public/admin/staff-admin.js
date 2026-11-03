@@ -2,13 +2,13 @@
   const q = s => document.querySelector(s)
   const page = q('.staff-page')
   const names = ['Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy', 'Chủ nhật']
-  const state = { token: page.dataset.apiToken, people: [], services: [], selected: null, shifts: [], creating: false, shiftForm: null, working: false, loadingShifts: false, week: monday(today()) }
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char])
   const current = () => state.people.find(person => person.staffId === state.selected) || state.people[0] || null
   const addDays = (value, count) => { const d = new Date(`${value}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + count); return d.toISOString().slice(0, 10) }
   const monday = value => { const d = new Date(`${value}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - (d.getUTCDay() + 6) % 7); return d.toISOString().slice(0, 10) }
   const days = () => Array.from({ length: 7 }, (_, index) => addDays(state.week, index))
   function today() { const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()); return `${p.find(x => x.type === 'year').value}-${p.find(x => x.type === 'month').value}-${p.find(x => x.type === 'day').value}` }
+  const state = { token: page.dataset.apiToken, people: [], services: [], selected: null, shifts: [], creating: false, shiftForm: null, working: false, loadingShifts: false, week: monday(today()) }
   const time = value => new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(value))
   const message = (text, kind = 'error') => { const el = q('#feedback'); el.textContent = text; el.className = kind }
   async function api(path, options = {}) { const r = await fetch(path, { ...options, headers: { ...(options.body && { 'Content-Type': 'application/json' }), ...(state.token && { Authorization: `Bearer ${state.token}` }) } }); const body = await r.json().catch(() => ({})); if (!r.ok) throw new Error(body.message || 'Không thể kết nối với hệ thống.'); return body.data }
