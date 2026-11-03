@@ -21,4 +21,12 @@ export const styles = StyleSheet.create({
   shiftTime: { color: colors.muted, fontSize: 15, marginTop: 5 },
   status: { backgroundColor: '#e7f4ea', borderRadius: 12, color: '#27733e', fontSize: 12, fontWeight: '700', overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 6 },
   cancelled: { backgroundColor: '#f9e6e3', color: '#9c2d2d' },
+  appointmentCard: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 14, borderWidth: 1, gap: 8, padding: 16 },
+  appointmentHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  appointmentTime: { color: colors.ink, fontSize: 17, fontWeight: '700' },
+  appointmentCustomer: { color: colors.ink, fontSize: 16, fontWeight: '600' },
+  appointmentPhone: { color: colors.muted, fontSize: 14 },
+  appointmentServices: { color: colors.muted, fontSize: 14, lineHeight: 20 },
+  inProgress: { backgroundColor: '#fff1d8', color: '#935b00' },
+  completed: { backgroundColor: '#edf0f3', color: '#47515b' },
 })
