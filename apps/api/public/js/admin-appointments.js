@@ -264,6 +264,11 @@ if (dialogSupported && detail) {
     trigger.textContent = summary.textContent
     const operation = new URL(panel.querySelector('form').action).pathname.split('/').pop()
     trigger.dataset.serviceOperation = operation
+    if (['start', 'complete'].includes(operation)) {
+      trigger.className = 'min-h-11 rounded-xl bg-terracotta px-5 py-2 text-sm font-semibold text-white hover:bg-terracotta-hover disabled:opacity-50'
+    } else {
+      trigger.className = 'min-h-10 rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted hover:bg-soft-surface disabled:opacity-50'
+    }
     const dialog = createActionDialog(summary.textContent, trigger, detail.dataset.appointmentDetail)
     const heading = document.createElement('h2')
     heading.className = 'text-2xl font-bold'

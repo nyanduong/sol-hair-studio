@@ -17,11 +17,12 @@
           <p class="mt-2 text-sm text-muted"><%= error %></p>
         </section>
       <% } else if (appointment) { %>
-        <article data-appointment-detail="<%= appointment.id %>" data-appointment-reference="<%= appointment.referenceCode || '' %>" data-personal-staff-id="<%= personalStaff?.staffId ?? '' %>" class="mt-6 overflow-hidden rounded-3xl border border-[#e7e2da] bg-white shadow-sm">
+        <article data-appointment-detail="<%= appointment.id %>" data-appointment-reference="<%= appointment.referenceCode || '' %>" data-personal-staff-id="<%= personalStaff?.staffId ?? '' %>" class="<%= locals.embeddedAppointment ? '' : 'mt-6' %> overflow-hidden rounded-2xl border border-border bg-white">
           <%- include('partials/detail-summary', { dateTime, date, time, money }) %>
+          <% if (locals.paymentToken) { %><%- include('../payment', { appointmentId: appointment.id, token: paymentToken }) %><% } %>
           <%- include('partials/detail-actions', { dateTime }) %>
+          <%- include('partials/detail-progress', { dateTime }) %>
         </article>
       <% } %>
     
-<% if (appointment && locals.paymentToken) { %><%- include('../payment', { appointmentId: appointment.id, token: paymentToken }) %><% } %>
 <%- include('../layout-footer') %>
