@@ -1,102 +1,85 @@
 <%
-  const statuses = { confirmed: 'Đã xác nhận', in_progress: 'Đang phục vụ', completed: 'Đã hoàn tất', cancelled: 'Đã hủy', no_show: 'Không đến' }
+  const statuses = { confirmed: 'Chờ phục vụ', in_progress: 'Đang phục vụ', completed: 'Hoàn tất', cancelled: 'Đã hủy', no_show: 'Không đến' }
   const date = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' })
   const time = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
-  const field = 'mt-1.5 min-h-11 w-full rounded-xl border border-[#e7e2da] bg-white px-3 py-2 text-sm font-medium text-ink focus:border-terracotta focus:outline-none'
+  const money = new Intl.NumberFormat('vi-VN')
+  const field = 'min-h-11 rounded-xl border border-border bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none'
+  const link = 'inline-flex min-h-11 items-center justify-center rounded-xl border border-border bg-white px-4 text-sm font-semibold hover:bg-soft-surface'
+  const selectedDate = /^\d{4}-\d{2}-\d{2}$/.test(filters.localDate) ? new Date(filters.localDate + 'T00:00:00Z') : null
+  const shiftDay = offset => new Date(selectedDate.getTime() + offset * 86400000).toISOString().slice(0, 10)
 %>
 <%- include('../layout-header', { title, identity: locals.identity, activeTab: 'appointments' }) %>
 <script src="/admin-assets/js/admin-appointments.js" defer></script>
 <script src="/admin-assets/js/admin-appointment-list.js" defer></script>
-
-      <%- include('partials/page-header') %>
-      <form method="get" action="/admin/appointments" data-owner-filters class="mt-6 rounded-2xl border border-[#e7e2da] bg-[#f4f0ea] p-4 shadow-sm sm:p-5">
-        <% if (ownerPersonal) { %><input type="hidden" name="view" value="mine" /><% } %>
-        <div class="flex items-center justify-between gap-3 border-b border-[#e7e2da] pb-3">
-          <div class="flex items-center gap-2">
-            <span class="flex size-7 items-center justify-center rounded-md bg-[#f4f0ea] text-terracotta"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg></span>
-            <h2 class="text-xs font-bold uppercase tracking-wider text-terracotta">Bộ lọc lịch hẹn</h2>
-          </div>
-          <a href="/admin/dashboard" class="hidden text-xs text-muted hover:text-terracotta sm:inline">Dashboard quản lý</a>
-          <button type="button" data-filter-toggle aria-expanded="true" aria-controls="owner-filter-fields" class="min-h-10 text-xs font-semibold text-terracotta sm:hidden">Thu gọn bộ lọc</button>
-        </div>
-        <label class="mt-4 block text-sm font-semibold">Tìm lịch hẹn
-          <input type="search" name="q" maxlength="100" value="<%= filters.q || '' %>" placeholder="Mã SOL-…, tên hoặc số điện thoại" class="<%= field %>" />
-        </label>
-        <p class="mt-2 text-xs text-muted">Bỏ trống ngày khi nhập từ khóa để tìm trên mọi ngày. Số Việt Nam nhận cả đầu 0 và +84.</p>
-        <div id="owner-filter-fields" class="mt-4 grid gap-3 <%= ownerPersonal ? 'sm:grid-cols-2' : 'sm:grid-cols-3' %>">
-          <label class="text-xs font-semibold">Ngày hẹn<input type="date" name="localDate" value="<%= filters.localDate %>" class="<%= field %>" /></label>
-          <% if (!ownerPersonal) { %>
-            <label class="text-xs font-semibold">Stylist
-              <select name="staffId" class="<%= field %>">
-                <option value="">Tất cả stylist</option>
-                <% if (filters.staffId && !staff.some(person => person.staffId === filters.staffId)) { %><option value="<%= filters.staffId %>" selected>Stylist đã chọn</option><% } %>
-                <% for (const person of staff) { %><option value="<%= person.staffId %>" <%= filters.staffId === person.staffId ? 'selected' : '' %>><%= person.displayName %><%= person.isActive ? '' : ' (ngừng hoạt động)' %></option><% } %>
-              </select>
-            </label>
-          <% } %>
-          <label class="text-xs font-semibold">Trạng thái
-            <select name="status" class="<%= field %>">
-              <option value="">Tất cả trạng thái</option>
-              <% for (const [value, label] of Object.entries(statuses)) { %><option value="<%= value %>" <%= filters.status === value ? 'selected' : '' %>><%= label %></option><% } %>
-            </select>
-          </label>
-        </div>
-        <button data-filter-submit type="submit" class="mt-4 min-h-11 rounded-xl bg-terracotta px-5 py-2 text-sm font-semibold text-white hover:bg-terracotta-hover">Tìm và lọc lịch</button>
-      </form>
-      <div class="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-muted">
-        <p>Tự cập nhật mỗi 30 giây · Cập nhật lúc <time data-list-updated datetime="<%= new Date().toISOString() %>"><%= time.format(new Date()) %></time></p>
-        <button type="button" data-refresh-appointments class="min-h-11 rounded-xl border border-border bg-white px-4 text-sm font-semibold text-terracotta disabled:opacity-50">Tải lại danh sách</button>
-      </div>
-      <p data-list-message role="status" class="mt-2 text-sm text-terracotta"></p>
-      <a data-list-login href="/admin/login" hidden class="text-sm font-semibold text-terracotta underline">Đăng nhập lại</a>
-      <section data-owner-appointments-list class="mt-6" aria-label="Danh sách lịch hẹn">
-        <% if (error) { %>
-          <div role="alert" class="rounded-2xl border border-terracotta/20 bg-terracotta/5 p-6 text-sm">
-            <p><%= error %></p><a href="<%= ownerUrl('/admin/appointments') %>" class="mt-4 inline-flex min-h-11 items-center font-semibold text-terracotta hover:underline">Tải lại danh sách</a>
-          </div>
-        <% } else if (ownerPersonal && !personalStaff) { %>
-          <p role="status" class="rounded-2xl border border-border bg-white p-6 text-sm text-muted">Tài khoản của bạn chưa có hồ sơ stylist được liên kết. Không thể hiển thị lịch được giao.</p>
-        <% } else { %>
-          <% if (ownerPersonal) { %><p class="mb-4 text-sm text-muted">Lịch được giao cho <span class="font-semibold text-ink"><%= personalStaff.displayName %></span>.</p><% } %>
-          <% if (!appointments.length) { %><p role="status" class="rounded-2xl border border-border bg-white p-6 text-sm text-muted">Không có lịch hẹn phù hợp với bộ lọc này.</p><% } %>
-          <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <% for (const appointment of appointments) { %>
-              <li>
-                <article class="group flex h-full flex-col justify-between rounded-2xl border border-[#e7e2da] bg-white p-4 shadow-sm transition-all hover:border-terracotta hover:shadow-sm sm:p-5">
-                  <div>
-                    <p class="mb-3 font-mono text-sm font-semibold text-terracotta">Mã lịch: <%= appointment.referenceCode || 'Chưa cấp mã' %></p>
-                    <div class="flex items-center justify-between gap-2 border-b border-[#e7e2da] pb-3">
-                      <div class="flex items-center gap-2">
-                        <span class="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[#f4f0ea] text-terracotta"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg></span>
-                        <span class="whitespace-nowrap font-sans text-terracotta font-bold sm:text-2xl"><time datetime="<%= appointment.startAt %>"><%= time.format(new Date(appointment.startAt)) %></time><span class="text-sm font-normal text-terracotta"> – </span><time datetime="<%= appointment.endAt %>"><%= time.format(new Date(appointment.endAt)) %></time></span>
-                      </div>
-                      <%- include('partials/status', { status: appointment.status }) %>
-                    </div>
-                    <div class="mt-3 grid gap-2.5 text-xs sm:grid-cols-2">
-                      <div class="min-w-0 rounded-xl border border-[#e7e2da] bg-[#f4f0ea] p-2.5">
-                        <p class="text-[10px] font-bold uppercase tracking-wider text-muted">Khách hàng</p>
-                        <p class="mt-0.5 truncate text-sm font-semibold" title="<%= appointment.customerSnapshot.displayName %>"><%= appointment.customerSnapshot.displayName %></p>
-                        <p class="text-[11px] text-muted"><%= appointment.customerSnapshot.phone %></p>
-                      </div>
-                      <div class="min-w-0 rounded-xl border border-[#e7e2da] bg-[#f4f0ea] p-2.5">
-                        <p class="text-[10px] font-bold uppercase tracking-wider text-muted">Stylist</p>
-                        <p class="mt-0.5 truncate text-sm font-semibold"><%= appointment.staffNameSnapshot %></p>
-                        <p class="text-[11px] text-muted">Thời lượng: <span class="font-semibold text-ink"><%= appointment.totalDurationMinutes %> phút</span></p>
-                      </div>
-                    </div>
-                    <p class="mt-3 text-[10px] font-bold uppercase tracking-wider text-[#7a7269]">Dịch vụ đã đặt</p>
-                    <div class="mt-1.5 flex flex-wrap gap-1.5"><% for (const item of appointment.items) { %><span class="inline-flex rounded-lg border border-[#e7e2da] bg-[#f4f0ea] px-2.5 py-1 text-xs font-medium"><%= item.name %></span><% } %></div>
-                  </div>
-                  <div class="mt-4 flex items-center justify-between gap-2 border-t border-[#e7e2da] pt-3">
-                    <span class="text-[11px] text-muted"><%= date.format(new Date(appointment.startAt)) %> · Giờ Việt Nam</span>
-                    <a href="<%= ownerUrl('/admin/appointments/' + appointment.id, { localDate: filters.localDate }) %>" class="text-xs font-semibold text-terracotta hover:underline">Xem chi tiết →</a>
-                  </div>
-                </article>
-              </li>
-            <% } %>
-          </ul>
-          <% if (pagination.hasNextPage) { %><div class="mt-6 text-center"><a href="<%= ownerUrl('/admin/appointments', { localDate: filters.localDate, cursor: pagination.nextCursor, limit: pagination.limit }) %>" class="inline-flex min-h-11 items-center rounded-xl border border-terracotta px-5 py-2 text-sm font-semibold text-terracotta hover:bg-terracotta hover:text-white">Xem trang lịch tiếp theo →</a></div><% } %>
-        <% } %>
-      </section>
-    
+<header class="flex flex-wrap items-center justify-between gap-4">
+  <div><p class="text-xs tracking-widest text-muted">SOL / LỊCH SALON</p><h1 class="mt-3 text-3xl font-bold tracking-tight">Lịch salon</h1><p class="mt-2 text-sm text-muted">Theo dõi lịch hẹn, tiến độ phục vụ và thu tiền tại salon.</p></div>
+  <div class="text-right"><button type="button" data-refresh-appointments class="<%= link %> text-terracotta disabled:opacity-50">↻ Tải lại danh sách</button><p class="mt-2 text-xs text-muted">Tự cập nhật mỗi 30 giây · <time data-list-updated datetime="<%= new Date().toISOString() %>"><%= time.format(new Date()) %></time></p></div>
+</header>
+<nav aria-label="Phạm vi lịch hẹn" class="mt-6 flex gap-2">
+  <% for (const [view, label] of [['salon', 'Lịch toàn salon'], ['mine', 'Lịch của tôi']]) { const selected = ownerPersonal === (view === 'mine') %>
+    <a href="<%= ownerUrl('/admin/appointments', { view: view === 'mine' ? 'mine' : '', staffId: '' }) %>" <%- selected ? 'aria-current="page"' : '' %> class="<%= link %> <%= selected ? 'border-terracotta bg-terracotta-light text-terracotta' : 'text-muted' %>"><%= label %></a>
+  <% } %>
+</nav>
+<form method="get" action="/admin/appointments" data-owner-filters class="mt-5 rounded-2xl border border-border bg-white p-4 sm:p-5">
+  <% if (ownerPersonal) { %><input type="hidden" name="view" value="mine"><% } %>
+  <input type="hidden" name="status" value="<%= filters.status %>">
+  <input type="hidden" name="layout" value="<%= filters.layout %>">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="flex flex-wrap items-center gap-2">
+      <% if (selectedDate && Number.isFinite(selectedDate.getTime())) { %><a aria-label="Ngày trước" class="<%= link %>" href="<%= ownerUrl('/admin/appointments', { localDate: shiftDay(-1) }) %>">←</a><% } %>
+      <a class="<%= link %>" href="<%= ownerUrl('/admin/appointments', { localDate: today }) %>">Hôm nay</a>
+      <label class="sr-only" for="schedule-date">Ngày hẹn</label><input id="schedule-date" type="date" name="localDate" value="<%= filters.localDate %>" class="<%= field %>">
+      <% if (selectedDate && Number.isFinite(selectedDate.getTime())) { %><a aria-label="Ngày tiếp theo" class="<%= link %>" href="<%= ownerUrl('/admin/appointments', { localDate: shiftDay(1) }) %>">→</a><% } %>
+      <span class="text-xs text-muted">Giờ Việt Nam</span>
+    </div>
+    <div class="flex gap-1" aria-label="Kiểu hiển thị"><% for (const [value, label] of [['list', 'Danh sách'], ['staff', 'Theo stylist']]) { %><a href="<%= ownerUrl('/admin/appointments', { layout: value }) %>" class="<%= link %> <%= filters.layout === value ? 'bg-terracotta-light text-terracotta border-terracotta' : 'text-muted' %>" <%- filters.layout === value ? 'aria-current="true"' : '' %>><%= label %></a><% } %></div>
+  </div>
+  <div class="mt-4 flex flex-wrap gap-3">
+    <label class="min-w-48 flex-1"><span class="sr-only">Tìm lịch hẹn</span><input type="search" name="q" maxlength="100" value="<%= filters.q %>" placeholder="Tìm tên, số điện thoại, mã SOL-…" class="<%= field %> w-full"></label>
+    <% if (!ownerPersonal) { %><label><span class="sr-only">Stylist</span><select name="staffId" class="<%= field %>"><option value="">Tất cả stylist</option><% if (filters.staffId && !staff.some(person => person.staffId === filters.staffId)) { %><option value="<%= filters.staffId %>" selected>Stylist đã chọn</option><% } %><% for (const person of staff) { %><option value="<%= person.staffId %>" <%= filters.staffId === person.staffId ? 'selected' : '' %>><%= person.displayName %><%= person.isActive ? '' : ' (ngừng hoạt động)' %></option><% } %></select></label><% } %>
+    <label><span class="sr-only">Thanh toán</span><select name="paymentStatus" class="<%= field %>"><option value="">Tất cả thanh toán</option><option value="unpaid" <%= filters.paymentStatus === 'unpaid' ? 'selected' : '' %>>Hoàn tất chưa thu tiền</option><option value="paid" <%= filters.paymentStatus === 'paid' ? 'selected' : '' %>>Đã thu tiền</option></select></label>
+    <button data-filter-submit type="submit" class="min-h-11 rounded-xl bg-terracotta px-5 text-sm font-semibold text-white hover:bg-terracotta-hover">Tìm kiếm</button>
+    <a class="<%= link %> text-muted" href="<%= ownerUrl('/admin/appointments', { localDate: today, q: '', staffId: '', status: '', paymentStatus: '' }) %>">Đặt lại</a>
+  </div>
+  <p class="mt-3 text-xs text-muted">Bỏ trống ngày khi nhập từ khóa để tìm trên mọi ngày.</p>
+</form>
+<p data-list-message role="status" class="mt-2 text-sm text-terracotta"></p><a data-list-login href="/admin/login" hidden class="text-sm text-terracotta underline">Đăng nhập lại</a>
+<section data-owner-appointments-list class="mt-4 overflow-hidden rounded-2xl border border-border bg-white" aria-label="Danh sách lịch hẹn">
+  <% if (error) { %><p role="alert" class="p-6 text-terracotta"><%= error %></p>
+  <% } else if (ownerPersonal && !personalStaff) { %><p role="status" class="p-6 text-muted">Tài khoản của bạn chưa có hồ sơ stylist được liên kết. Không thể hiển thị lịch được giao.</p>
+  <% } else { %>
+    <nav aria-label="Trạng thái phục vụ" class="flex items-center gap-2 overflow-x-auto whitespace-nowrap lg:flex-wrap border-b border-border p-4">
+      <% for (const [value, label] of [['', 'Tất cả'], ...Object.entries(statuses)]) { %><a href="<%= ownerUrl('/admin/appointments', { status: value }) %>" data-status-filter="<%= value %>" class="shrink-0 min-h-10 rounded-lg px-3 py-2 text-sm font-semibold <%= filters.status === value ? 'bg-terracotta-light text-terracotta' : 'text-muted hover:bg-soft-surface' %>" <%- filters.status === value ? 'aria-current="true"' : '' %>><%= label %> <span class="ml-1 text-xs"><%= value ? summary.statuses[value] || 0 : summary.total %></span></a><% } %>
+      <a href="<%= ownerUrl('/admin/appointments', { status: '', paymentStatus: 'unpaid' }) %>" class="ml-auto shrink-0 text-xs font-semibold text-terracotta"><%= summary.unpaid %> lịch hoàn tất chưa thu tiền</a>
+    </nav>
+    <% if (ownerPersonal) { %><p class="px-5 pt-4 text-sm text-muted">Lịch được giao cho <%= personalStaff.displayName %>.</p><% } %>
+    <% if (!appointments.length) { %><div role="status" class="px-6 py-16 text-center"><p class="font-semibold">Không có lịch hẹn phù hợp với bộ lọc này.</p><p class="mt-2 text-sm text-muted">Thử đổi ngày hoặc đặt lại bộ lọc.</p></div><% } else {
+      const groups = filters.layout === 'staff' ? [...new Set(appointments.map(item => item.staffId))].map(id => ({ label: appointments.find(item => item.staffId === id).staffNameSnapshot, items: appointments.filter(item => item.staffId === id) })) : [{ label: '', items: appointments }]
+      for (const group of groups) { %>
+        <% if (group.label) { %><h2 class="border-b border-border bg-soft-surface px-5 py-3 font-semibold"><%= group.label %> <span class="text-xs font-normal text-muted">· <%= group.items.length %> lịch trên trang này</span></h2><% } %>
+        <p class="px-5 py-2 text-xs text-muted lg:hidden">Vuốt ngang bảng để xem trạng thái và thao tác →</p>
+        <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Bảng lịch có thể cuộn ngang"><table class="w-full min-w-[920px] text-left text-sm"><thead class="border-b border-border bg-canvas text-xs text-muted"><tr><th scope="col" class="px-5 py-4">Giờ hẹn</th><th scope="col" class="px-4 py-4">Khách hàng / dịch vụ</th><th scope="col" class="px-4 py-4">Stylist</th><th scope="col" class="px-4 py-4">Phục vụ</th><th scope="col" class="px-4 py-4">Thanh toán</th><th scope="col" class="px-5 py-4 text-right">Thao tác</th></tr></thead><tbody class="divide-y divide-border">
+          <% for (const appointment of group.items) {
+            const assigned = personalStaff?.staffId === appointment.staffId
+            const action = appointment.status === 'completed' && appointment.paymentStatus !== 'paid' ? 'payment' : assigned && appointment.status === 'confirmed' ? 'start' : assigned && appointment.status === 'in_progress' ? 'complete' : ''
+            const detailUrl = ownerUrl('/admin/appointments/' + appointment.id, { localDate: filters.localDate, view: assigned ? 'mine' : '' })
+          %>
+          <tr class="hover:bg-canvas" data-schedule-row="<%= appointment.id %>">
+            <td class="whitespace-nowrap px-5 py-4 align-top"><p class="font-bold"><%= time.format(new Date(appointment.startAt)) %> – <%= time.format(new Date(appointment.endAt)) %></p><p class="mt-1 text-xs text-muted"><%= date.format(new Date(appointment.startAt)) %></p></td>
+            <td class="px-4 py-4"><div class="flex items-start gap-3"><span aria-hidden="true" class="flex size-10 shrink-0 items-center justify-center rounded-full bg-terracotta-light text-xs font-bold text-terracotta"><%= appointment.customerSnapshot.displayName.trim().split(/\s+/).slice(-2).map(word => word[0]).join('').toUpperCase() %></span><div><a data-schedule-detail href="<%= detailUrl %>" class="font-semibold hover:text-terracotta"><%= appointment.customerSnapshot.displayName %></a><p class="mt-1 text-xs text-muted"><%= appointment.items.map(item => item.name).join(' · ') %> · <%= money.format(appointment.totalPriceVnd) %> đ</p><p class="mt-1 text-xs text-muted"><%= appointment.customerSnapshot.phone %> · Mã lịch: <%= appointment.referenceCode || 'Chưa cấp mã' %></p></div></div></td>
+            <td class="px-4 py-4"><%= appointment.staffNameSnapshot %><% if (assigned) { %><p class="mt-1 text-xs text-muted">Bạn</p><% } %></td>
+            <td class="px-4 py-4"><%- include('partials/status', { status: appointment.status }) %><% if (appointment.status === 'in_progress' && appointment.estimatedEndAt) { %><p class="mt-2 text-xs text-muted">Dự kiến xong <%= time.format(new Date(appointment.estimatedEndAt)) %></p><% } %></td>
+            <td class="px-4 py-4"><% if (appointment.paymentStatus === 'paid') { %><span class="whitespace-nowrap rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">Đã thu tiền</span><% } else if (appointment.status === 'completed') { %><span class="whitespace-nowrap rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">Chờ thu tiền</span><% } else { %><span class="text-xs text-muted"><%= ['cancelled', 'no_show'].includes(appointment.status) ? 'Không yêu cầu thu' : 'Chờ hoàn tất' %></span><% } %></td>
+            <td class="px-5 py-4 text-right"><div class="flex justify-end gap-2"><% if (action) { %><a data-schedule-detail href="<%= detailUrl + '#' + action %>" class="inline-flex min-h-10 items-center whitespace-nowrap rounded-xl bg-terracotta px-3 text-xs font-semibold text-white hover:bg-terracotta-hover"><%= { payment: 'Chi tiết & thu tiền', start: 'Bắt đầu', complete: 'Hoàn tất' }[action] %></a><% } %><% if (action !== 'payment') { %><a data-schedule-detail href="<%= detailUrl %>" aria-label="Chi tiết lịch của <%= appointment.customerSnapshot.displayName %>" class="inline-flex min-h-10 items-center whitespace-nowrap rounded-xl border border-border px-3 text-xs font-semibold text-muted hover:bg-soft-surface">Chi tiết</a><% } %></div></td>
+          </tr><% } %>
+        </tbody></table></div>
+      <% } } %>
+    <footer class="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-4 text-xs text-muted"><p><%= appointments.length %> lịch trên trang này · Giờ hẹn tăng dần.<br><span class="mt-1 inline-block">Hoàn tất phục vụ chưa đồng nghĩa đã thu tiền.</span></p><div class="flex gap-2"><a class="<%= link %>" href="<%= ownerUrl('/admin/appointments') %>">Trang đầu</a><% if (pagination.hasNextPage) { %><a class="<%= link %> text-terracotta" href="<%= ownerUrl('/admin/appointments', { cursor: pagination.nextCursor, limit: pagination.limit }) %>">Xem trang lịch tiếp theo →</a><% } %></div></footer>
+  <% } %>
+</section>
+<dialog data-schedule-dialog aria-labelledby="schedule-dialog-title" class="m-auto h-[94svh] max-h-[94svh] w-[calc(100%-1rem)] max-w-6xl overflow-hidden rounded-2xl border border-border bg-canvas p-0 text-ink shadow-2xl backdrop:bg-ink/40">
+  <div class="flex items-center justify-between gap-3 border-b border-border bg-white px-5 py-3"><h2 id="schedule-dialog-title" class="font-bold">Chi tiết lịch hẹn</h2><button type="button" data-schedule-close class="min-h-11 rounded-xl border border-border px-4 text-sm font-semibold">Đóng</button></div>
+  <p data-schedule-dialog-message role="status" class="px-5 text-sm text-terracotta"></p>
+  <iframe data-schedule-frame title="Chi tiết và thao tác lịch hẹn" class="h-[calc(100%-5rem)] w-full border-0"></iframe>
+</dialog>
 <%- include('../layout-footer') %>
