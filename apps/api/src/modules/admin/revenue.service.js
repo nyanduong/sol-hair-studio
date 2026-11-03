@@ -38,16 +38,25 @@ export async function getRevenueReport(filters) {
   const [result] = await AppointmentModel.aggregate([
     { $match: { status: 'completed', localDate: { $gte: filters.from, $lte: filters.to } } },
     { $facet: {
-      summary: [{ $group: { _id: null, revenueVnd: { $sum: '$totalPriceVnd' }, count: { $sum: 1 } } }],
+      summary: [{ $group: { _id: null, revenueVnd: { $sum: '$totalPriceVnd' }, count: { $sum: 1 }, unpaidVnd: { $sum: { $cond: [{ $ifNull: ['$payment', false] }, 0, '$totalPriceVnd'] } } } }],
       periods: [
         { $group: { _id: filters.group === 'month' ? { $substrBytes: ['$localDate', 0, 7] } : '$localDate', revenueVnd: { $sum: '$totalPriceVnd' }, count: { $sum: 1 } } },
         { $sort: { _id: 1 } },
       ],
+      unpaid: [{ $match: { payment: { $exists: false } } }, { $sort: { localDate: -1, _id: -1 } }, { $limit: 20 }, { $project: { referenceCode: 1, customerSnapshot: 1, localDate: 1, totalPriceVnd: 1 } }],
       services: [
         { $unwind: '$items' },
         { $group: { _id: '$items.serviceId', name: { $last: '$items.name' }, count: { $sum: 1 }, revenueVnd: { $sum: '$items.priceVnd' } } },
         { $sort: { revenueVnd: -1, _id: 1 } },
       ],
+    } },
+  ])
+  // Cash is grouped by receipt date, independently of appointment corrections.
+  const [cash] = await AppointmentModel.aggregate([
+    { $match: { 'payment.receivedLocalDate': { $gte: filters.from, $lte: filters.to } } },
+    { $facet: {
+      summary: [{ $group: { _id: null, paidVnd: { $sum: '$payment.amountVnd' }, paidCount: { $sum: 1 } } }],
+      periods: [{ $group: { _id: filters.group === 'month' ? { $substrBytes: ['$payment.receivedLocalDate', 0, 7] } : '$payment.receivedLocalDate', paidVnd: { $sum: '$payment.amountVnd' } } }],
     } },
   ])
   const summary = result?.summary[0] ?? { revenueVnd: 0, count: 0 }
@@ -61,6 +70,11 @@ export async function getRevenueReport(filters) {
   return {
     revenueVnd: summary.revenueVnd,
     count: summary.count,
+    unpaidVnd: summary.unpaidVnd ?? 0,
+    unpaid: (result?.unpaid ?? []).map(row => ({ id: String(row._id), referenceCode: row.referenceCode || 'Lịch cũ', name: row.customerSnapshot?.displayName || 'Khách hàng', localDate: row.localDate, amountVnd: row.totalPriceVnd })),
+    paidVnd: cash?.summary?.[0]?.paidVnd ?? 0,
+    paidCount: cash?.summary?.[0]?.paidCount ?? 0,
+    cashPeriods: periods.map(period => ({ key: period.key, paidVnd: cash?.periods?.find(item => item._id === period.key)?.paidVnd ?? 0 })),
     averageVnd: summary.count ? Math.round(summary.revenueVnd / summary.count) : 0,
     periods,
     services: (result?.services ?? []).map(item => ({ ...item, share: summary.revenueVnd ? item.revenueVnd / summary.revenueVnd * 100 : 0 })),

@@ -102,6 +102,17 @@ const lastCommandSchema = new Schema(
 // Model lịch dùng chung cho Booking và Appointment Management.
 const appointmentSchema = new Schema(
     {
+        payment: {
+            type: new Schema({
+                amountVnd: integerField(0, 500_000_000),
+                receivedAt: { type: Date, required: true },
+                receivedLocalDate: { type: String, required: true, match: /^\d{4}-\d{2}-\d{2}$/ },
+                receivedByAccountId: { type: Schema.Types.ObjectId, ref: 'Account', required: true },
+                receivedByRole: { type: String, required: true, enum: ['owner'] },
+                commandKey: { type: String, required: true, minlength: 16, maxlength: 100 },
+            }, { _id: false }),
+            default: undefined,
+        },
         // Tham chiếu hồ sơ khách, nhân viên và người tạo lịch.
         referenceCode: { type: String, match: /^SOL-[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}$/, immutable: true },
         customerId: { type: Schema.Types.ObjectId, ref: 'Customer', required: true },

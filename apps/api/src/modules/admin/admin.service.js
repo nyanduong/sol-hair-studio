@@ -32,6 +32,7 @@ export async function getDashboardData() {
     activeServicesCount,
     totalServicesCount,
     activeStaffCount,
+    receipts,
   ] = await Promise.all([
     // Thống kê theo trạng thái toàn thời gian
     AppointmentModel.aggregate([
@@ -62,6 +63,10 @@ export async function getDashboardData() {
     ServiceModel.countDocuments(),
     // Số nhân viên đang làm việc
     StaffModel.countDocuments({ isActive: true }),
+    AppointmentModel.aggregate([
+      { $match: { 'payment.receivedLocalDate': todayStr } },
+      { $group: { _id: null, paidVnd: { $sum: '$payment.amountVnd' } } },
+    ]),
   ])
 
   // Chuẩn hóa status map
@@ -86,6 +91,8 @@ export async function getDashboardData() {
   // Thống kê riêng cho ngày hôm nay
   const todayStats = {
     total: todayAppointments.length,
+    paidVnd: receipts?.[0]?.paidVnd ?? 0,
+    unpaidVnd: todayAppointments.filter(a => a.status === 'completed' && !a.payment).reduce((sum, a) => sum + a.totalPriceVnd, 0),
     completed: todayAppointments.filter((a) => a.status === 'completed').length,
     confirmed: todayAppointments.filter((a) => a.status === 'confirmed').length,
     inProgress: todayAppointments.filter((a) => a.status === 'in_progress').length,

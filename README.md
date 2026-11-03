@@ -8,7 +8,7 @@ Nền tảng dùng chung cho bài tập SDN302 và MMA301. Repository này chứ
 | `apps/mobile` | React Native + Expo + JavaScript/JSX | Danh mục dịch vụ native Android/iOS và màn hình kiểm tra kết nối API |
 | `apps/api` | Node.js + Express + EJS + JavaScript | API dùng chung, trang quản trị EJS, MongoDB và ảnh dịch vụ trên Cloudinary |
 
-Repository có trang chủ web, danh mục dịch vụ trên mobile và API dùng chung. MongoDB lưu dịch vụ; Cloudinary phân phối ảnh dịch vụ. API tài khoản/OTP/phân quyền được triển khai ở SOL-017; giao diện tài khoản thuộc SOL-018/SOL-019. Đặt lịch có UI Web/Mobile và API tạo lịch SOL-031; nghiệm thu native/dữ liệu thực tế tiếp tục ở SOL-034. Trang tổng quan chưa triển khai, thanh toán ngoài MVP. Đây chưa phải tuyên bố đáp ứng rubric. Phạm vi hai môn và các giả định đang được ghi tại [docs/course-scope.md](docs/course-scope.md).
+Repository có trang chủ web, danh mục dịch vụ trên mobile và API dùng chung. MongoDB lưu dịch vụ; Cloudinary phân phối ảnh dịch vụ. API tài khoản/OTP/phân quyền được triển khai ở SOL-017; giao diện tài khoản thuộc SOL-018/SOL-019. Đặt lịch có UI Web/Mobile và API tạo lịch SOL-031; nghiệm thu native/dữ liệu thực tế tiếp tục ở SOL-034. Trang tổng quan chưa triển khai, đã bổ sung thu tiền chuyển khoản QR xác nhận thủ công tại salon (không tích hợp cổng thanh toán). Đây chưa phải tuyên bố đáp ứng rubric. Phạm vi hai môn và các giả định đang được ghi tại [docs/course-scope.md](docs/course-scope.md).
 
 ## Thứ tự triển khai và đối tượng sử dụng
 
@@ -155,3 +155,5 @@ Luồng làm việc chuẩn:
 6. Sau khi website đã kiểm thử, nghiệm thu, merge và hoàn tất đối chiếu Sheet, mới triển khai tiếp mobile cho stylist và customer. Task còn phần native chưa nghiệm thu không được đánh dấu hoàn thành toàn bộ.
 
 GitHub Issues hiện có được giữ làm lịch sử hoặc nguồn tham chiếu. Không bắt buộc tạo issue, GitHub Project, Sprint hay milestone cho công việc mới và không push thẳng vào `main`. Quy tắc đầy đủ dành cho thành viên và trợ lý mã nguồn nằm trong [AGENTS.md](AGENTS.md).
+
+Luồng thu tiền QR sau khi hoàn tất phục vụ và báo cáo tiền đã thu/chưa thu: [hợp đồng thu tiền](docs/payments-api.md).

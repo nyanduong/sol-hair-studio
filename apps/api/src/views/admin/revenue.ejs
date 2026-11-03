@@ -10,7 +10,7 @@
   <div>
     <p class="mb-4 text-xs uppercase tracking-wider text-muted"><span class="text-terracotta">SOL</span><span class="mx-3">/</span>Báo cáo</p>
     <h1 class="text-3xl font-bold tracking-tight">Báo cáo doanh thu</h1>
-    <p class="mt-2 text-sm text-muted">Theo dõi doanh thu từ các lịch hẹn đã hoàn tất.</p>
+    <p class="mt-2 text-sm text-muted">Theo dõi giá trị dịch vụ, tiền đã thu và tiền chưa thu.</p>
   </div>
   <section aria-label="Bộ lọc báo cáo" class="rounded-2xl border border-border bg-white p-4">
     <nav aria-label="Khoảng thời gian nhanh" class="mb-4 flex flex-wrap gap-2">
@@ -33,16 +33,18 @@
   <% if (report) { %>
     <div class="grid gap-4 md:grid-cols-3">
       <% for (const card of [
-        ['Tổng doanh thu', money(report.revenueVnd), 'Trong khoảng thời gian đã chọn'],
+        ['Giá trị dịch vụ hoàn tất', money(report.revenueVnd), 'Theo ngày hẹn trong khoảng đã chọn'],
+        ['Tiền đã thu', money(report.paidVnd), 'Theo ngày xác nhận nhận tiền, gồm cả lịch hẹn ngày khác'],
+        ['Tiền chưa thu', money(report.unpaidVnd), 'Lịch hoàn tất có ngày hẹn trong khoảng đã chọn'],
         ['Lịch hẹn hoàn tất', report.count + ' lịch', 'Chỉ tính các lịch đã hoàn tất'],
-        ['Trung bình mỗi lịch', money(report.averageVnd), 'Doanh thu / số lịch hoàn tất']
+        ['Trung bình mỗi lịch', money(report.averageVnd), 'Giá trị dịch vụ / số lịch hoàn tất']
       ]) { %>
         <section class="min-w-0 rounded-2xl border border-border bg-white p-5 shadow-sm"><h2 class="text-sm font-semibold"><%= card[0] %></h2><p class="mt-5 break-words text-3xl font-bold tracking-tight tabular-nums"><%= card[1] %></p><p class="mt-2 text-xs text-muted"><%= card[2] %></p></section>
       <% } %>
     </div>
     <section class="overflow-hidden rounded-2xl border border-border bg-white p-5 shadow-sm" aria-labelledby="revenue-chart-title">
       <div class="flex flex-wrap items-center justify-between gap-4">
-        <div><h2 id="revenue-chart-title" class="text-xl font-bold">Doanh thu theo <%= filters.group === 'day' ? 'ngày' : 'tháng' %></h2><p class="mt-1 text-xs text-muted"><%= dateLabel(filters.from) %> – <%= dateLabel(filters.to) %></p></div>
+        <div><h2 id="revenue-chart-title" class="text-xl font-bold">Giá trị dịch vụ theo <%= filters.group === 'day' ? 'ngày' : 'tháng' %></h2><p class="mt-1 text-xs text-muted"><%= dateLabel(filters.from) %> – <%= dateLabel(filters.to) %></p></div>
         <nav aria-label="Nhóm biểu đồ" class="flex rounded-xl border border-border p-1">
           <% for (const [group, label] of [['day','Theo ngày'],['month','Theo tháng']]) { %>
             <a href="<%= link({ group }) %>" <%- filters.group === group ? 'aria-current="true"' : '' %> class="flex min-h-10 items-center rounded-lg px-4 text-sm font-semibold <%= filters.group === group ? 'bg-terracotta text-white' : 'text-muted hover:bg-soft-surface' %>"><%= label %></a>
@@ -61,7 +63,7 @@
           const ceiling = step * 4
           const slot = plotWidth / report.periods.length
         %>
-        <p class="mt-5 text-xs text-muted">Doanh thu (đồng) · Có thể cuộn ngang để xem đầy đủ</p>
+        <p class="mt-5 text-xs text-muted">Giá trị dịch vụ (đồng) · Có thể cuộn ngang để xem đầy đủ</p>
         <div tabindex="0" role="region" aria-label="Biểu đồ doanh thu có thể cuộn ngang" class="mt-2 overflow-x-auto focus:outline-terracotta">
           <svg role="img" aria-labelledby="chart-description" viewBox="0 0 <%= width %> 300" style="min-width: <%= width %>px" class="h-[300px] w-full">
             <title id="chart-description">Doanh thu từ <%= dateLabel(filters.from) %> đến <%= dateLabel(filters.to) %>. Tổng <%= money(report.revenueVnd) %>. Bảng số liệu đầy đủ bên dưới.</title>
@@ -75,12 +77,12 @@
             <% }); %>
           </svg>
         </div>
-        <p class="mt-2 text-center text-xs text-muted">Doanh thu được nhóm theo ngày hẹn · Giờ Việt Nam</p>
+        <p class="mt-2 text-center text-xs text-muted">Giá trị dịch vụ được nhóm theo ngày hẹn · Giờ Việt Nam</p>
         <details class="mt-4 border-t border-border pt-3"><summary class="cursor-pointer py-2 text-sm font-semibold text-terracotta">Xem bảng số liệu biểu đồ</summary><div class="max-h-72 overflow-auto"><table class="w-full text-left text-sm"><caption class="sr-only">Số liệu doanh thu theo thời gian</caption><thead><tr><th scope="col" class="p-3">Thời gian</th><th scope="col" class="p-3 text-right">Lịch hoàn tất</th><th scope="col" class="p-3 text-right">Doanh thu</th></tr></thead><tbody><% for (const item of report.periods) { %><tr class="border-t border-border"><td class="p-3"><%= dateLabel(item.key) %></td><td class="p-3 text-right"><%= item.count %></td><td class="p-3 text-right tabular-nums"><%= money(item.revenueVnd) %></td></tr><% } %></tbody></table></div></details>
       <% } %>
     </section>
     <section class="rounded-2xl border border-border bg-white p-5 shadow-sm">
-      <h2 class="text-xl font-bold">Doanh thu theo dịch vụ</h2>
+      <h2 class="text-xl font-bold">Giá trị theo dịch vụ</h2>
       <p class="mt-1 text-xs text-muted">Giá và tên dịch vụ tại thời điểm đặt lịch. Một lịch có thể gồm nhiều dịch vụ.</p>
       <% if (!report.services.length) { %><p class="py-10 text-center text-sm text-muted">Chưa có doanh thu dịch vụ trong khoảng thời gian này.</p><% } else { %>
         <div class="mt-4 overflow-x-auto"><table class="w-full min-w-[620px] text-left text-sm"><thead class="text-muted"><tr><th scope="col" class="pb-3 pr-4">Dịch vụ</th><th scope="col" class="px-4 pb-3 text-right">Lượt sử dụng</th><th scope="col" class="px-4 pb-3 text-right">Doanh thu</th><th scope="col" class="pb-3 pl-4">Tỷ trọng</th></tr></thead><tbody>
@@ -90,7 +92,9 @@
         </tbody></table></div>
       <% } %>
     </section>
-    <p class="text-xs text-muted">Không bao gồm lịch đã hủy, vắng mặt hoặc chưa hoàn tất. Đây là doanh thu dịch vụ từ lịch hẹn, chưa phải báo cáo thanh toán hay lợi nhuận.</p>
+    <section class="rounded-2xl border border-border bg-white p-5"><h2 class="text-xl font-bold">Lịch hoàn tất chưa thu tiền</h2><p class="mt-2 text-sm text-muted">Tối đa 20 lịch mới nhất trong khoảng ngày hẹn đã chọn. Lịch cũ chưa có xác nhận nhận tiền cũng xuất hiện tại đây; cần đối chiếu trước khi thu.</p><div class="mt-4 overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr><th class="p-3">Lịch hẹn / Khách</th><th class="p-3">Ngày hẹn</th><th class="p-3 text-right">Chưa thu</th></tr></thead><tbody><% for (const row of report.unpaid) { %><tr class="border-t border-border"><td class="p-3"><a href="/admin/appointments/<%= row.id %>" class="font-semibold text-terracotta underline"><%= row.referenceCode %> · <%= row.name %></a></td><td class="p-3"><%= dateLabel(row.localDate) %></td><td class="p-3 text-right"><%= money(row.amountVnd) %></td></tr><% } %></tbody></table><% if (!report.unpaid.length) { %><p class="py-5 text-sm text-muted">Chưa có lịch chưa thu trong khoảng này.</p><% } %></div></section>
+    <section class="rounded-2xl border border-border bg-white p-5"><h2 class="text-xl font-bold">Tiền đã thu theo thời gian</h2><p class="mt-2 text-sm text-muted">Theo ngày xác nhận nhận tiền · Giờ Việt Nam</p><div class="mt-4 max-h-72 overflow-auto"><table class="w-full text-left text-sm"><thead><tr><th class="p-3">Thời gian</th><th class="p-3 text-right">Đã thu</th></tr></thead><tbody><% for (const period of report.cashPeriods) { %><tr class="border-t border-border"><td class="p-3"><%= dateLabel(period.key) %></td><td class="p-3 text-right"><%= money(period.paidVnd) %></td></tr><% } %></tbody></table></div></section>
+    <p class="text-xs text-muted">Tiền đã thu tính theo ngày xác nhận nhận tiền; giá trị dịch vụ và tiền chưa thu tính theo ngày hẹn. Vì khác mốc thời gian, các số này không nhất thiết cộng trừ bằng nhau. Xác nhận nhận tiền vẫn được giữ khi sửa hoàn tất nhầm; đây không phải báo cáo lợi nhuận.</p>
   <% } %>
 </div>
 <%- include('layout-footer') %>

@@ -21,15 +21,15 @@
     <!-- Doanh thu hoàn thành -->
     <div class="rounded-2xl bg-white border border-[#e7e2da] p-5 shadow-sm">
       <div class="flex items-center justify-between">
-        <span class="text-sm font-medium text-ink">Doanh thu hoàn tất · tổng</span>
+        <span class="text-sm font-medium text-ink">Giá trị dịch vụ hôm nay</span>
         <div class="w-9 h-9 rounded-xl bg-soft-surface text-terracotta flex items-center justify-center">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </div>
       </div>
       <div class="mt-4">
-        <div class="text-3xl font-bold tracking-tight text-ink"><%= formatVnd(totalRevenueVnd) %></div>
+        <div class="text-3xl font-bold tracking-tight text-ink"><%= formatVnd(todayStats.revenueVnd) %></div>
         <div class="mt-1 text-xs text-[#7a7269]">
-          Hôm nay: <strong class="text-emerald-600"><%= formatVnd(todayStats.revenueVnd) %></strong>
+          Từ lịch hẹn đã hoàn tất hôm nay
         </div>
       </div>
     </div>
@@ -90,6 +90,10 @@
     </div>
   </div>
 
+  <div class="my-5 grid gap-4 sm:grid-cols-2">
+    <section class="rounded-2xl border border-border bg-white p-5"><h2 class="text-sm font-semibold">Tiền đã thu hôm nay</h2><p class="mt-3 text-3xl font-bold"><%= formatVnd(todayStats.paidVnd || 0) %></p><p class="mt-2 text-xs text-muted">Theo ngày xác nhận nhận tiền, kể cả lịch ngày khác</p></section>
+    <section class="rounded-2xl border border-border bg-white p-5"><h2 class="text-sm font-semibold">Tiền chưa thu của lịch hôm nay</h2><p class="mt-3 text-3xl font-bold"><%= formatVnd(todayStats.unpaidVnd || 0) %></p><p class="mt-2 text-xs text-muted">Chỉ tính lịch hoàn tất, theo ngày hẹn</p></section>
+  </div>
   <!-- Today's Live Queue Table -->
   <div class="rounded-2xl bg-white border border-[#e7e2da] shadow-sm overflow-hidden">
     <div class="p-5 border-b border-[#e7e2da] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

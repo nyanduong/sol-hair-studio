@@ -1,3 +1,4 @@
+import { paymentsRouter } from '../modules/payments/payments.routes.js'
 import { customersRouter } from '../modules/customers/customers.routes.js'
 import { Router } from 'express'
 import { adminRouter } from '../modules/admin/admin.routes.js'
@@ -19,3 +20,5 @@ apiRouter.use('/api', appointmentsRouter)
 apiRouter.use('/api', availabilityRouter)
 
 apiRouter.use("/api", customersRouter)
+
+apiRouter.use("/api", paymentsRouter)
