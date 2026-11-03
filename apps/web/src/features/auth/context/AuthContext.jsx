@@ -9,12 +9,18 @@ import {
   resendActivationOtp,
 } from '../api/auth.api.js'
 import { AuthContext } from './auth-context.js'
+import { isStylistOnly, STYLIST_APP_NOTICE } from '../validation/web-access.js'
 
 const TOKEN_STORAGE_KEY = 'sol_auth_token'
 const ACCOUNT_STORAGE_KEY = 'sol_auth_account'
 
 function loadStoredAuth() {
   try {
+    if (new URLSearchParams(window.location.search).get('logout') === '1') {
+      localStorage.removeItem(TOKEN_STORAGE_KEY)
+      localStorage.removeItem(ACCOUNT_STORAGE_KEY)
+      return { token: null, account: null }
+    }
     const token = localStorage.getItem(TOKEN_STORAGE_KEY)
     const rawAccount = localStorage.getItem(ACCOUNT_STORAGE_KEY)
     const account = rawAccount ? JSON.parse(rawAccount) : null
@@ -29,6 +35,8 @@ function loadStoredAuth() {
 
 export function AuthProvider({ children }) {
   const [authState, setAuthState] = useState(loadStoredAuth)
+  const [checkedToken, setCheckedToken] = useState(null)
+  const isSessionChecking = Boolean(authState.token && checkedToken !== authState.token)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState('login')
   const [promptNotice, setPromptNotice] = useState('')
@@ -53,6 +61,9 @@ export function AuthProvider({ children }) {
   const login = useCallback(async ({ email, password }) => {
     const data = await loginUser(apiBaseUrl, { email, password })
     const { token, account } = data
+
+    // This is a web access policy. Keep the shared API login usable by mobile.
+    if (isStylistOnly(account)) throw new Error(STYLIST_APP_NOTICE)
 
     try {
       localStorage.setItem(TOKEN_STORAGE_KEY, token)
@@ -109,6 +120,13 @@ export function AuthProvider({ children }) {
     }
   }, [authState.token])
 
+  // Revalidate when a page is restored by browser Back (including after EJS logout).
+  useEffect(() => {
+    const restore = (event) => { if (event.persisted) window.location.reload() }
+    window.addEventListener('pageshow', restore)
+    return () => window.removeEventListener('pageshow', restore)
+  }, [])
+
   // Verify session validity on initial load
   useEffect(() => {
     if (!authState.token) return
@@ -120,6 +138,15 @@ export function AuthProvider({ children }) {
       .then((data) => {
         const resolvedAccount = data?.account || (data?.accountId ? data : null)
         if (!cancelled && resolvedAccount) {
+          if (isStylistOnly(resolvedAccount)) {
+            try {
+              localStorage.removeItem(TOKEN_STORAGE_KEY)
+              localStorage.removeItem(ACCOUNT_STORAGE_KEY)
+            } catch { /* Storage may be disabled. */ }
+            setAuthState({ token: null, account: null })
+            openLoginModal(STYLIST_APP_NOTICE)
+            return
+          }
           setAuthState((prev) => ({
             ...prev,
             account: resolvedAccount,
@@ -143,17 +170,19 @@ export function AuthProvider({ children }) {
           setAuthState({ token: null, account: null })
         }
       })
+      .finally(() => { if (!cancelled) setCheckedToken(authState.token) })
 
     return () => {
       cancelled = true
       controller.abort()
     }
-  }, [authState.token])
+  }, [authState.token, openLoginModal])
 
   const contextValue = useMemo(() => ({
     token: authState.token,
     account: authState.account,
     isAuthenticated: Boolean(authState.token && authState.account),
+    isSessionChecking,
     isModalOpen,
     modalMode,
     promptNotice,
@@ -169,6 +198,7 @@ export function AuthProvider({ children }) {
   }), [
     authState.token,
     authState.account,
+    isSessionChecking,
     isModalOpen,
     modalMode,
     promptNotice,

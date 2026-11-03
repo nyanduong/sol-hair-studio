@@ -55,8 +55,8 @@ describe('Admin EJS Portal Routes', () => {
 
   describe('GET /admin/dashboard', () => {
     it('chưa đăng nhập thì chuyển hướng sang /admin/login', async () => {
-      const response = await request(app).get('/admin/dashboard').expect(302)
-      expect(response.headers.location).toBe('/admin/login')
+      const response = await request(app).get('/admin/dashboard').expect(303)
+      expect(response.headers.location).toBe('http://localhost:5173/login')
     })
 
     it('đã đăng nhập với owner thì render thành công giao diện dashboard', async () => {
@@ -109,11 +109,17 @@ describe('Admin EJS Portal Routes', () => {
 
       expect(response.headers['content-type']).toMatch(/text\/html/)
       expect(response.text).toContain('Tổng quan Hoạt động Salon')
-      expect(response.text).toContain('Hàng đợi lịch hẹn hôm nay')
+      expect(response.text).toContain('Lịch hẹn hôm nay')
+      expect(response.text).toContain('15.850.000 đ')
+      expect(response.text).toContain('450.000 đ')
+      expect(response.text).toContain('datetime="2026-10-31"')
+      expect(response.text).toContain('/owner/appointments/507f1f77bcf86cd799439011')
+      expect(response.text).toContain('aria-current="page"')
       expect(response.text).toContain('Trương Khang')
       expect(response.text).toContain('Cắt &amp; tạo kiểu')
       expect(response.text).toContain('Top Dịch vụ đặt nhiều nhất')
       expect(response.text).toContain('Phân bổ trạng thái lịch hẹn')
+      expect(response.text).not.toContain('Xem trang chủ Salon')
     })
 
     it('alias /owner/dashboard cũng hoạt động và render dashboard', async () => {
@@ -141,82 +147,56 @@ describe('Admin EJS Portal Routes', () => {
     })
   })
 
-  describe('GET /admin/login', () => {
-    it('trả về trang HTML đăng nhập quản trị', async () => {
-      const response = await request(app).get('/admin/login').expect(200)
-      expect(response.headers['content-type']).toMatch(/text\/html/)
-      expect(response.text).toContain('Quản trị Chủ tiệm')
-      expect(response.text).toContain('action="/admin/login"')
+  describe('shared login and Admin session handoff', () => {
+    it('redirects the legacy login to the customer login without rendering a form', async () => {
+      const response = await request(app).get('/admin/login').expect(302)
+      expect(response.headers.location).toBe('http://localhost:5173/login')
+      expect(response.text).not.toContain('<form')
     })
 
-    it('nếu đã có cookie hợp lệ của owner thì chuyển thẳng sang /admin/services', async () => {
+    it('does not authenticate credentials at the removed portal', async () => {
+      await request(app).post('/admin/login').type('form')
+        .send({ email: 'owner@example.test', password: 'fixture' }).expect(303)
+      expect(login).not.toHaveBeenCalled()
+    })
+
+    it('sends an existing owner cookie directly to dashboard', async () => {
       authenticate.mockResolvedValue(ownerIdentity)
-
-      const response = await request(app)
-        .get('/admin/login')
-        .set('Cookie', ['sol_admin_token=mock-valid-jwt'])
-        .expect(302)
-
-      expect(response.headers.location).toBe('/admin/services')
-    })
-  })
-
-  describe('POST /admin/login', () => {
-    it('báo lỗi nếu không nhập đủ email hoặc password', async () => {
-      const response = await request(app)
-        .post('/admin/login')
-        .send('email=owner@solhair.vn&password=')
-        .set('Content-Type', 'application/x-www-form-urlencoded')
-        .expect(200)
-
-      expect(response.text).toContain('Vui lòng nhập đầy đủ email và mật khẩu.')
+      const response = await request(app).get('/admin/login')
+        .set('Cookie', 'sol_admin_token=owner-token').expect(302)
+      expect(response.headers.location).toBe('/admin/dashboard')
     })
 
-    it('đăng nhập thành công với vai trò owner thì set cookie và redirect sang /admin/services', async () => {
-      login.mockResolvedValue({
-        token: 'owner-session-token-123',
-        account: {
-          id: '000000000000000000000101',
-          email: 'owner@solhair.vn',
-          roles: ['owner'],
-        },
-      })
-
-      const response = await request(app)
-        .post('/admin/login')
-        .send('email=owner@solhair.vn&password=test_password_fixture')
-        .set('Content-Type', 'application/x-www-form-urlencoded')
-        .expect(302)
-
-      expect(response.headers.location).toBe('/admin/services')
-      expect(response.headers['set-cookie']).toBeDefined()
-      expect(response.headers['set-cookie'][0]).toContain('sol_admin_token=owner-session-token-123')
+    it('validates the shared token and issues the dashboard cookie despite a stale cookie', async () => {
+      authenticate.mockResolvedValue(ownerIdentity)
+      const response = await request(app).post('/admin/session').type('form')
+        .set('Cookie', 'sol_admin_token=expired')
+        .send({ token: 'shared.owner.token' }).expect(303)
+      expect(authenticate).toHaveBeenCalledWith('shared.owner.token')
+      expect(response.headers.location).toBe('/admin/dashboard')
+      expect(response.headers['set-cookie'][0]).toContain('HttpOnly')
+      expect(response.headers.location).not.toContain('token')
     })
 
-    it('từ chối đăng nhập nếu tài khoản không có quyền owner', async () => {
-      login.mockResolvedValue({
-        token: 'customer-token-123',
-        account: {
-          id: '000000000000000000000102',
-          email: 'customer@solhair.vn',
-          roles: ['customer'],
-        },
-      })
+    it('rejects a customer at the handoff', async () => {
+      authenticate.mockResolvedValue({ roles: ['customer'] })
+      const response = await request(app).post('/admin/session').type('form')
+        .send({ token: 'shared.customer.token' }).expect(303)
+      expect(response.headers.location).toBe('http://localhost:5173/login?error=forbidden')
+      expect(response.headers['set-cookie']).toBeUndefined()
+    })
 
-      const response = await request(app)
-        .post('/admin/login')
-        .send('email=customer@solhair.vn&password=test_password_fixture')
-        .set('Content-Type', 'application/x-www-form-urlencoded')
-        .expect(200)
-
-      expect(response.text).toContain('không có quyền Quản trị viên')
+    it('does not create an admin session without a token', async () => {
+      const response = await request(app).post('/admin/session').type('form').send({}).expect(303)
+      expect(response.headers.location).toBe('http://localhost:5173/login')
+      expect(authenticate).not.toHaveBeenCalled()
     })
   })
 
   describe('GET /admin/services', () => {
     it('chưa đăng nhập thì chuyển hướng sang /admin/login', async () => {
-      const response = await request(app).get('/admin/services').expect(302)
-      expect(response.headers.location).toBe('/admin/login')
+      const response = await request(app).get('/admin/services').expect(303)
+      expect(response.headers.location).toBe('http://localhost:5173/login')
     })
 
     it('truy cập với query ?token=... từ React Web thì tự động set cookie và redirect sang URL sạch', async () => {
@@ -376,9 +356,9 @@ describe('Admin EJS Portal Routes', () => {
       const response = await request(app)
         .post('/admin/logout')
         .set('Cookie', ['sol_admin_token=mock-owner-token'])
-        .expect(302)
+        .expect(303)
 
-      expect(response.headers.location).toBe('/admin/login')
+      expect(response.headers.location).toBe('http://localhost:5173/login?logout=1')
       expect(response.headers['set-cookie']).toBeDefined()
     })
   })

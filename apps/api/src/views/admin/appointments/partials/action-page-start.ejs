@@ -8,4 +8,4 @@
 <% } %>
 <section data-appointment-response="<%= appointmentId %>" data-command-state="<%= state %>" data-result-staff-id="<%= locals.result?.staffId ?? '' %>" class="lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
   <h2 class="text-2xl font-bold tracking-tight text-ink"><%= title %></h2>
-  <p class="mt-1 break-all text-xs text-muted">Mã lịch đang thao tác: <%= appointmentId %></p>
+  <p class="mt-1 break-all text-xs text-muted">Mã lịch đang thao tác: <span data-command-reference><%= locals.appointment?.referenceCode || locals.result?.referenceCode || 'Xem mã tại chi tiết lịch' %></span></p>

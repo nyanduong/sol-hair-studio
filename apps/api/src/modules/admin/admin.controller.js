@@ -2,71 +2,23 @@ import * as authService from '../auth/auth.service.js'
 import * as servicesService from '../services/services.service.js'
 import * as adminService from './admin.service.js'
 import { getAdminTokenFromRequest } from './admin.middleware.js'
+import { config } from '../../config/env.js'
 
 export async function renderLogin(req, res) {
+  res.set('Cache-Control', 'no-store')
   const token = getAdminTokenFromRequest(req)
   if (token) {
     try {
       const identity = await authService.authenticate(token)
       if (identity?.roles?.includes('owner')) {
-        return res.redirect('/admin/services')
+        return res.redirect('/admin/dashboard')
       }
     } catch {
-      // Token invalid or expired, continue to login page
+      // Token invalid or expired, continue to the shared login.
     }
   }
 
-  let errorMessage = null
-  if (req.query.error === 'forbidden') {
-    errorMessage = 'Tài khoản không có quyền Quản trị viên (Chủ tiệm).'
-  } else if (req.query.error === 'session_expired') {
-    errorMessage = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
-  }
-
-  return res.render('admin/login', {
-    title: 'Đăng nhập Quản trị viên — Sol Hair Studio',
-    errorMessage,
-    email: '',
-  })
-}
-
-export async function handleLogin(req, res) {
-  const { email, password } = req.body || {}
-
-  if (!email || !password) {
-    return res.render('admin/login', {
-      title: 'Đăng nhập Quản trị viên — Sol Hair Studio',
-      errorMessage: 'Vui lòng nhập đầy đủ email và mật khẩu.',
-      email: email || '',
-    })
-  }
-
-  try {
-    const result = await authService.login({ email, password, ip: req.ip })
-    const roles = result.account?.roles || []
-    if (!roles.includes('owner')) {
-      return res.render('admin/login', {
-        title: 'Đăng nhập Quản trị viên — Sol Hair Studio',
-        errorMessage: 'Tài khoản này không có quyền Quản trị viên (Chủ tiệm).',
-        email,
-      })
-    }
-
-    res.cookie('sol_admin_token', result.token, {
-      httpOnly: true,
-      path: '/',
-      maxAge: 8 * 60 * 60 * 1000,
-      sameSite: 'lax',
-    })
-
-    return res.redirect('/admin/services')
-  } catch (error) {
-    return res.render('admin/login', {
-      title: 'Đăng nhập Quản trị viên — Sol Hair Studio',
-      errorMessage: error.message || 'Email hoặc mật khẩu không chính xác.',
-      email,
-    })
-  }
+  return res.redirect(302, config.webBaseUrl + '/login')
 }
 
 export async function handleLogout(req, res) {
@@ -79,7 +31,7 @@ export async function handleLogout(req, res) {
   }
 
   res.clearCookie('sol_admin_token', { path: '/' })
-  return res.redirect('/admin/login')
+  return res.redirect(303, config.webBaseUrl + '/login?logout=1')
 }
 
 export async function renderDashboard(req, res) {

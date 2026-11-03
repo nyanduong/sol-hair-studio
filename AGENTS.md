@@ -11,7 +11,7 @@
 
 ## Trước khi thay đổi mã nguồn
 
-1. Đọc hàng công việc trên Sheet, `README.md`, `docs/course-scope.md`, nhánh hiện tại, `git status` và lịch sử commit gần nhất.
+1. Đọc yêu cầu người dùng, `README.md`, `docs/course-scope.md`, nhánh hiện tại, `git status` và lịch sử commit gần nhất; tham khảo hàng Sheet liên quan nếu đã có. Không bắt buộc tạo task trên Sheet trước khi triển khai website.
    Nếu không truy cập được Sheet, dùng đúng yêu cầu người dùng đã cung cấp, ghi rõ giới hạn và không giả vờ đã đọc hoặc cập nhật Sheet.
 2. Giữ nguyên thay đổi chưa commit hoặc không liên quan của người khác. Không xóa hay ghi đè công việc đó.
 3. Xác nhận yêu cầu thuộc repository này và không âm thầm mở rộng phạm vi bài tập.
@@ -19,14 +19,22 @@
 
 ## Quy trình Sheet, nhánh và pull request
 
-- Bắt đầu từ một hàng Sheet có mã việc, mục tiêu, phụ thuộc, phần không bao gồm và điều kiện hoàn thành đủ rõ. Nội dung chưa rõ hoặc bị chặn phải giữ đúng trạng thái trên Sheet.
-- Dùng nhánh tập trung như `feat/SOL-003-service-catalog`, `fix/SOL-008-api-timeout` hoặc `chore/SOL-001-project-foundation`.
+- Ưu tiên triển khai và hoàn thiện website cùng API cần thiết theo phạm vi đã xác nhận. Không chờ chia task hoặc cập nhật Sheet mới được viết code; Sheet vẫn là nơi duy nhất ghi nhận task và phân công.
+- Sau khi hoàn thiện website, audit commit, diff và PR để đối chiếu công việc thực tế lên Sheet: tái sử dụng mã `SOL-xxx` phù hợp, chỉ tạo mã mới cho phần chưa có; ghi mục tiêu, phụ thuộc, phần không bao gồm, điều kiện hoàn thành và bằng chứng. Không suy diễn người làm hoặc ngày bắt đầu/hoàn thành; thiếu bằng chứng thì ghi rõ chưa xác minh.
+- Dùng nhánh tập trung như `feat/SOL-003-service-catalog`, `fix/SOL-008-api-timeout` hoặc `chore/SOL-001-project-foundation`. Nếu chưa có mã việc, dùng nhánh mô tả thay đổi với tiền tố `nyan/`; gắn mã sau audit, không cần viết lại lịch sử Git.
 - Không ai, kể cả admin, được push trực tiếp vào `main`; mọi thay đổi phải đi qua pull request. Không hạ rule bảo vệ nhánh hoặc bỏ qua kiểm tra đang thất bại.
 - Trước khi merge, check bắt buộc `Lint, test and build` phải thành công, nhánh phải cập nhật theo rule hiện hành và mọi conversation phải được resolve. Không force-push hoặc xóa `main`.
 - `NhanDuong21` là repository owner/admin và được phép merge PR do chính mình tạo khi các điều kiện bắt buộc đã đạt. Với PR của thành viên khác, approval của chính tác giả không được tính là review độc lập; PR phải có ít nhất một approval từ cộng tác viên khác trước khi merge.
 - Branch protection hiện dùng `0 approvals` để owner có thể tự merge nên GitHub cũng không chặn collaborator có quyền write tự merge. Đây là giới hạn kỹ thuật phải tuân thủ bằng quy trình cho đến khi nhóm bật ruleset yêu cầu một approval và cho repository admin bypass chỉ qua pull request.
-- Giữ mỗi commit tập trung. PR phải ghi mã việc và liên kết Sheet; chỉ dùng `Closes #<số>` khi thực sự giải quyết đầy đủ một issue lịch sử có liên quan.
-- Sau khi bắt đầu, mở PR hoặc hoàn tất merge, cập nhật trạng thái/bằng chứng trên đúng hàng Sheet. Viết code xong nhưng chưa kiểm thử và bàn giao PR chưa phải `Hoàn thành`.
+- Giữ mỗi commit tập trung và PR đủ nhỏ để review. PR ghi liên kết Sheet và mã việc nếu đã có; nếu chưa có thì ghi `Chờ đối chiếu sau audit website`, sau audit bổ sung mã và hàng Sheet tương ứng. Chỉ dùng `Closes #<số>` khi thực sự giải quyết đầy đủ một issue lịch sử có liên quan.
+- Giai đoạn website ghi bằng chứng triển khai, kiểm thử và review trong commit/PR; sau khi hoàn thiện website mới tổng hợp trạng thái/bằng chứng lên đúng hàng Sheet. Không trì hoãn review/CI đến cuối website. Viết code xong nhưng chưa kiểm thử, nghiệm thu và merge PR chưa phải `Hoàn thành`; không đánh dấu hoàn thành phần mobile chưa nghiệm thu.
+
+## Thứ tự triển khai và vai trò sản phẩm
+
+- Hoàn thiện website phục vụ quản trị và customer trước. Chốt phạm vi website theo yêu cầu đã xác nhận, kiểm thử các luồng thuộc phạm vi đó, xử lý lỗi chặn và bàn giao qua PR trước khi chuyển sang triển khai tính năng mobile.
+- Sau khi website hoàn tất và audit commit/PR đã được đối chiếu lên Sheet, mới triển khai mobile phục vụ stylist và customer. Giữ nguyên mã mobile hiện có; chưa mở rộng tính năng mobile trong giai đoạn website. Tiếp tục chạy kiểm tra tương thích liên quan khi API dùng chung thay đổi.
+- API được xây dựng cùng website nhưng dùng chung cho cả hai client: nghiệp vụ, validation và phân quyền nằm phía server; không phụ thuộc DOM, điều hướng web hoặc trạng thái chỉ có trong trình duyệt. Giữ hợp đồng request/response, lỗi, xác thực và mô hình dữ liệu nhất quán để mobile tái sử dụng với ít thay đổi.
+- Phân quyền theo vai trò người dùng trên API, không dựa vào việc request đến từ website hay mobile. Khi thay đổi hợp đồng, mô tả ảnh hưởng tới client hiện có và cách chuyển đổi; không tạo API hoặc database riêng cho mobile, cũng không tạo trước framework hay endpoint chưa có nhu cầu.
 
 ## Ranh giới triển khai
 

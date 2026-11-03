@@ -3,38 +3,20 @@
   const dateTime = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' })
   const money = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' })
   const today = new Date(Date.now() + 25_200_000).toISOString().slice(0, 10)
+  const lastDate = new Date(Date.now() + 7 * 86_400_000 + 25_200_000).toISOString().slice(0, 10)
+  const pickerDate = localDate >= today && localDate <= lastDate ? localDate : today
   const field = 'mt-2 block min-h-11 w-full rounded-xl border border-border bg-white px-3 py-2 text-sm focus:border-terracotta focus:outline-none'
 %>
 <%- include('partials/action-page-start') %>
 <% if (error) { %>
   <p role="alert" class="mt-4 rounded-xl border border-terracotta/20 bg-terracotta/5 p-4 text-sm"><%= error %></p>
+  <%- include('partials/reschedule-dates', { today, lastDate, pickerDate }) %>
   <a href="<%= ownerUrl('/admin/appointments/' + appointmentId) %>" class="mt-4 inline-flex min-h-11 items-center rounded-xl border border-border px-4 text-sm font-semibold">Tải lại chi tiết lịch này</a>
 <% } else if (appointment && options) { %>
   <p class="mt-2 text-sm text-muted">Khách: <span class="font-semibold text-ink"><%= appointment.customerSnapshot.displayName %></span>. Chỉ đổi giờ hoặc Stylist của lịch này; dịch vụ, giá và thời lượng giữ nguyên.</p>
   <div class="mt-4 grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-12">
     <div class="flex min-h-0 flex-col gap-3 lg:col-span-8">
-      <section aria-labelledby="reschedule-date-title" class="shrink-0">
-        <h3 id="reschedule-date-title" class="text-sm font-bold uppercase tracking-wider">1. Chọn ngày mới</h3>
-        <div class="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-8">
-          <% for (let day = 0; day < 8; day++) {
-            const date = new Date(today + 'T12:00:00.000Z')
-            date.setUTCDate(date.getUTCDate() + day)
-            const value = date.toISOString().slice(0, 10)
-          %>
-            <a data-reschedule-date href="<%= ownerUrl('/admin/appointments/' + appointmentId + '/reschedule', { localDate: value }) %>" <%- localDate === value ? 'aria-current="date"' : '' %> class="rounded-xl border px-2 py-1.5 text-center text-xs <%= localDate === value ? 'border-terracotta bg-terracotta text-white' : 'border-border bg-white hover:bg-soft-surface' %>">
-              <span class="block"><%= new Intl.DateTimeFormat('vi-VN', { weekday: 'short', timeZone: 'UTC' }).format(date) %></span>
-              <span class="block text-sm font-bold"><%= date.getUTCDate() %>/<%= date.getUTCMonth() + 1 %></span>
-            </a>
-          <% } %>
-        </div>
-        <form method="get" data-reschedule-date-form action="/admin/appointments/<%= appointmentId %>/reschedule" class="mt-2 flex flex-wrap items-center gap-3">
-          <% for (const key of ['view', 'staffId', 'status']) {
-            if (ownerContext[key]) { %><input type="hidden" name="<%= key %>" value="<%= ownerContext[key] %>" /><% }
-          } %>
-          <label class="flex items-center gap-2 text-sm font-medium">Ngày muốn đổi<input type="date" name="localDate" value="<%= localDate %>" min="<%= today %>" required class="min-h-10 rounded-xl border border-border bg-white px-3 py-2 text-sm focus:border-terracotta focus:outline-none" /></label>
-          <button type="submit" class="min-h-11 rounded-xl border border-border bg-white px-4 text-sm font-semibold hover:bg-soft-surface">Xem giờ trống</button>
-        </form>
-      </section>
+      <%- include('partials/reschedule-dates', { today, lastDate, pickerDate }) %>
       <form method="post" data-reschedule-form data-current-staff="<%= appointment.staffId %>" data-current-start="<%= appointment.startAt %>" action="<%= ownerUrl('/admin/appointments/' + appointmentId + '/reschedule') %>" class="flex min-h-0 flex-1 flex-col gap-3">
         <input type="hidden" name="expectedRevision" value="<%= options.revision %>" />
         <input type="hidden" name="commandKey" value="<%= rescheduleKey %>" />
@@ -94,7 +76,7 @@
     </div>
     <aside class="h-fit rounded-2xl border border-border bg-soft-surface p-5 lg:col-span-4">
       <h3 class="text-sm font-bold uppercase tracking-wider">Lịch đang đổi</h3>
-      <p class="mt-3 break-all font-mono text-xs text-muted"><%= appointment.id %></p>
+      <p class="mt-3 break-all font-mono text-xs text-muted"><%= appointment.referenceCode || 'Chưa cấp mã' %></p>
       <dl class="mt-4 space-y-4 text-sm">
         <div><dt class="text-xs text-muted">Khách hàng</dt><dd class="mt-1 font-semibold"><%= appointment.customerSnapshot.displayName %></dd><dd class="mt-1 text-xs text-muted"><%= appointment.customerSnapshot.phone %></dd></div>
         <div><dt class="text-xs text-muted">Giờ hẹn cũ</dt><dd class="mt-1 font-semibold"><%= dateTime.format(new Date(appointment.startAt)) %></dd></div>
