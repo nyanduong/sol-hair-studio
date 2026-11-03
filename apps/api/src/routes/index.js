@@ -1,3 +1,4 @@
+import { customersRouter } from '../modules/customers/customers.routes.js'
 import { Router } from 'express'
 import { adminRouter } from '../modules/admin/admin.routes.js'
 import { appointmentsRouter } from '../modules/appointments/appointments.routes.js'
@@ -16,3 +17,5 @@ apiRouter.use('/api', authRouter)
 apiRouter.use('/api', staffRouter)
 apiRouter.use('/api', appointmentsRouter)
 apiRouter.use('/api', availabilityRouter)
+
+apiRouter.use("/api", customersRouter)
