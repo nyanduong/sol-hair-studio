@@ -152,7 +152,7 @@ function buildAppointmentPage(appointments, limit, role, timeField = 'startAt') 
     return {
         items: page.map(appointment => timeField === 'completedAt'
             ? { ...toAppointmentListItem(appointment, 'customer'), completedAt: appointment.completedAt.toISOString() }
-            : { ...toAppointmentListItem(appointment, role), ...(role === 'owner' ? {
+            : { ...toAppointmentListItem(appointment, role), ...(role === 'customer' ? { paymentStatus: appointment.payment?.receivedAt ? 'paid' : 'unpaid' } : {}), ...(role === 'owner' ? {
                 paymentStatus: appointment.payment?.receivedAt ? 'paid' : 'unpaid',
                 ...(appointment.estimatedEndAt ? { estimatedEndAt: appointment.estimatedEndAt.toISOString() } : {}),
             } : {}) }),

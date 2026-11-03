@@ -1,3 +1,4 @@
+import { salonSupportHref } from '../../../config/salon.js'
 import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { isAppointmentCutoffReached, useAppointmentListView } from '../hooks/useAppointmentListView.js'
@@ -133,9 +134,11 @@ function AppointmentCard({ appointment, isUpcomingSoon, now }) {
         </div>
       )}
 
-      {/* ── Card Header: Trạng thái & Sol Atelier ── */}
+      {/* ── Card Header: Trạng thái & Sol Hair Studio ── */}
       <div className="flex items-center justify-between gap-3 border-b border-[#f3eee6] px-5 py-3">
         <StatusBadge status={appointment.status} />
+              {appointment.paymentStatus === 'paid' ? <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs text-emerald-800">Đã thanh toán</span> : appointment.status === 'completed' && <span className="rounded-full bg-amber-50 px-3 py-1 text-xs text-amber-800">Chờ thanh toán</span>}
+              <span className="font-mono text-xs text-muted">{appointment.referenceCode || 'Chưa cấp mã'}</span>
 
         <div className="flex items-center gap-2">
           {isUpcomingSoon && (
@@ -154,7 +157,7 @@ function AppointmentCard({ appointment, isUpcomingSoon, now }) {
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
               <path d="m9 12 2 2 4-4"/>
             </svg>
-            Sol Atelier
+            Sol Hair Studio
           </span>
         </div>
       </div>
@@ -214,7 +217,7 @@ function AppointmentCard({ appointment, isUpcomingSoon, now }) {
             <div className="flex items-center justify-between gap-3 pt-0.5">
               <dt className="shrink-0 font-medium text-muted">Thao tác trực tuyến:</dt>
               <dd className={`font-medium ${isLocked ? 'text-muted' : 'text-emerald-700'}`}>
-                {isLocked ? 'Đã khóa do sát giờ hoặc trạng thái' : 'Đủ điều kiện dời / hủy'}
+                {isLocked ? (appointment.status === 'confirmed' ? 'Còn dưới 2 giờ trước giờ hẹn' : `Lịch ${cfg.label.toLowerCase()}, không thể đổi hoặc hủy`) : 'Đủ điều kiện dời / hủy'}
               </dd>
             </div>
           </dl>
@@ -247,7 +250,7 @@ function AppointmentCard({ appointment, isUpcomingSoon, now }) {
 
           {isUpcomingSoon ? (
             <a
-              href="tel:19006828"
+              href={salonSupportHref}
               className="inline-flex min-h-8 items-center gap-1.5 rounded-lg bg-[#7a3426] px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#63281c]"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
@@ -282,7 +285,7 @@ function Toolbar({ activeTab, onTabChange, counts }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex flex-wrap items-center rounded-2xl bg-[#f3eee6] p-1" aria-label="Nhóm lịch hẹn">
-        {[['upcoming', 'Sắp tới'], ['attention', 'Đến/quá giờ'], ['history', 'Lịch sử']].map(([key, label]) => (
+        {[['upcoming', 'Sắp tới'], ['attention', 'Cần chú ý'], ['history', 'Lịch sử']].map(([key, label]) => (
           <button key={key} type="button" aria-pressed={activeTab === key}
             onClick={() => onTabChange(key)}
             className={`inline-flex min-h-11 items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold ${activeTab === key ? 'bg-white text-ink shadow-sm' : 'text-muted hover:text-ink'}`}>
@@ -426,6 +429,7 @@ export default function CustomerAppointmentList({ state, onLogin }) {
         counts={counts}
       />
 
+      {tab !== 'attention' && state.items.some(item => item.status === 'completed' && item.paymentStatus === 'unpaid') && <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm"><p>Bạn có lịch đã hoàn tất đang chờ thanh toán.</p><button className="min-h-11 font-semibold text-terracotta underline" onClick={() => setTab('attention')}>Xem lịch cần chú ý</button></div>}
       {view.incomplete && (
         <p role="status" className="mt-6 text-sm text-muted">
           {currentItems.length === 0
@@ -443,7 +447,7 @@ export default function CustomerAppointmentList({ state, onLogin }) {
       )}
 
       {tab === 'attention' && (
-        <p className="mt-4 text-sm text-muted">Lịch đã đến hoặc quá giờ nhưng tiệm chưa cập nhật kết quả. Trạng thái vẫn là Đã xác nhận; vui lòng liên hệ tiệm nếu cần hỗ trợ.</p>
+        <p className="mt-4 text-sm text-muted">Lịch đã đến giờ nhưng tiệm chưa cập nhật kết quả, hoặc đã hoàn tất và đang chờ thanh toán. Mở chi tiết để xem trạng thái mới nhất.</p>
       )}
       {/* ── Empty State ── */}
       {isEmpty && <EmptyState hasOtherAppointments={state.items.length > 0} />}

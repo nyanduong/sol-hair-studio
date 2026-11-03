@@ -156,6 +156,10 @@ async function requestAction(dialog, href, method = 'GET', body = null) {
     if (!state.pending) state.command = null
     if (result.dataset.commandState === 'success' && response.ok) {
       const current = new URL(window.location.href)
+      // A URL ending in #start/#correct-start can navigate only the fragment.
+      // Force a fresh GET so both detail and its parent list reconcile the write.
+      current.hash = ''
+      current.searchParams.set('updated', String(Date.now()))
       if (detail?.dataset.personalStaffId && result.dataset.resultStaffId && result.dataset.resultStaffId !== detail.dataset.personalStaffId) {
         current.searchParams.delete('view')
       }

@@ -132,7 +132,7 @@
         <% if (currentSearch || currentCategory !== 'all' || currentStatus !== 'all') { %>
           <a
             href="/admin/services"
-            class="rounded-xl border border-[#e7e2da] py-2 px-3 text-xs font-semibold text-[#7a7269] hover:text-ink hover:bg-[#f4f0ea] transition text-center"
+            class="min-h-11 rounded-xl border border-[#e7e2da] py-2 px-3 text-xs font-semibold text-[#7a7269] hover:text-ink hover:bg-[#f4f0ea] transition text-center"
           >
             Đặt lại
           </a>
@@ -152,7 +152,7 @@
             <th scope="col" class="px-3 py-3.5">Danh mục</th>
             <th scope="col" class="px-3 py-3.5">Giá niêm yết</th>
             <th scope="col" class="px-3 py-3.5">Thời lượng</th>
-            <th scope="col" class="px-3 py-3.5">Slot lịch</th>
+            <th scope="col" class="px-3 py-3.5">Giữ chỗ</th>
             <th scope="col" class="px-3 py-3.5">Trạng thái</th>
             <th scope="col" class="py-3.5 pl-3 pr-4 sm:pr-6 text-right">Thao tác</th>
           </tr>
@@ -211,7 +211,7 @@
                 <% } %>
               </td>
               <td class="whitespace-nowrap px-3 py-4 text-xs text-[#7a7269]">
-                <%= service.bookingDurationMinutes || (service.durationMinutes ? service.durationMinutes.max : '—') %> phút
+                <%= service.bookingDurationMinutes ? service.bookingDurationMinutes + ' phút' : 'Chưa cấu hình' %>
               </td>
               <td class="whitespace-nowrap px-3 py-4">
                 <div class="flex items-center space-x-2">
@@ -266,14 +266,14 @@
 </div>
 
 <!-- ==================== MODAL: THÊM DỊCH VỤ ==================== -->
-<div id="addModal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-  <div class="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-[#e7e2da] overflow-hidden my-8">
-    <div class="px-6 py-4 border-b border-[#e7e2da] flex items-center justify-between bg-[#fcfbf9]">
+<dialog id="addModal" aria-label="Thêm dịch vụ" class="fixed inset-0 m-auto w-[min(760px,calc(100%_-_2rem))] max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-0 backdrop:bg-black/40">
+  <div class="relative w-full max-w-none bg-white rounded-2xl shadow-2xl border border-[#e7e2da]">
+    <div class="sticky top-0 z-10 px-6 py-4 border-b border-[#e7e2da] flex items-center justify-between bg-[#fcfbf9]">
       <h3 class="text-lg font-bold text-ink">Thêm Dịch vụ Mới</h3>
-      <button type="button" onclick="closeAddModal()" class="text-[#7a7269] hover:text-ink text-lg font-bold p-1">&times;</button>
+      <button type="button" onclick="closeAddModal()" aria-label="Đóng form dịch vụ" class="text-[#7a7269] hover:text-ink text-lg font-bold min-h-11 min-w-11">&times;</button>
     </div>
 
-    <form action="/admin/services" method="POST" class="p-6 space-y-4" onsubmit="return validateAddForm()">
+    <form action="/admin/services" method="POST" class="p-6 space-y-4" onsubmit="return validateServiceForm(this) &amp;&amp; validateAddForm()">
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label for="add_id" class="block text-xs font-semibold text-ink mb-1">Mã dịch vụ <span class="text-red-500">*</span></label>
@@ -331,7 +331,7 @@
         </div>
 
         <div>
-          <label for="add_durationMin" class="block text-xs font-semibold text-ink mb-1">Thời lượng min (phút) <span class="text-red-500">*</span></label>
+          <label for="add_durationMin" class="block text-xs font-semibold text-ink mb-1">Thời gian tham khảo từ (phút) <span class="text-red-500">*</span></label>
           <input
             id="add_durationMin"
             name="durationMin"
@@ -345,7 +345,7 @@
         </div>
 
         <div>
-          <label for="add_durationMax" class="block text-xs font-semibold text-ink mb-1">Thời lượng max (phút) <span class="text-red-500">*</span></label>
+          <label for="add_durationMax" class="block text-xs font-semibold text-ink mb-1">Thời gian tham khảo đến (phút) <span class="text-red-500">*</span></label>
           <input
             id="add_durationMax"
             name="durationMax"
@@ -361,14 +361,14 @@
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label for="add_bookingDurationMinutes" class="block text-xs font-semibold text-ink mb-1">Thời lượng slot đặt lịch (phút)</label>
+          <label for="add_bookingDurationMinutes" class="block text-xs font-semibold text-ink mb-1">Thời lượng giữ chỗ cố định (phút) *</label><p class="mb-2 text-xs text-muted">Số phút giữ lịch cho dịch vụ, phải nằm trong khoảng thời gian tham khảo ở trên.</p>
           <input
             id="add_bookingDurationMinutes"
             name="bookingDurationMinutes"
             type="number"
             min="1"
             max="480"
-            placeholder="Mặc định = thời lượng max"
+            placeholder="Ví dụ: 60" required
             class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
           />
         </div>
@@ -437,37 +437,37 @@
         </label>
       </div>
 
-      <div class="pt-4 border-t border-[#e7e2da] flex items-center justify-end space-x-3">
+      <div class="sticky bottom-0 z-10 -mx-6 -mb-6 border-t border-[#e7e2da] bg-white px-6 py-4 flex items-center justify-end space-x-3">
         <button
           type="button"
           onclick="closeAddModal()"
-          class="rounded-xl border border-[#e7e2da] py-2 px-4 text-xs font-semibold text-[#7a7269] hover:bg-[#f4f0ea] transition"
+          class="min-h-11 rounded-xl border border-[#e7e2da] py-2 px-4 text-xs font-semibold text-[#7a7269] hover:bg-[#f4f0ea] transition"
         >
           Hủy bỏ
         </button>
         <button
           type="submit"
-          class="rounded-xl bg-[#b55338] py-2 px-5 text-xs font-semibold text-white shadow-sm hover:bg-[#96422b] transition"
+          class="min-h-11 rounded-xl bg-[#b55338] py-2 px-5 text-xs font-semibold text-white shadow-sm hover:bg-[#96422b] transition"
         >
           Lưu dịch vụ
         </button>
       </div>
     </form>
   </div>
-</div>
+</dialog>
 
 <!-- ==================== MODAL: CHỈNH SỬA DỊCH VỤ ==================== -->
-<div id="editModal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-  <div class="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-[#e7e2da] overflow-hidden my-8">
-    <div class="px-6 py-4 border-b border-[#e7e2da] flex items-center justify-between bg-[#fcfbf9]">
+<dialog id="editModal" aria-label="Chỉnh sửa dịch vụ" class="fixed inset-0 m-auto w-[min(760px,calc(100%_-_2rem))] max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-0 backdrop:bg-black/40">
+  <div class="relative w-full max-w-none bg-white rounded-2xl shadow-2xl border border-[#e7e2da]">
+    <div class="sticky top-0 z-10 px-6 py-4 border-b border-[#e7e2da] flex items-center justify-between bg-[#fcfbf9]">
       <div>
         <h3 class="text-lg font-bold text-ink">Chỉnh sửa Dịch vụ</h3>
         <span id="edit_id_badge" class="text-xs font-mono text-[#7a7269]"></span>
       </div>
-      <button type="button" onclick="closeEditModal()" class="text-[#7a7269] hover:text-ink text-lg font-bold p-1">&times;</button>
+      <button type="button" onclick="closeEditModal()" aria-label="Đóng form dịch vụ" class="text-[#7a7269] hover:text-ink text-lg font-bold min-h-11 min-w-11">&times;</button>
     </div>
 
-    <form id="editForm" action="" method="POST" class="p-6 space-y-4">
+    <form id="editForm" action="" method="POST" onsubmit="return validateServiceForm(this)" class="p-6 space-y-4">
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label for="edit_name" class="block text-xs font-semibold text-ink mb-1">Tên dịch vụ <span class="text-red-500">*</span></label>
@@ -508,7 +508,7 @@
         </div>
 
         <div>
-          <label for="edit_durationMin" class="block text-xs font-semibold text-ink mb-1">Thời lượng min (phút) <span class="text-red-500">*</span></label>
+          <label for="edit_durationMin" class="block text-xs font-semibold text-ink mb-1">Thời gian tham khảo từ (phút) <span class="text-red-500">*</span></label>
           <input
             id="edit_durationMin"
             name="durationMin"
@@ -521,7 +521,7 @@
         </div>
 
         <div>
-          <label for="edit_durationMax" class="block text-xs font-semibold text-ink mb-1">Thời lượng max (phút) <span class="text-red-500">*</span></label>
+          <label for="edit_durationMax" class="block text-xs font-semibold text-ink mb-1">Thời gian tham khảo đến (phút) <span class="text-red-500">*</span></label>
           <input
             id="edit_durationMax"
             name="durationMax"
@@ -536,9 +536,9 @@
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label for="edit_bookingDurationMinutes" class="block text-xs font-semibold text-ink mb-1">Thời lượng slot đặt lịch (phút)</label>
+          <label for="edit_bookingDurationMinutes" class="block text-xs font-semibold text-ink mb-1">Thời lượng giữ chỗ cố định (phút) *</label><p class="mb-2 text-xs text-muted">Số phút giữ lịch cho dịch vụ, phải nằm trong khoảng thời gian tham khảo ở trên.</p>
           <input
-            id="edit_bookingDurationMinutes"
+            id="edit_bookingDurationMinutes" required
             name="bookingDurationMinutes"
             type="number"
             min="1"
@@ -608,26 +608,37 @@
         </label>
       </div>
 
-      <div class="pt-4 border-t border-[#e7e2da] flex items-center justify-end space-x-3">
+      <div class="sticky bottom-0 z-10 -mx-6 -mb-6 border-t border-[#e7e2da] bg-white px-6 py-4 flex items-center justify-end space-x-3">
         <button
           type="button"
           onclick="closeEditModal()"
-          class="rounded-xl border border-[#e7e2da] py-2 px-4 text-xs font-semibold text-[#7a7269] hover:bg-[#f4f0ea] transition"
+          class="min-h-11 rounded-xl border border-[#e7e2da] py-2 px-4 text-xs font-semibold text-[#7a7269] hover:bg-[#f4f0ea] transition"
         >
           Hủy bỏ
         </button>
         <button
           type="submit"
-          class="rounded-xl bg-[#b55338] py-2 px-5 text-xs font-semibold text-white shadow-sm hover:bg-[#96422b] transition"
+          class="min-h-11 rounded-xl bg-[#b55338] py-2 px-5 text-xs font-semibold text-white shadow-sm hover:bg-[#96422b] transition"
         >
           Lưu thay đổi
         </button>
       </div>
     </form>
   </div>
-</div>
+</dialog>
 
 <script>
+  function validateServiceForm(form) {
+    const duration = form.elements.bookingDurationMinutes;
+    const min = Number(form.elements.durationMin.value);
+    const max = Number(form.elements.durationMax.value);
+    duration.setCustomValidity(Number(duration.value) < min || Number(duration.value) > max ? 'Thời lượng giữ chỗ phải nằm trong khoảng thời gian tham khảo.' : '');
+    return form.reportValidity();
+  }
+  document.addEventListener('input', function(event) {
+    const form = event.target.closest('#editForm, #addModal form');
+    if (form) form.elements.bookingDurationMinutes.setCustomValidity('');
+  });
   function openAddModal() {
     const fileInput = document.getElementById('add_imageFileInput');
     if (fileInput) fileInput.value = '';
@@ -640,11 +651,11 @@
       preview.src = '';
       preview.classList.add('hidden');
     }
-    document.getElementById('addModal').classList.remove('hidden');
+    document.getElementById('addModal').showModal();
   }
 
   function closeAddModal() {
-    document.getElementById('addModal').classList.add('hidden');
+    document.getElementById('addModal').close();
   }
 
   function openEditModal(button) {
@@ -679,14 +690,14 @@
         preview.classList.add('hidden');
       }
 
-      document.getElementById('editModal').classList.remove('hidden');
+      document.getElementById('editModal').showModal();
     } catch (e) {
       console.error('Không thể mở modal chỉnh sửa:', e);
     }
   }
 
   function closeEditModal() {
-    document.getElementById('editModal').classList.add('hidden');
+    document.getElementById('editModal').close();
   }
 
   function handleImageFileSelect(input, hiddenInputId, previewImgId, labelId) {

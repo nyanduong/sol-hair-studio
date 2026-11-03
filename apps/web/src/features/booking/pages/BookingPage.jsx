@@ -1,3 +1,4 @@
+import CustomerProfile from '../../auth/components/CustomerProfile.jsx'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { apiBaseUrl } from '../../../config/env.js'
@@ -91,6 +92,7 @@ function BookingForm({ token, initialServiceId }) {
   const stepHeading = useRef(null)
   const catalog = useServices()
   const profile = useBookingQuery('profile', token, {})
+  const profileDialog = useRef(null)
   const owner = profile.value?.roles?.includes('owner') ?? false
   const active =
     profile.kind === 'success' &&
@@ -317,6 +319,8 @@ function BookingForm({ token, initialServiceId }) {
             </p>
           )}
           <BookingStatus query={profile} label="tài khoản" />
+          {!owner && profileComplete && profile.kind === 'success' && <><button type="button" disabled={locked} onClick={() => profileDialog.current.showModal()} className="mb-4 min-h-11 text-sm font-semibold text-terracotta underline">Chỉnh sửa thông tin liên hệ</button><dialog ref={profileDialog} aria-label="Thông tin liên hệ" className="fixed inset-0 m-auto w-[calc(100%_-_2rem)] max-w-2xl rounded-3xl border border-border bg-white p-8 backdrop:bg-black/40"><div className="mb-6 flex items-center justify-between"><h2 className="text-xl font-bold">Thông tin liên hệ</h2><button type="button" aria-label="Đóng thông tin liên hệ" onClick={() => profileDialog.current.close()} className="min-h-11 px-4">✕</button></div><CustomerProfile token={token} onSaved={profile.retry} /></dialog></>}
+
           {profile.kind === 'success' && !active && (
             <p role="alert">Tài khoản chưa hoạt động. Vui lòng kích hoạt hoặc đăng nhập lại.</p>
           )}
@@ -558,22 +562,13 @@ function BookingForm({ token, initialServiceId }) {
                   hoặc giảm dịch vụ. Giờ trùng với lịch hẹn hiện có của bạn cũng không thể chọn.
                 </p>
               )}
-              <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
-                {stylist?.slots.map((item) => (
-                  <button
-                    type="button"
-                    key={item.startAt}
-                    aria-pressed={startAt === item.startAt}
-                    onClick={() => {
-                      setStartAt(item.startAt)
-                      setNotice('')
-                    }}
-                    className={`min-h-11 rounded-xl border text-sm ${startAt === item.startAt ? 'border-terracotta bg-terracotta text-white' : 'border-border'}`}
-                  >
-                    {mode === 'owner_walkin' ? 'Tới ngay' : slotTime(item.startAt)}
-                  </button>
-                ))}
-              </div>
+              {[[0, 12, 'Buổi sáng'], [12, 18, 'Buổi chiều'], [18, 24, 'Buổi tối']].map(([from, to, label]) => {
+                const slots = stylist?.slots.filter(item => { const hour = Number(slotTime(item.startAt).slice(0, 2)); return hour >= from && hour < to }) || []
+                if (!slots.length) return null
+                return <section key={label} className="mt-5"><h3 className="text-sm font-semibold">{label} <span className="font-normal text-muted">· {slots.length} giờ trống</span></h3><div className="mt-3 grid max-h-64 grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
+                  {slots.map(item => <button type="button" key={item.startAt} aria-pressed={startAt === item.startAt} onClick={() => { setStartAt(item.startAt); setNotice('') }} className={`min-h-11 rounded-xl border text-sm ${startAt === item.startAt ? 'border-terracotta bg-terracotta text-white' : 'border-border'}`}>{mode === 'owner_walkin' ? 'Tới ngay' : slotTime(item.startAt)}</button>)}
+                </div></section>
+              })}
               {data && (
                 <button
                   type="button"

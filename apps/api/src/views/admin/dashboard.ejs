@@ -18,7 +18,7 @@
 
   <!-- 4 KPI Stat Cards -->
   <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-    <!-- Doanh thu hoàn thành -->
+    <!-- Giá trị dịch vụ hoàn thành -->
     <div class="rounded-2xl bg-white border border-[#e7e2da] p-5 shadow-sm">
       <div class="flex items-center justify-between">
         <span class="text-sm font-medium text-ink">Giá trị dịch vụ hôm nay</span>
@@ -217,8 +217,8 @@
     <div class="rounded-2xl bg-white border border-[#e7e2da] p-5 shadow-sm">
       <div class="flex items-center justify-between border-b border-[#e7e2da] pb-4 mb-4">
         <div>
-          <h2 class="text-sm font-bold text-ink">Top Dịch vụ đặt nhiều nhất</h2>
-          <p class="text-xs text-[#7a7269] mt-0.5">Xếp hạng theo tổng số lượt khách đặt</p>
+          <h2 class="text-sm font-bold text-ink">Dịch vụ đã hoàn tất</h2>
+          <p class="text-xs text-[#7a7269] mt-0.5">Xếp hạng theo lượt đã phục vụ · toàn thời gian</p>
         </div>
         <a href="/admin/services" class="text-xs font-semibold text-[#b55338] hover:underline">
           Xem tất cả
@@ -237,12 +237,12 @@
                 </span>
                 <div>
                   <div class="font-semibold text-xs text-ink"><%= item._id %></div>
-                  <div class="text-xs text-[#7a7269]"><%= item.count %> lượt đặt</div>
+                  <div class="text-xs text-[#7a7269]"><%= item.count %> lượt hoàn tất</div>
                 </div>
               </div>
               <div class="text-right">
                 <div class="text-xs font-bold text-ink"><%= formatVnd(item.totalRevenue) %></div>
-                <div class="text-xs text-emerald-600 font-medium">Doanh thu</div>
+                <div class="text-xs text-emerald-600 font-medium">Giá trị hoàn tất</div>
               </div>
             </div>
           <% }); %>

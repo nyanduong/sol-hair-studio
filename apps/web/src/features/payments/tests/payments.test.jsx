@@ -19,7 +19,18 @@ describe('Customer payment', () => {
     expect(html).toContain('Salon xác nhận nhận tiền')
     expect(html).not.toContain('Xem QR chuyển khoản')
   })
-  it('never renders an error as unpaid', () => {
+  it('returns the fresh status to the QR opener and retains state during reconciliation', async () => {
+    let finish
+    const read = vi.fn().mockResolvedValueOnce({ status: 'unpaid' }).mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    const reader = createPaymentReader(read)
+    await reader.load()
+    const checking = reader.load()
+    expect(reader.getSnapshot()).toMatchObject({ kind: 'success', refreshing: true, value: { status: 'unpaid' } })
+    finish({ status: 'paid' })
+    expect(await checking).toEqual({ status: 'paid' })
+    expect(reader.getSnapshot()).toMatchObject({ value: { status: 'paid' } })
+  })
+  it('never renders an error as unpaid' , () => {
     const html = renderToStaticMarkup(<PaymentView state={{ kind: 'error', refresh() {} }} />)
     expect(html).toContain('Chưa đọc được trạng thái')
     expect(html).not.toContain('Chưa thanh toán')
