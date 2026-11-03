@@ -5,7 +5,7 @@ const serviceSchema = new mongoose.Schema(
     id: { type: String, required: true, unique: true, trim: true },
     slug: { type: String, required: true, unique: true, trim: true },
     name: { type: String, required: true, trim: true },
-    description: { type: String, required: true, trim: true },
+    description: { type: String, default: '', trim: true },
     category: { type: String, required: true, trim: true },
     durationMinutes: {
       min: { type: Number, required: true, min: 1 },

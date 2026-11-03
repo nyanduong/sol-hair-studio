@@ -32,6 +32,11 @@ export async function createService(data) {
   return await service.save()
 }
 
+export async function getNextDisplayOrder() {
+  const last = await ServiceModel.findOne({}).sort({ displayOrder: -1 }).select('displayOrder').lean()
+  return (last?.displayOrder ?? -1) + 1
+}
+
 export function updateService(id, updates) {
   return ServiceModel.findOneAndUpdate(
     { id },

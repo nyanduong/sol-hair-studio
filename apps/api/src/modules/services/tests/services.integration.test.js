@@ -81,6 +81,37 @@ afterAll(async () => {
 })
 
 describe('SOL-023: Tích hợp dịch vụ và hồi quy danh mục (M2 Integration & Regression)', () => {
+  it('creates short-form services with unique codes, appends order and accepts optional description', async () => {
+    const payload = { name: 'Cắt tóc', category: 'Tóc', priceVnd: 150000, bookingDurationMinutes: 45, imageUrl: 'https://res.cloudinary.com/demo/image/upload/cut.jpg', isActive: true }
+    await ServiceModel.create({ ...payload, id: 'old', slug: 'old', durationMinutes: { min: 45, max: 45 }, displayOrder: 20 })
+    const first = await webServicesApi.createService(baseUrl, ownerToken, payload)
+    const second = await webServicesApi.createService(baseUrl, ownerToken, payload)
+    expect(first.id).toMatch(/^cat-toc-[a-f0-9]{8}$/)
+    expect(second.id).not.toBe(first.id)
+    expect(first.slug).not.toBe(second.slug)
+    expect(first.description).toBe('')
+    expect(first.durationMinutes).toEqual({ min: 45, max: 45 })
+    expect(first.displayOrder).toBe(21)
+    expect(second.displayOrder).toBe(22)
+    expect(await ServiceModel.countDocuments()).toBe(3)
+  })
+
+  it('saves the short EJS form and updates duration and inactive state without advanced inputs', async () => {
+    const headers = { Cookie: `sol_admin_token=${ownerToken}`, 'Content-Type': 'application/x-www-form-urlencoded' }
+    const create = await fetch(`${baseUrl}/admin/services`, { method: 'POST', headers, redirect: 'manual', body: new URLSearchParams({ name: 'Gội đầu', category: 'Chăm sóc', priceVnd: '100000', bookingDurationMinutes: '30', imageUrl: 'https://res.cloudinary.com/demo/image/upload/wash.jpg', isActive: 'true', isActivePresent: 'true' }) })
+    expect(create.headers.get('location')).toBe('/admin/services?success=created')
+    const service = await ServiceModel.findOne({ name: 'Gội đầu' }).lean()
+    expect(service.durationMinutes).toEqual({ min: 30, max: 30 })
+    expect(service.displayOrder).toBe(0)
+    const update = await fetch(`${baseUrl}/admin/services/${service.id}/update`, { method: 'POST', headers, redirect: 'manual', body: new URLSearchParams({ name: 'Gội đầu mới', bookingDurationMinutes: '45', isActivePresent: 'true' }) })
+    expect(update.headers.get('location')).toBe('/admin/services?success=updated')
+    const changed = await ServiceModel.findOne({ id: service.id }).lean()
+    expect(changed.durationMinutes).toEqual({ min: 45, max: 45 })
+    expect(changed.bookingDurationMinutes).toBe(45)
+    expect(changed.isActive).toBe(false)
+    expect(changed.id).toBe(service.id)
+  })
+
   it('Quản lý dịch vụ phía chủ tiệm: thêm, sửa, ẩn dịch vụ và bảo toàn dữ liệu MongoDB', async () => {
     // 1. Chủ tiệm tạo dịch vụ mới qua API
     const newServicePayload = {

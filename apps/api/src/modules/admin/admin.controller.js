@@ -175,8 +175,8 @@ export async function createServiceAction(req, res) {
       description: description ? description.trim() : '',
       priceVnd: priceVnd !== undefined && priceVnd !== '' ? Number(priceVnd) : undefined,
       durationMinutes: {
-        min: Number(durationMin),
-        max: Number(durationMax || durationMin),
+        min: Number(durationMin || bookingDurationMinutes),
+        max: Number(durationMax || durationMin || bookingDurationMinutes),
       },
       bookingDurationMinutes: bookingDurationMinutes
         ? Number(bookingDurationMinutes)
@@ -184,7 +184,7 @@ export async function createServiceAction(req, res) {
       imageUrl: finalImageUrl || undefined,
       coverImageId: coverImageId || undefined,
       isActive: isActive === 'true' || isActive === 'on' || isActive === true,
-      displayOrder: displayOrder !== undefined && displayOrder !== '' ? Number(displayOrder) : 0,
+      displayOrder: displayOrder !== undefined && displayOrder !== '' ? Number(displayOrder) : undefined,
     }
 
     await servicesService.createService(req.identity, input)
@@ -245,10 +245,10 @@ export async function updateServiceAction(req, res) {
     if (category !== undefined) updates.category = category.trim()
     if (description !== undefined) updates.description = description.trim()
     if (priceVnd !== undefined && priceVnd !== '') updates.priceVnd = Number(priceVnd)
-    if (durationMin !== undefined && durationMin !== '') {
+    if ((durationMin !== undefined && durationMin !== '') || bookingDurationMinutes) {
       updates.durationMinutes = {
-        min: Number(durationMin),
-        max: Number(durationMax || durationMin),
+        min: Number(durationMin || bookingDurationMinutes),
+        max: Number(durationMax || durationMin || bookingDurationMinutes),
       }
     }
     if (bookingDurationMinutes !== undefined && bookingDurationMinutes !== '') {
@@ -256,7 +256,7 @@ export async function updateServiceAction(req, res) {
     }
     if (finalImageUrl) updates.imageUrl = finalImageUrl
     if (coverImageId) updates.coverImageId = coverImageId
-    if (isActive !== undefined) {
+    if (isActive !== undefined || req.body.isActivePresent === 'true') {
       updates.isActive = isActive === 'true' || isActive === 'on' || isActive === true
     }
     if (displayOrder !== undefined && displayOrder !== '') {
