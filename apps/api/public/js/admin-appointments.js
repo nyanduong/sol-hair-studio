@@ -155,6 +155,12 @@ async function requestAction(dialog, href, method = 'GET', body = null) {
       if (detail?.dataset.personalStaffId && result.dataset.resultStaffId && result.dataset.resultStaffId !== detail.dataset.personalStaffId) {
         current.searchParams.delete('view')
       }
+      if (writing && url.pathname === '/admin/appointments/' + state.appointmentId + '/complete') {
+        // Change the query as well as the fragment: hash-only navigation would not
+        // reload the detail and its payment reader after completing service.
+        current.searchParams.set('collect', '1')
+        current.hash = 'payment'
+      }
       window.location.assign(current.href)
       return
     }

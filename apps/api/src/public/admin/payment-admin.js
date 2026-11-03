@@ -18,9 +18,13 @@ async function paymentRequest(confirm = false) {
   } finally { clearTimeout(timer) }
 }
 function renderPayment() {
+  const waiting = paymentState.status !== 'paid' && paymentState.appointmentStatus === 'completed'
+  paymentEl('payment-summary').className = waiting
+    ? 'my-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800'
+    : 'my-3 text-sm text-muted'
   paymentEl('payment-summary').textContent = paymentState.status === 'paid'
     ? `Đã thanh toán ${paymentMoney(paymentState.amountVnd)} · ${new Date(paymentState.receivedAt).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}`
-    : paymentState.appointmentStatus === 'completed' ? `Chưa thanh toán · ${paymentMoney(paymentState.amountVnd)}` : ['cancelled', 'no_show'].includes(paymentState.appointmentStatus) ? 'Không có yêu cầu thanh toán cho lịch đã hủy hoặc không đến.' : 'Chưa ghi nhận thanh toán. Thu tiền sau khi hoàn tất phục vụ.'
+    : paymentState.appointmentStatus === 'completed' ? `Chờ thu tiền · ${paymentMoney(paymentState.amountVnd)} · Chưa xác nhận nhận tiền` : ['cancelled', 'no_show'].includes(paymentState.appointmentStatus) ? 'Không có yêu cầu thanh toán cho lịch đã hủy hoặc không đến.' : 'Chưa ghi nhận thanh toán. Thu tiền sau khi hoàn tất phục vụ.'
   paymentEl('payment-open').hidden = paymentState.status === 'paid' || paymentState.appointmentStatus !== 'completed'
 }
 async function refreshPayment() {
@@ -47,5 +51,11 @@ paymentEl('payment-confirm').onsubmit = async event => {
   } catch (error) { paymentEl('payment-error').textContent = error.name === 'AbortError' ? 'Chưa rõ kết quả. Tải lại trạng thái hoặc thử lại cùng yêu cầu, không yêu cầu khách chuyển lần nữa.' : error.message }
   finally { paymentEl('payment-submit').disabled = false }
 }
-if (window.location.hash === '#payment') paymentEl('payment-open').click()
+const paymentPageUrl = new URL(window.location.href)
+const collectAfterCompletion = paymentPageUrl.searchParams.get('collect') === '1'
+if (collectAfterCompletion) {
+  paymentPageUrl.searchParams.delete('collect')
+  window.history.replaceState(null, '', paymentPageUrl.href)
+}
+if (collectAfterCompletion || window.location.hash === '#payment') paymentEl('payment-open').click()
 else refreshPayment()
