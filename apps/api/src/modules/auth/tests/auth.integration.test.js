@@ -359,7 +359,15 @@ describe('SOL-020: Tích hợp và nghiệm thu tài khoản (M1 Auth Integratio
     )
     const mobileTokenBefore = mobileLoginBefore.token
 
-    // Yêu cầu OTP quên mật khẩu từ Mobile
+    // Yêu cầu OTP quên mật khẩu với email không tồn tại trong DB -> bị chặn 404 EMAIL_NOT_FOUND
+    await expect(
+      webAuthApi.requestPasswordResetOtp(baseUrl, { email: 'nonexistent.user@solhair.test' }),
+    ).rejects.toMatchObject({
+      status: 404,
+      code: 'EMAIL_NOT_FOUND',
+    })
+
+    // Yêu cầu OTP quên mật khẩu từ Mobile với email tồn tại trong DB
     await mobileAuthApi.requestOtp(baseUrl, {
       email,
       purpose: 'reset_password',

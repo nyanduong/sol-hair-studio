@@ -7,17 +7,7 @@ if (filters) {
     if (!filters.querySelector('[name="localDate"]').value && !filters.querySelector('[name="q"]').value.trim()) return
     if (filters.reportValidity()) filters.requestSubmit()
   })
-  const toggle = filters.querySelector('[data-filter-toggle]')
-  const fields = document.getElementById('owner-filter-fields')
-  fields.classList.add('hidden', 'sm:grid')
-  toggle.setAttribute('aria-expanded', 'false')
-  toggle.textContent = 'Lọc lịch'
-  toggle.addEventListener('click', () => {
-    const open = toggle.getAttribute('aria-expanded') !== 'true'
-    toggle.setAttribute('aria-expanded', String(open))
-    toggle.textContent = open ? 'Thu gọn' : 'Lọc lịch'
-    fields.classList.toggle('hidden', !open)
-  })
+
 }
 
 const dialogs = new Map()
@@ -35,10 +25,14 @@ function closeDialog(dialog) {
 function openDialog(dialog) {
   const waiting = [...dialogs].find(([, state]) => locked(state))?.[0]
   if (waiting && waiting !== dialog) {
-    if (!waiting.open) waiting.showModal()
+    if (!waiting.open) waiting.show()
     return false
   }
-  if (!dialog.open) dialog.showModal()
+  for (const [other] of dialogs) {
+    if (other !== dialog && other.open) other.close()
+  }
+  if (!dialog.open) dialog.show()
+  dialog.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   return true
 }
 
@@ -54,10 +48,10 @@ function createActionDialog(label, trigger, appointmentId, wide = false) {
   close.className = 'absolute right-3 top-3 flex size-9 items-center justify-center rounded-xl text-xl text-muted hover:bg-soft-surface disabled:opacity-40'
   close.addEventListener('click', () => closeDialog(dialog))
   const content = document.createElement('div')
-  if (wide) content.className = 'lg:flex lg:h-full lg:min-h-0 lg:flex-col'
+  if (wide) content.className = 'flex min-w-0 flex-col'
   content.dataset.dialogContent = ''
   dialog.append(close, content)
-  document.body.append(dialog)
+  detail.append(dialog)
   dialogs.set(dialog, { referenceCode: detail?.dataset.appointmentReference || '', appointmentId, content, close, trigger, pending: false, busy: false, command: null, reader: null })
   dialog.addEventListener('cancel', event => {
     if (locked(dialogs.get(dialog))) event.preventDefault()
@@ -165,6 +159,12 @@ async function requestAction(dialog, href, method = 'GET', body = null) {
       if (detail?.dataset.personalStaffId && result.dataset.resultStaffId && result.dataset.resultStaffId !== detail.dataset.personalStaffId) {
         current.searchParams.delete('view')
       }
+      if (writing && url.pathname === '/admin/appointments/' + state.appointmentId + '/complete') {
+        // Change the query as well as the fragment: hash-only navigation would not
+        // reload the detail and its payment reader after completing service.
+        current.searchParams.set('collect', '1')
+        current.hash = 'payment'
+      }
       window.location.assign(current.href)
       return
     }
@@ -266,6 +266,13 @@ if (dialogSupported && detail) {
     trigger.className = 'min-h-11 rounded-xl border border-border bg-white px-5 py-2 text-sm font-semibold text-ink hover:bg-soft-surface disabled:cursor-not-allowed disabled:opacity-50'
     trigger.dataset.readyAt = panel.dataset.readyAt
     trigger.textContent = summary.textContent
+    const operation = new URL(panel.querySelector('form').action).pathname.split('/').pop()
+    trigger.dataset.serviceOperation = operation
+    if (['start', 'complete'].includes(operation)) {
+      trigger.className = 'min-h-11 rounded-xl bg-terracotta px-5 py-2 text-sm font-semibold text-white hover:bg-terracotta-hover disabled:opacity-50'
+    } else {
+      trigger.className = 'min-h-10 rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted hover:bg-soft-surface disabled:opacity-50'
+    }
     const dialog = createActionDialog(summary.textContent, trigger, detail.dataset.appointmentDetail)
     const heading = document.createElement('h2')
     heading.className = 'text-2xl font-bold'
@@ -395,4 +402,8 @@ const appointmentNav = document.querySelector('header nav a[href="/owner/appoint
 if (appointmentNav) {
   appointmentNav.setAttribute('aria-current', 'page')
   appointmentNav.classList.add('bg-[#b55338]/10', 'text-[#b55338]', 'font-semibold')
+}
+
+if (['#start', '#complete'].includes(window.location.hash)) {
+  document.querySelector('[data-service-operation="' + window.location.hash.slice(1) + '"]')?.click()
 }

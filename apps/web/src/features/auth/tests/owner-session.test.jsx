@@ -10,6 +10,7 @@ import OwnerRedirect from '../components/OwnerRedirect.jsx'
 vi.mock('../api/auth.api.js', () => ({
   getMe: vi.fn(), loginUser: vi.fn(), logoutUser: vi.fn(),
   activateCustomer: vi.fn(), registerCustomer: vi.fn(), resendActivationOtp: vi.fn(),
+  requestPasswordResetOtp: vi.fn(), verifyPasswordResetOtp: vi.fn(), completePasswordReset: vi.fn(),
 }))
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 let root
