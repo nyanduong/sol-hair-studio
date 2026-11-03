@@ -1,3 +1,4 @@
+import CustomerPayment from '../../payments/components/CustomerPayment.jsx'
 import { useState } from 'react'
 import CustomerAppointmentManagement from '../components/CustomerAppointmentManagement.jsx'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
@@ -27,6 +28,7 @@ function AppointmentDetail({ token, appointmentId, onLogin }) {
       <CustomerAppointmentManagement token={token} appointment={state.value} onChanged={changed}
         initialAction={search.get('action')} onClose={close} />
     ) : null} />
+    {state.kind === 'success' && <CustomerPayment key={appointmentId} token={token} appointmentId={appointmentId} />}
   </>
 }
 
