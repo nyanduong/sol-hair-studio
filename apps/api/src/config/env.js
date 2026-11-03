@@ -12,6 +12,7 @@ export const config = Object.freeze({
   nodeEnv: process.env.NODE_ENV ?? 'development',
   port: readPort(process.env.PORT),
   corsOrigin: process.env.CORS_ORIGIN ?? '*',
+  webBaseUrl: (process.env.WEB_BASE_URL?.trim() || 'http://localhost:5173').replace(/\/+$/, ''),
   mongoUri: process.env.MONGODB_URI?.trim() || undefined,
   cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME?.trim() || undefined,
   cloudinaryApiKey: process.env.CLOUDINARY_API_KEY?.trim() || undefined,

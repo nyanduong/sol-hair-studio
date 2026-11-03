@@ -1,3 +1,4 @@
+import { config } from '../../config/env.js'
 import { authenticate } from '../auth/auth.service.js'
 import { getDatabaseStatus } from '../../config/database.js'
 
@@ -16,7 +17,7 @@ export function getAdminTokenFromRequest(req) {
       .find((part) => part.startsWith('sol_admin_token='))
 
     if (match) {
-      return decodeURIComponent(match.split('=')[1])
+      try { return decodeURIComponent(match.slice('sol_admin_token='.length)) } catch { return null }
     }
   }
 
@@ -42,13 +43,13 @@ export async function requireAdminAuth(req, res, next) {
 
   const token = getAdminTokenFromRequest(req)
   if (!token) {
-    return res.redirect('/admin/login')
+    return res.redirect(303, config.webBaseUrl + '/login')
   }
 
   try {
     const identity = await authenticate(token)
     if (!identity.roles || !identity.roles.includes('owner')) {
-      return res.redirect('/admin/login?error=forbidden')
+      return res.redirect(303, config.webBaseUrl + '/login?error=forbidden')
     }
 
     req.identity = identity
@@ -57,6 +58,7 @@ export async function requireAdminAuth(req, res, next) {
     // Set cookie sol_admin_token for seamless session
     res.cookie('sol_admin_token', token, {
       httpOnly: true,
+      secure: config.nodeEnv === 'production',
       path: '/',
       maxAge: 8 * 60 * 60 * 1000,
       sameSite: 'lax',
@@ -73,6 +75,6 @@ export async function requireAdminAuth(req, res, next) {
     next()
   } catch {
     res.clearCookie('sol_admin_token', { path: '/' })
-    return res.redirect('/admin/login?error=session_expired')
+    return res.redirect(303, config.webBaseUrl + '/login?error=session_expired')
   }
 }

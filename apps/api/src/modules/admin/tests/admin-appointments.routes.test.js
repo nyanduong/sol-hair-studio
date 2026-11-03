@@ -23,7 +23,7 @@ vi.mock('../../staff/staff.service.js', async (importOriginal) => ({
 
 import { app } from '../../../app.js'
 import { getDatabaseStatus } from '../../../config/database.js'
-import { authenticate, AuthError, login } from '../../auth/auth.service.js'
+import { authenticate, AuthError } from '../../auth/auth.service.js'
 import {
   AppointmentError, listAppointments, startAppointment, getAppointmentDetail,
   getAppointmentRescheduleOptions, getAppointmentAudit, rescheduleAppointment,
@@ -68,8 +68,8 @@ describe('Owner EJS uses the shared Admin session', () => {
   })
 
   it.each(routes)('%s %s redirects an anonymous visitor to Login', async (method, path) => {
-    const response = await request(app)[method]('/admin' + path).expect(302)
-    expect(response.headers.location).toBe('/admin/login')
+    const response = await request(app)[method]('/admin' + path).expect(303)
+    expect(response.headers.location).toBe('http://localhost:5173/login')
     expect(authenticate).not.toHaveBeenCalled()
   })
 
@@ -93,17 +93,16 @@ describe('Owner EJS uses the shared Admin session', () => {
   it.each(routes)('%s %s rejects a non-Owner cookie', async (method, path) => {
     authenticate.mockResolvedValue({ ...owner, roles: ['customer'] })
     const response = await request(app)[method]('/admin' + path)
-      .set('Cookie', `sol_admin_token=${token}`).expect(302)
-    expect(response.headers.location).toBe('/admin/login?error=forbidden')
+      .set('Cookie', `sol_admin_token=${token}`).expect(303)
+    expect(response.headers.location).toBe('http://localhost:5173/login?error=forbidden')
     expect(listAppointments).not.toHaveBeenCalled()
     expect(startAppointment).not.toHaveBeenCalled()
   })
 
   it('uses the cookie issued by the existing Admin Login to render appointments', async () => {
-    login.mockResolvedValue({ token, account: owner })
     const browser = request.agent(app)
-    await browser.post('/admin/login').type('form')
-      .send({ email: 'owner@example.test', password: 'test-only-password' }).expect(302)
+    await browser.post('/admin/session').type('form')
+      .send({ token }).expect(303)
     const response = await browser.get('/admin/appointments?localDate=2026-10-31').expect(200)
     expect(response.headers['content-type']).toMatch(/text\/html/)
     expect(listAppointments).toHaveBeenCalledWith(owner, { localDate: '2026-10-31' })
@@ -120,8 +119,8 @@ describe('Owner EJS uses the shared Admin session', () => {
 
   it('clears an expired cookie and returns to the existing Login', async () => {
     const response = await request(app).get('/admin/appointments')
-      .set('Cookie', 'sol_admin_token=expired').expect(302)
-    expect(response.headers.location).toBe('/admin/login?error=session_expired')
+      .set('Cookie', 'sol_admin_token=expired').expect(303)
+    expect(response.headers.location).toBe('http://localhost:5173/login?error=session_expired')
     expect(response.headers['set-cookie'][0]).toContain('sol_admin_token=;')
     expect(listAppointments).not.toHaveBeenCalled()
   })

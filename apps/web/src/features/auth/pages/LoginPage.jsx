@@ -29,7 +29,12 @@ export default function LoginPage() {
 
   const [fieldErrors, setFieldErrors] = useState({})
   const [touchedFields, setTouchedFields] = useState({})
-  const [apiError, setApiError] = useState(null)
+  const [apiError, setApiError] = useState(() => {
+    const error = new URLSearchParams(window.location.search).get('error')
+    if (error === 'session_expired') return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
+    if (error === 'forbidden') return 'Tài khoản này không có quyền truy cập trang quản trị.'
+    return null
+  })
   const [apiErrorCode, setApiErrorCode] = useState(null)
   const [successNotice, setSuccessNotice] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
