@@ -9,6 +9,7 @@ import {
   resendActivationOtp,
 } from '../api/auth.api.js'
 import { AuthContext } from './auth-context.js'
+import { isStylistOnly, STYLIST_APP_NOTICE } from '../validation/web-access.js'
 
 const TOKEN_STORAGE_KEY = 'sol_auth_token'
 const ACCOUNT_STORAGE_KEY = 'sol_auth_account'
@@ -60,6 +61,9 @@ export function AuthProvider({ children }) {
   const login = useCallback(async ({ email, password }) => {
     const data = await loginUser(apiBaseUrl, { email, password })
     const { token, account } = data
+
+    // This is a web access policy. Keep the shared API login usable by mobile.
+    if (isStylistOnly(account)) throw new Error(STYLIST_APP_NOTICE)
 
     try {
       localStorage.setItem(TOKEN_STORAGE_KEY, token)
@@ -134,6 +138,15 @@ export function AuthProvider({ children }) {
       .then((data) => {
         const resolvedAccount = data?.account || (data?.accountId ? data : null)
         if (!cancelled && resolvedAccount) {
+          if (isStylistOnly(resolvedAccount)) {
+            try {
+              localStorage.removeItem(TOKEN_STORAGE_KEY)
+              localStorage.removeItem(ACCOUNT_STORAGE_KEY)
+            } catch { /* Storage may be disabled. */ }
+            setAuthState({ token: null, account: null })
+            openLoginModal(STYLIST_APP_NOTICE)
+            return
+          }
           setAuthState((prev) => ({
             ...prev,
             account: resolvedAccount,
@@ -163,7 +176,7 @@ export function AuthProvider({ children }) {
       cancelled = true
       controller.abort()
     }
-  }, [authState.token])
+  }, [authState.token, openLoginModal])
 
   const contextValue = useMemo(() => ({
     token: authState.token,
