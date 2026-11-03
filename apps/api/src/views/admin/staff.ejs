@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Nhân sự & ca làm · Sol Hair Studio</title>
+    <link rel="stylesheet" href="/admin/assets/staff-admin.css">
+  </head>
+  <body>
+    <main class="page" data-today="<%= today %>">
+      <header class="site-header"><a class="brand" href="/">SOL HAIR STUDIO</a><a href="/" class="home-link">← Trang chủ</a></header>
+      <div class="container">
+        <section class="intro"><div><p class="eyebrow">Không gian quản lý</p><h1>Nhân sự &amp; ca làm</h1><p>Quản lý đội ngũ, dịch vụ và lịch làm việc theo tuần.</p></div><button class="primary" type="button" data-action="new-profile" hidden>+ Thêm nhân viên</button></section>
+        <p id="feedback" role="status" aria-live="polite"></p><section id="access" class="card"></section>
+        <div id="admin-workspace" class="workspace" hidden><aside class="team card"><div class="section-heading"><h2>Đội ngũ</h2><span id="people-count"></span></div><div id="people-list"></div></aside><div id="details"></div></div>
+        <section id="profile-form" class="card form-card" hidden></section>
+        <section id="shift-form" class="card form-card" hidden></section>
+      </div>
+    </main>
+    <script src="/admin/assets/staff-admin.js" defer></script>
+  </body>
+</html>
