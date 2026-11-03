@@ -103,6 +103,53 @@ async function stored(id) { return AppointmentModel.findById(id).lean() }
 async function eventCount(id) { return AppointmentEventModel.countDocuments({ appointmentId: id }) }
 
 describe('SOL-037 EJS with real Login, Services and isolated MongoDB transactions', () => {
+  it('counts all filtered appointments beyond pagination and distinguishes collectible balances from pending service', async () => {
+    const waiting = await booking()
+    const unpaid = await booking({ startAt: '2026-10-31T06:00:00.000Z' })
+    const paid = await booking({ startAt: '2026-10-31T08:00:00.000Z', staffId: otherStaff._id, guest: true })
+    await AppointmentModel.updateOne({ _id: unpaid }, { $set: { status: 'completed' } })
+    await AppointmentModel.updateOne({ _id: paid }, { $set: {
+      status: 'in_progress', payment: { amountVnd: 450000, receivedAt: NOW,
+        receivedLocalDate: '2026-10-31', receivedByAccountId: owner._id,
+        receivedByRole: 'owner', commandKey: randomUUID() },
+    } })
+    const read = query => request(app).get('/api/appointments').set('Authorization', `Bearer ${token}`)
+      .query({ localDate: '2026-10-31', includeSummary: 'true', ...query })
+    const first = (await read({ limit: '1' }).expect(200)).body.data
+    expect(first.items.map(item => item.id)).toEqual([waiting])
+    expect(first.summary).toEqual({ total: 3, unpaid: 1, statuses: {
+      confirmed: 1, completed: 1, in_progress: 1, cancelled: 0, no_show: 0,
+    } })
+    const second = (await read({ limit: '1', cursor: first.pagination.nextCursor }).expect(200)).body.data
+    expect(second.items.map(item => item.id)).toEqual([unpaid])
+    expect(second.summary).toEqual(first.summary)
+    const collectible = (await read({ paymentStatus: 'unpaid' }).expect(200)).body.data
+    expect(collectible.items.map(item => item.id)).toEqual([unpaid])
+    expect(collectible.summary.total).toBe(1)
+    const receipts = (await read({ paymentStatus: 'paid' }).expect(200)).body.data
+    expect(receipts.items.map(item => item.id)).toEqual([paid])
+    expect(receipts.items[0].paymentStatus).toBe('paid')
+    expect(receipts.items[0]).not.toHaveProperty('payment')
+    const scoped = (await read({ staffId: String(staff._id), status: 'completed', q: 'EJS Customer' }).expect(200)).body.data
+    expect(scoped.items.map(item => item.id)).toEqual([unpaid])
+    expect(scoped.summary.total).toBe(2)
+    expect(scoped.summary.statuses.confirmed).toBe(1)
+    await read({ paymentStatus: 'anything' }).expect(400)
+    await read({ includeSummary: 'false' }).expect(400)
+    const list = await browser.get('/admin/appointments').query({ localDate: '2026-10-31', paymentStatus: 'unpaid', layout: 'staff' }).expect(200)
+    expect(list.text).toContain('Chi tiết &amp; thu tiền')
+    expect(list.text).not.toContain('>Chi tiết</a>')
+    expect(list.text).toContain('1 lịch hoàn tất chưa thu tiền')
+    expect(list.text).toContain(`data-schedule-row="${unpaid}"`)
+    expect(list.text).not.toContain(`data-schedule-row="${waiting}"`)
+    expect(list.text).not.toContain(`data-schedule-row="${paid}"`)
+    const embedded = await browser.get(`/admin/appointments/${waiting}?view=mine&embedded=1`).expect(200)
+    expect(embedded.text).not.toContain('aria-label="Quản trị salon"')
+    expect(embedded.text).toContain('Bắt đầu phục vụ')
+    const reschedule = await browser.get(`/admin/appointments/${waiting}/reschedule?view=mine&embedded=1&layout=staff&paymentStatus=paid&localDate=2026-10-31`).expect(200)
+    expect(reschedule.text).toContain('Đổi lịch')
+  })
+
   it('accepts the existing React token handoff, cleans the URL and continues with the Admin cookie', async () => {
     const visitor = request.agent(app)
     const handoff = await visitor.get('/admin/appointments')
@@ -353,6 +400,8 @@ describe('SOL-037 EJS with real Login, Services and isolated MongoDB transaction
     await submit(id, 'start').expect(200)
     vi.setSystemTime('2026-10-31T03:20:00.000Z')
     await submit(id, 'complete', { expectedRevision: '1' }).expect(200)
+    const payment = { amountVnd: 250000, receivedAt: new Date(), receivedLocalDate: '2026-10-31', receivedByAccountId: owner._id, receivedByRole: 'owner', commandKey: 'payment-correction-receipt-01' }
+    await AppointmentModel.collection.updateOne({ _id: new mongoose.Types.ObjectId(id) }, { $set: { payment } })
     vi.setSystemTime('2026-10-31T05:00:00.000Z')
     await submit(id, 'correct-complete', { expectedRevision: '2', reason: 'Accidental completion' }).expect(400)
     await submit(id, 'correct-complete', { expectedRevision: '2', reason: 'Accidental completion', serviceNotCompleted: 'true' }).expect(400)
@@ -362,6 +411,7 @@ describe('SOL-037 EJS with real Login, Services and isolated MongoDB transaction
     const after = await stored(id)
     expect(after).toMatchObject({ status: 'in_progress', revision: 3, startedAt: NOW })
     expect(after.completedAt).toBeUndefined()
+    expect(after.payment).toEqual(payment)
     expect(after.estimatedEndAt.toISOString()).toBe('2026-10-31T05:30:00.000Z')
     expect(await eventCount(id)).toBe(4)
   })

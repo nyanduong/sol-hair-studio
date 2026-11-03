@@ -105,7 +105,7 @@ describe('Owner EJS uses the shared Admin session', () => {
       .send({ token }).expect(303)
     const response = await browser.get('/admin/appointments?localDate=2026-10-31').expect(200)
     expect(response.headers['content-type']).toMatch(/text\/html/)
-    expect(listAppointments).toHaveBeenCalledWith(owner, { localDate: '2026-10-31' })
+    expect(listAppointments).toHaveBeenCalledWith(owner, { localDate: '2026-10-31', includeSummary: 'true' })
     expect(authenticate).toHaveBeenCalledWith(token)
   })
 
@@ -138,7 +138,7 @@ describe('Owner EJS uses the shared Admin session', () => {
     expect(listAppointments).toHaveBeenCalledWith(owner, { localDate: '2026-10-31' })
   })
 
-  it('renders the React-style card and escapes contact text', async () => {
+  it('renders the compact schedule table and escapes contact text', async () => {
     listAppointments.mockResolvedValue({ items: [appointment], pagination: { hasNextPage: false } })
     const response = await request(app).get('/admin/appointments?localDate=2026-10-31')
       .set('Cookie', `sol_admin_token=${token}`).expect(200)
@@ -146,14 +146,16 @@ describe('Owner EJS uses the shared Admin session', () => {
     expect(response.text).toContain('Lịch toàn salon')
     expect(response.text).toContain('&lt;Customer&gt;')
     expect(response.text).toContain('bg-emerald-50')
-    expect(response.text).toContain('lg:grid-cols-3')
+    expect(response.text).toContain('data-schedule-row=')
+    expect(response.text).toContain('data-schedule-detail')
+    expect(response.text).toContain('Chờ hoàn tất')
   })
 
   it('filters personal appointments by the authenticated account, ignoring a supplied Staff', async () => {
     listStaff.mockResolvedValue([personalStaff])
     await request(app).get('/admin/appointments?view=mine&localDate=2026-10-31&staffId=other')
       .set('Cookie', `sol_admin_token=${token}`).expect(200)
-    expect(listAppointments).toHaveBeenCalledWith(owner, { localDate: '2026-10-31', staffId })
+    expect(listAppointments).toHaveBeenCalledWith(owner, { localDate: '2026-10-31', staffId, includeSummary: 'true' })
   })
 
   it('does not fall back to salon appointments when Owner has no Staff profile', async () => {

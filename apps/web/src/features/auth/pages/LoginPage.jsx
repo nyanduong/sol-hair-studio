@@ -12,7 +12,18 @@ import {
 } from '../validation/auth.validation.js'
 
 export default function LoginPage() {
-  const { isAuthenticated, account, login, register, activate, resendActivation, logout } = useAuth()
+  const {
+    isAuthenticated,
+    account,
+    login,
+    register,
+    activate,
+    resendActivation,
+    requestPasswordReset,
+    verifyPasswordReset,
+    completeResetPassword,
+    logout,
+  } = useAuth()
   const navigate = useNavigate()
 
   const [mode, setMode] = useState('login')
@@ -21,10 +32,11 @@ export default function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
 
-  // OTP verification state
+  // OTP verification & Reset state
   const [otpCode, setOtpCode] = useState('')
   const [otpEmail, setOtpEmail] = useState('')
   const [pendingPassword, setPendingPassword] = useState('')
+  const [resetGrant, setResetGrant] = useState('')
   const [resendCooldown, setResendCooldown] = useState(0)
 
   const [fieldErrors, setFieldErrors] = useState({})
@@ -93,7 +105,7 @@ export default function LoginPage() {
     } else if (field === 'password') {
       const res = validatePassword(password)
       setFieldErrors((prev) => ({ ...prev, password: res.isValid ? null : res.message }))
-    } else if (field === 'confirmPassword' && mode === 'register') {
+    } else if (field === 'confirmPassword' && (mode === 'register' || mode === 'reset_new_password')) {
       const res = validateConfirmPassword(confirmPassword, password)
       setFieldErrors((prev) => ({ ...prev, confirmPassword: res.isValid ? null : res.message }))
     } else if (field === 'otpCode') {
@@ -157,6 +169,65 @@ export default function LoginPage() {
       } finally {
         setIsSubmitting(false)
       }
+    } else if (mode === 'forgot_email') {
+      const emailRes = validateEmail(email)
+      if (!emailRes.isValid) {
+        setFieldErrors({ email: emailRes.message })
+        setTouchedFields({ email: true })
+        return
+      }
+
+      setIsSubmitting(true)
+      try {
+        await requestPasswordReset({ email: emailRes.value })
+        setOtpEmail(emailRes.value)
+        setOtpCode('')
+        setFieldErrors({})
+        setTouchedFields({})
+        setResendCooldown(60)
+        setSuccessNotice(`Mã xác thực gồm 6 chữ số đã được gửi tới ${emailRes.value}.`)
+        setMode('forgot_otp')
+      } catch (err) {
+        setApiError(getAuthErrorMessage(err))
+        setApiErrorCode(err?.code)
+      } finally {
+        setIsSubmitting(false)
+      }
+    } else if (mode === 'reset_new_password') {
+      const passRes = validatePassword(password)
+      const confirmRes = validateConfirmPassword(confirmPassword, password)
+      if (!passRes.isValid || !confirmRes.isValid) {
+        setFieldErrors({
+          ...(passRes.isValid ? {} : { password: passRes.message }),
+          ...(confirmRes.isValid ? {} : { confirmPassword: confirmRes.message }),
+        })
+        setTouchedFields({ password: true, confirmPassword: true })
+        return
+      }
+
+      setIsSubmitting(true)
+      const targetEmail = otpEmail || email
+      try {
+        await completeResetPassword({
+          email: targetEmail,
+          grant: resetGrant,
+          password: passRes.value,
+        })
+        setResetGrant('')
+        setPassword('')
+        setConfirmPassword('')
+        setOtpCode('')
+        setFieldErrors({})
+        setTouchedFields({})
+        setEmail(targetEmail)
+        setSuccessNotice('Đặt lại mật khẩu thành công! Vui lòng đăng nhập bằng mật khẩu mới.')
+        setMode('login')
+      } catch (err) {
+        setApiError(getAuthErrorMessage(err))
+        setApiErrorCode(err?.code)
+      } finally {
+        setIsSubmitting(false)
+      }
     }
   }
 
@@ -183,6 +254,18 @@ export default function LoginPage() {
     }
 
     try {
+      if (mode === 'forgot_otp') {
+        const verified = await verifyPasswordReset({ email: savedEmail, code: result.value })
+        setResetGrant(verified.grant)
+        setPassword('')
+        setConfirmPassword('')
+        setFieldErrors({})
+        setTouchedFields({})
+        setSuccessNotice('Mã OTP hợp lệ. Vui lòng nhập mật khẩu mới và xác nhận mật khẩu.')
+        setMode('reset_new_password')
+        return
+      }
+
       const data = await activate({ email: savedEmail, code: result.value })
       try {
         sessionStorage.removeItem('sol_pending_email')
@@ -222,7 +305,11 @@ export default function LoginPage() {
     setIsSubmitting(true)
     const activeEmail = otpEmail || email
     try {
-      await resendActivation({ email: activeEmail })
+      if (mode === 'forgot_otp') {
+        await requestPasswordReset({ email: activeEmail })
+      } else {
+        await resendActivation({ email: activeEmail })
+      }
       setResendCooldown(60)
       setSuccessNotice(`Mã OTP mới đã được gửi lại tới ${activeEmail}.`)
     } catch (err) {
@@ -249,21 +336,33 @@ export default function LoginPage() {
           <h1 className="mt-3 font-display text-2xl font-medium tracking-tight text-ink sm:text-3xl">
             {mode === 'otp_verification'
               ? 'Kích hoạt tài khoản'
-              : mode === 'login'
-                ? 'Đăng nhập Sol Hair Studio'
-                : 'Tạo tài khoản Sol'}
+              : mode === 'forgot_email'
+                ? 'Quên mật khẩu'
+                : mode === 'forgot_otp'
+                  ? 'Xác nhận mã OTP'
+                  : mode === 'reset_new_password'
+                    ? 'Đặt mật khẩu mới'
+                    : mode === 'login'
+                      ? 'Đăng nhập Sol Hair Studio'
+                      : 'Tạo tài khoản Sol'}
           </h1>
           <p className="mt-1 text-xs text-muted">
             {mode === 'otp_verification'
               ? 'Xác thực mã 6 số được gửi qua email để hoàn tất đăng ký.'
-              : mode === 'login'
-                ? 'Đăng nhập để đặt lịch và chăm sóc mái tóc của bạn.'
-                : 'Đăng ký tài khoản khách hàng để trải nghiệm dịch vụ.'}
+              : mode === 'forgot_email'
+                ? 'Nhập email đã đăng ký để nhận mã xác thực OTP 6 chữ số.'
+                : mode === 'forgot_otp'
+                  ? 'Nhập mã OTP 6 chữ số đã gửi về email của bạn.'
+                  : mode === 'reset_new_password'
+                    ? `Thiết lập mật khẩu mới cho tài khoản ${otpEmail || email}.`
+                    : mode === 'login'
+                      ? 'Đăng nhập để đặt lịch và chăm sóc mái tóc của bạn.'
+                      : 'Đăng ký tài khoản khách hàng để trải nghiệm dịch vụ.'}
           </p>
         </div>
 
         {/* Switch tabs (only for login and register) */}
-        {mode !== 'otp_verification' && (
+        {(mode === 'login' || mode === 'register') && (
           <div className="mt-5 grid grid-cols-2 rounded-2xl border border-border/60 bg-soft-surface p-1 text-xs font-semibold">
             <button
               type="button"
@@ -331,7 +430,7 @@ export default function LoginPage() {
           </div>
         )}
 
-        {mode === 'otp_verification' ? (
+        {mode === 'otp_verification' || mode === 'forgot_otp' ? (
           <form onSubmit={handleVerifyOtp} noValidate className="mt-5 space-y-4">
             <div className="rounded-2xl border border-border/80 bg-soft-surface p-3 text-center text-xs text-muted">
               Mã xác thực 6 chữ số đã được gửi tới:
@@ -392,14 +491,14 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setMode('register')
+                  setMode(mode === 'forgot_otp' ? 'forgot_email' : 'register')
                   setApiError(null)
                   setApiErrorCode(null)
                   setFieldErrors({})
                 }}
                 className="text-muted hover:text-ink hover:underline"
               >
-                ← Quay lại đăng ký
+                {mode === 'forgot_otp' ? '← Đổi email khác' : '← Quay lại đăng ký'}
               </button>
               <button
                 type="button"
@@ -417,102 +516,135 @@ export default function LoginPage() {
                 disabled={isSubmitting}
                 className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-terracotta px-5 text-sm font-semibold text-white shadow-md transition hover:bg-terracotta-dark disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSubmitting ? 'Đang kích hoạt...' : 'Kích hoạt tài khoản'}
+                {isSubmitting
+                  ? mode === 'forgot_otp'
+                    ? 'Đang xác minh...'
+                    : 'Đang kích hoạt...'
+                  : mode === 'forgot_otp'
+                    ? 'Xác nhận mã OTP'
+                    : 'Kích hoạt tài khoản'}
               </button>
             </div>
           </form>
         ) : (
           <form onSubmit={handleSubmit} noValidate className="mt-5 space-y-4">
-            <div>
-              <label htmlFor="login-email" className="block text-xs font-medium text-ink">
-                Địa chỉ email <span className="text-terracotta">*</span>
-              </label>
-              <div className="mt-1.5">
-                <input
-                  id="login-email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="ten@vidu.com"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value)
-                    if (touchedFields.email) {
-                      const res = validateEmail(e.target.value)
-                      setFieldErrors((prev) => ({ ...prev, email: res.isValid ? null : res.message }))
-                    }
-                  }}
-                  onBlur={() => handleBlur('email')}
-                  aria-invalid={Boolean(fieldErrors.email)}
-                  className={`w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-muted/60 transition focus:outline-none ${
-                    fieldErrors.email
-                      ? 'border-terracotta focus:border-terracotta focus:ring-2 focus:ring-terracotta/20'
-                      : 'border-border focus:border-terracotta focus:ring-2 focus:ring-terracotta/15'
-                  }`}
-                />
+            {mode !== 'reset_new_password' && (
+              <div>
+                <label htmlFor="login-email" className="block text-xs font-medium text-ink">
+                  Địa chỉ email <span className="text-terracotta">*</span>
+                </label>
+                <div className="mt-1.5">
+                  <input
+                    id="login-email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="ten@vidu.com"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value)
+                      if (touchedFields.email) {
+                        const res = validateEmail(e.target.value)
+                        setFieldErrors((prev) => ({ ...prev, email: res.isValid ? null : res.message }))
+                      }
+                    }}
+                    onBlur={() => handleBlur('email')}
+                    aria-invalid={Boolean(fieldErrors.email)}
+                    className={`w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-muted/60 transition focus:outline-none ${
+                      fieldErrors.email
+                        ? 'border-terracotta focus:border-terracotta focus:ring-2 focus:ring-terracotta/20'
+                        : 'border-border focus:border-terracotta focus:ring-2 focus:ring-terracotta/15'
+                    }`}
+                  />
+                </div>
+                {fieldErrors.email && (
+                  <p role="alert" className="mt-1.5 flex items-center gap-1 text-xs text-terracotta">
+                    {fieldErrors.email}
+                  </p>
+                )}
               </div>
-              {fieldErrors.email && (
-                <p role="alert" className="mt-1.5 flex items-center gap-1 text-xs text-terracotta">
-                  {fieldErrors.email}
-                </p>
-              )}
-            </div>
+            )}
 
-            <div>
-              <label htmlFor="login-password" className="block text-xs font-medium text-ink">
-                Mật khẩu <span className="text-terracotta">*</span>
-              </label>
-              <div className="relative mt-1.5">
-                <input
-                  id="login-password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                  placeholder="Ít nhất 8 ký tự"
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value)
-                    if (touchedFields.password) {
-                      const res = validatePassword(e.target.value)
-                      setFieldErrors((prev) => ({ ...prev, password: res.isValid ? null : res.message }))
-                    }
-                  }}
-                  onBlur={() => handleBlur('password')}
-                  aria-invalid={Boolean(fieldErrors.password)}
-                  className={`w-full rounded-xl border bg-white px-3.5 py-2.5 pr-10 text-sm text-ink placeholder:text-muted/60 transition focus:outline-none ${
-                    fieldErrors.password
-                      ? 'border-terracotta focus:border-terracotta focus:ring-2 focus:ring-terracotta/20'
-                      : 'border-border focus:border-terracotta focus:ring-2 focus:ring-terracotta/15'
-                  }`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                  aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiển thị mật khẩu'}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-muted hover:text-ink focus:outline-none"
-                >
-                  {showPassword ? (
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-                      <line x1="1" y1="1" x2="23" y2="23" />
-                    </svg>
-                  ) : (
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
+            {mode !== 'forgot_email' && (
+              <div>
+                <div className="flex items-center justify-between">
+                  <label htmlFor="login-password" className="block text-xs font-medium text-ink">
+                    {mode === 'reset_new_password' ? 'Mật khẩu mới' : 'Mật khẩu'}{' '}
+                    <span className="text-terracotta">*</span>
+                  </label>
+                  {mode === 'login' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode('forgot_email')
+                        setFieldErrors({})
+                        setApiError(null)
+                        setApiErrorCode(null)
+                        setSuccessNotice(null)
+                      }}
+                      className="text-xs font-medium text-terracotta hover:underline focus:outline-none"
+                    >
+                      Quên mật khẩu?
+                    </button>
                   )}
-                </button>
+                </div>
+                <div className="relative mt-1.5">
+                  <input
+                    id="login-password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                    placeholder="Ít nhất 8 ký tự"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value)
+                      if (touchedFields.password) {
+                        const res = validatePassword(e.target.value)
+                        setFieldErrors((prev) => ({ ...prev, password: res.isValid ? null : res.message }))
+                      }
+                      if ((mode === 'register' || mode === 'reset_new_password') && touchedFields.confirmPassword) {
+                        const confirmRes = validateConfirmPassword(confirmPassword, e.target.value)
+                        setFieldErrors((prev) => ({ ...prev, confirmPassword: confirmRes.isValid ? null : confirmRes.message }))
+                      }
+                    }}
+                    onBlur={() => handleBlur('password')}
+                    aria-invalid={Boolean(fieldErrors.password)}
+                    className={`w-full rounded-xl border bg-white px-3.5 py-2.5 pr-10 text-sm text-ink placeholder:text-muted/60 transition focus:outline-none ${
+                      fieldErrors.password
+                        ? 'border-terracotta focus:border-terracotta focus:ring-2 focus:ring-terracotta/20'
+                        : 'border-border focus:border-terracotta focus:ring-2 focus:ring-terracotta/15'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiển thị mật khẩu'}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-muted hover:text-ink focus:outline-none"
+                  >
+                    {showPassword ? (
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                      </svg>
+                    ) : (
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                {fieldErrors.password && (
+                  <p role="alert" className="mt-1.5 flex items-center gap-1 text-xs text-terracotta">
+                    {fieldErrors.password}
+                  </p>
+                )}
               </div>
-              {fieldErrors.password && (
-                <p role="alert" className="mt-1.5 flex items-center gap-1 text-xs text-terracotta">
-                  {fieldErrors.password}
-                </p>
-              )}
-            </div>
+            )}
 
-            {mode === 'register' && (
+            {(mode === 'register' || mode === 'reset_new_password') && (
               <div>
                 <label htmlFor="login-confirm-password" className="block text-xs font-medium text-ink">
-                  Xác nhận mật khẩu <span className="text-terracotta">*</span>
+                  {mode === 'reset_new_password' ? 'Xác nhận mật khẩu mới' : 'Xác nhận mật khẩu'}{' '}
+                  <span className="text-terracotta">*</span>
                 </label>
                 <div className="mt-1.5">
                   <input
@@ -551,9 +683,36 @@ export default function LoginPage() {
                 disabled={isSubmitting}
                 className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-terracotta px-5 text-sm font-semibold text-white shadow-md transition hover:bg-terracotta-dark disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSubmitting ? 'Đang xử lý...' : (mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản')}
+                {isSubmitting
+                  ? 'Đang xử lý...'
+                  : mode === 'login'
+                    ? 'Đăng nhập'
+                    : mode === 'register'
+                      ? 'Tạo tài khoản'
+                      : mode === 'forgot_email'
+                        ? 'Gửi mã OTP'
+                        : 'Lưu mật khẩu mới'}
               </button>
             </div>
+
+            {(mode === 'forgot_email' || mode === 'reset_new_password') && (
+              <div className="text-center text-xs text-muted">
+                Nhớ lại mật khẩu?{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('login')
+                    setFieldErrors({})
+                    setApiError(null)
+                    setApiErrorCode(null)
+                    setSuccessNotice(null)
+                  }}
+                  className="font-semibold text-terracotta hover:underline"
+                >
+                  Đăng nhập ngay
+                </button>
+              </div>
+            )}
           </form>
         )}
 

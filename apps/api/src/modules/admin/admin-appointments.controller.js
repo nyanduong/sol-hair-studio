@@ -1,3 +1,4 @@
+import { getAdminTokenFromRequest } from './admin.middleware.js'
 
 import {
   AppointmentError,
@@ -25,8 +26,12 @@ export async function showOwnerAppointments(req, res, next) {
   else if (!query.localDate) query.localDate = salonDate()
   const personal = query.view === 'mine'
   delete query.view
+  const layout = query.layout === 'staff' ? 'staff' : 'list'
+  delete query.layout
+  delete query.embedded
+  query.includeSummary = 'true'
 
-  for (const key of ['staffId', 'status', 'cursor']) {
+  for (const key of ['staffId', 'status', 'cursor', 'paymentStatus']) {
     if (query[key] === '') delete query[key]
   }
 
@@ -35,13 +40,13 @@ export async function showOwnerAppointments(req, res, next) {
     staffId: query.staffId ?? '',
     status: query.status ?? '',
     q: query.q ?? '',
+    paymentStatus: query.paymentStatus ?? '',
+    layout,
   }
 
   try {
     const staff = await listStaff(req.identity)
-    const personalStaff = personal
-      ? staff.find(person => person.accountId === req.identity.accountId)
-      : null
+    const personalStaff = staff.find(person => person.accountId === req.identity.accountId) ?? null
     if (personal) {
       delete query.staffId
       filters.staffId = ''
@@ -52,7 +57,9 @@ export async function showOwnerAppointments(req, res, next) {
       : await listAppointments(req.identity, query)
 
     return res.render('admin/appointments/appointments', {
-      title: query.localDate ? 'Lịch hẹn trong ngày' : 'Tra cứu lịch hẹn',
+      title: 'Lịch salon',
+      today: salonDate(),
+      summary: page.summary ?? { total: 0, unpaid: 0, statuses: {} },
       personalStaff,
       filters,
       staff,
@@ -64,7 +71,9 @@ export async function showOwnerAppointments(req, res, next) {
     if (!(error instanceof AppointmentError)) return next(error)
 
     return res.status(error.status).render('admin/appointments/appointments', {
-      title: 'Lịch hẹn toàn salon',
+      title: 'Lịch salon',
+      today: salonDate(),
+      summary: null,
       personalStaff: null,
       filters,
       staff: [],
@@ -94,6 +103,7 @@ export async function showOwnerAppointmentDetail(req, res, next) {
 
     return res.render('admin/appointments/appointment-detail', {
       title: 'Chi tiết lịch hẹn',
+      paymentToken: getAdminTokenFromRequest(req),
       appointment,
       personalStaff,
       cancelKey: randomUUID(),
@@ -191,6 +201,9 @@ export async function showOwnerReschedule(req, res, next) {
   delete query.staffId
   delete query.status
   delete query.q
+  delete query.paymentStatus
+  delete query.layout
+  delete query.embedded
 
   const view = {
     title: 'Đổi lịch hẹn',
@@ -563,7 +576,7 @@ export async function showOwnerAudit(req, res, next) {
       req.identity,
       req.params.appointmentId,
       Object.fromEntries(Object.entries(req.query).filter(([key]) =>
-        !['view', 'localDate', 'staffId', 'status', 'q'].includes(key))),
+        !['view', 'localDate', 'staffId', 'status', 'q', 'paymentStatus', 'layout', 'embedded'].includes(key))),
     )
 
     return res.render('admin/appointments/appointment-audit', {

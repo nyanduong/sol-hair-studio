@@ -87,6 +87,9 @@ describe('Admin Service — getDashboardData', () => {
 
     const result = await getDashboardData()
 
+    expect(AppointmentModel.find).toHaveBeenCalledWith({ localDate: result.todayStr })
+    expect(sortMock).toHaveBeenCalledWith({ createdAt: -1, _id: -1 })
+    expect(result.todayAppointments).toEqual(mockTodayAppointments)
     expect(result.todayStr).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     expect(result.todayStats.total).toBe(4)
     expect(result.todayStats.completed).toBe(1)

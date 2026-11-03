@@ -22,6 +22,9 @@ export default function AuthModal() {
     register,
     activate,
     resendActivation,
+    requestPasswordReset,
+    verifyPasswordReset,
+    completeResetPassword,
   } = useAuth()
 
   const [email, setEmail] = useState('')
@@ -29,10 +32,11 @@ export default function AuthModal() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
 
-  // OTP verification state
+  // OTP verification & Reset state
   const [otpCode, setOtpCode] = useState('')
   const [otpEmail, setOtpEmail] = useState('')
   const [pendingPassword, setPendingPassword] = useState('')
+  const [resetGrant, setResetGrant] = useState('')
   const [resendCooldown, setResendCooldown] = useState(0)
 
   const [fieldErrors, setFieldErrors] = useState({})
@@ -53,7 +57,7 @@ export default function AuthModal() {
     document.body.style.overflow = 'hidden'
 
     const timer = setTimeout(() => {
-      if (modalMode === 'otp_verification') {
+      if (modalMode === 'otp_verification' || modalMode === 'forgot_otp') {
         otpInputRef.current?.focus()
       } else {
         emailInputRef.current?.focus()
@@ -115,14 +119,14 @@ export default function AuthModal() {
         ...prev,
         password: result.isValid ? null : result.message,
       }))
-      if (modalMode === 'register' && touchedFields.confirmPassword) {
+      if ((modalMode === 'register' || modalMode === 'reset_new_password') && touchedFields.confirmPassword) {
         const confirmResult = validateConfirmPassword(confirmPassword, password)
         setFieldErrors((prev) => ({
           ...prev,
           confirmPassword: confirmResult.isValid ? null : confirmResult.message,
         }))
       }
-    } else if (field === 'confirmPassword' && modalMode === 'register') {
+    } else if (field === 'confirmPassword' && (modalMode === 'register' || modalMode === 'reset_new_password')) {
       const confirmResult = validateConfirmPassword(confirmPassword, password)
       setFieldErrors((prev) => ({
         ...prev,
@@ -159,7 +163,7 @@ export default function AuthModal() {
         password: result.isValid ? null : result.message,
       }))
     }
-    if (modalMode === 'register' && touchedFields.confirmPassword) {
+    if ((modalMode === 'register' || modalMode === 'reset_new_password') && touchedFields.confirmPassword) {
       const confirmResult = validateConfirmPassword(confirmPassword, val)
       setFieldErrors((prev) => ({
         ...prev,
@@ -235,6 +239,65 @@ export default function AuthModal() {
       } finally {
         setIsSubmitting(false)
       }
+    } else if (modalMode === 'forgot_email') {
+      const emailRes = validateEmail(email)
+      if (!emailRes.isValid) {
+        setFieldErrors({ email: emailRes.message })
+        setTouchedFields({ email: true })
+        return
+      }
+
+      setIsSubmitting(true)
+      try {
+        await requestPasswordReset({ email: emailRes.value })
+        setOtpEmail(emailRes.value)
+        setOtpCode('')
+        setFieldErrors({})
+        setTouchedFields({})
+        setResendCooldown(60)
+        setSuccessNotice(`Mã xác thực gồm 6 chữ số đã được gửi tới ${emailRes.value}.`)
+        setModalMode('forgot_otp')
+      } catch (err) {
+        setApiError(getAuthErrorMessage(err))
+        setApiErrorCode(err?.code)
+      } finally {
+        setIsSubmitting(false)
+      }
+    } else if (modalMode === 'reset_new_password') {
+      const passRes = validatePassword(password)
+      const confirmRes = validateConfirmPassword(confirmPassword, password)
+      if (!passRes.isValid || !confirmRes.isValid) {
+        setFieldErrors({
+          ...(passRes.isValid ? {} : { password: passRes.message }),
+          ...(confirmRes.isValid ? {} : { confirmPassword: confirmRes.message }),
+        })
+        setTouchedFields({ password: true, confirmPassword: true })
+        return
+      }
+
+      setIsSubmitting(true)
+      const targetEmail = otpEmail || email
+      try {
+        await completeResetPassword({
+          email: targetEmail,
+          grant: resetGrant,
+          password: passRes.value,
+        })
+        setResetGrant('')
+        setPassword('')
+        setConfirmPassword('')
+        setOtpCode('')
+        setFieldErrors({})
+        setTouchedFields({})
+        setEmail(targetEmail)
+        setSuccessNotice('Đặt lại mật khẩu thành công! Vui lòng đăng nhập bằng mật khẩu mới.')
+        setModalMode('login')
+      } catch (err) {
+        setApiError(getAuthErrorMessage(err))
+        setApiErrorCode(err?.code)
+      } finally {
+        setIsSubmitting(false)
+      }
     }
   }
 
@@ -261,6 +324,18 @@ export default function AuthModal() {
     }
 
     try {
+      if (modalMode === 'forgot_otp') {
+        const verified = await verifyPasswordReset({ email: savedEmail, code: result.value })
+        setResetGrant(verified.grant)
+        setPassword('')
+        setConfirmPassword('')
+        setFieldErrors({})
+        setTouchedFields({})
+        setSuccessNotice('Mã OTP hợp lệ. Vui lòng nhập mật khẩu mới và xác nhận mật khẩu.')
+        setModalMode('reset_new_password')
+        return
+      }
+
       const data = await activate({ email: savedEmail, code: result.value })
 
       // Clear pending registration cache
@@ -305,7 +380,11 @@ export default function AuthModal() {
     setIsSubmitting(true)
     const activeEmail = otpEmail || email
     try {
-      await resendActivation({ email: activeEmail })
+      if (modalMode === 'forgot_otp') {
+        await requestPasswordReset({ email: activeEmail })
+      } else {
+        await resendActivation({ email: activeEmail })
+      }
       setResendCooldown(60)
       setSuccessNotice(`Mã OTP mới đã được gửi lại tới ${activeEmail}.`)
     } catch (err) {
@@ -363,21 +442,33 @@ export default function AuthModal() {
           >
             {modalMode === 'otp_verification'
               ? 'Kích hoạt tài khoản'
-              : modalMode === 'login'
-                ? 'Đăng nhập Sol Hair'
-                : 'Tạo tài khoản Sol'}
+              : modalMode === 'forgot_email'
+                ? 'Quên mật khẩu'
+                : modalMode === 'forgot_otp'
+                  ? 'Xác nhận mã OTP'
+                  : modalMode === 'reset_new_password'
+                    ? 'Đặt mật khẩu mới'
+                    : modalMode === 'login'
+                      ? 'Đăng nhập Sol Hair'
+                      : 'Tạo tài khoản Sol'}
           </h2>
           <p className="mt-1 text-xs text-muted">
             {modalMode === 'otp_verification'
               ? 'Xác thực mã 6 số được gửi qua email để hoàn tất đăng ký.'
-              : modalMode === 'login'
-                ? 'Trải nghiệm dịch vụ làm đẹp dành riêng cho bạn.'
-                : 'Đăng ký để dễ dàng đặt lịch và theo dõi dịch vụ.'}
+              : modalMode === 'forgot_email'
+                ? 'Nhập email đã đăng ký để nhận mã xác thực OTP 6 chữ số.'
+                : modalMode === 'forgot_otp'
+                  ? 'Nhập mã OTP 6 chữ số đã gửi về email của bạn.'
+                  : modalMode === 'reset_new_password'
+                    ? `Thiết lập mật khẩu mới cho tài khoản ${otpEmail || email}.`
+                    : modalMode === 'login'
+                      ? 'Trải nghiệm dịch vụ làm đẹp dành riêng cho bạn.'
+                      : 'Đăng ký để dễ dàng đặt lịch và theo dõi dịch vụ.'}
           </p>
         </div>
 
         {/* Prompt Notice (e.g. from clicking Đặt lịch) */}
-        {promptNotice && modalMode !== 'otp_verification' && (
+        {promptNotice && (modalMode === 'login' || modalMode === 'register') && (
           <div
             role="status"
             className="mt-4 flex items-start gap-2.5 rounded-2xl border border-terracotta/20 bg-terracotta/10 p-3 text-xs leading-relaxed text-terracotta"
@@ -400,7 +491,7 @@ export default function AuthModal() {
         )}
 
         {/* Mode Switcher Tabs (Only shown for login & register) */}
-        {modalMode !== 'otp_verification' && (
+        {(modalMode === 'login' || modalMode === 'register') && (
           <div className="mt-5 grid grid-cols-2 rounded-2xl border border-border/60 bg-soft-surface p-1 text-xs font-semibold">
             <button
               type="button"
@@ -466,7 +557,7 @@ export default function AuthModal() {
         )}
 
         {/* OTP Verification Form */}
-        {modalMode === 'otp_verification' ? (
+        {modalMode === 'otp_verification' || modalMode === 'forgot_otp' ? (
           <form onSubmit={handleVerifyOtp} noValidate className="mt-5 space-y-4">
             <div className="rounded-2xl border border-border/80 bg-soft-surface p-3 text-center text-xs text-muted">
               Mã xác thực 6 chữ số đã được gửi tới:
@@ -535,14 +626,14 @@ export default function AuthModal() {
               <button
                 type="button"
                 onClick={() => {
-                  setModalMode('register')
+                  setModalMode(modalMode === 'forgot_otp' ? 'forgot_email' : 'register')
                   setApiError(null)
                   setApiErrorCode(null)
                   setFieldErrors({})
                 }}
                 className="text-muted hover:text-ink hover:underline"
               >
-                ← Quay lại đăng ký
+                {modalMode === 'forgot_otp' ? '← Đổi email khác' : '← Quay lại đăng ký'}
               </button>
               <button
                 type="button"
@@ -566,132 +657,147 @@ export default function AuthModal() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                     </svg>
-                    <span>Đang kích hoạt...</span>
+                    <span>{modalMode === 'forgot_otp' ? 'Đang xác minh...' : 'Đang kích hoạt...'}</span>
                   </>
                 ) : (
-                  <span>Kích hoạt tài khoản</span>
+                  <span>{modalMode === 'forgot_otp' ? 'Xác nhận mã OTP' : 'Kích hoạt tài khoản'}</span>
                 )}
               </button>
             </div>
           </form>
         ) : (
-          /* Login & Register Forms */
+          /* Login, Register, Forgot Email & Reset New Password Forms */
           <form onSubmit={handleSubmit} noValidate className="mt-5 space-y-4">
             {/* Email field */}
-            <div>
-              <label
-                htmlFor="auth-email-input"
-                className="block text-xs font-medium text-ink"
-              >
-                Địa chỉ email <span className="text-terracotta">*</span>
-              </label>
-              <div className="relative mt-1.5">
-                <input
-                  ref={emailInputRef}
-                  id="auth-email-input"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="ten@vidu.com"
-                  value={email}
-                  onChange={handleEmailChange}
-                  onBlur={() => handleBlur('email')}
-                  aria-invalid={Boolean(fieldErrors.email)}
-                  aria-describedby={fieldErrors.email ? 'auth-email-error' : undefined}
-                  className={`w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-muted/60 transition focus:outline-none ${
-                    fieldErrors.email
-                      ? 'border-terracotta focus:border-terracotta focus:ring-2 focus:ring-terracotta/20'
-                      : 'border-border focus:border-terracotta focus:ring-2 focus:ring-terracotta/15'
-                  }`}
-                />
-              </div>
-              {fieldErrors.email && (
-                <p
-                  id="auth-email-error"
-                  role="alert"
-                  className="mt-1.5 flex items-center gap-1 text-xs text-terracotta"
-                >
-                  <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
-                  {fieldErrors.email}
-                </p>
-              )}
-            </div>
-
-            {/* Password field */}
-            <div>
-              <div className="flex items-center justify-between">
+            {modalMode !== 'reset_new_password' && (
+              <div>
                 <label
-                  htmlFor="auth-password-input"
+                  htmlFor="auth-email-input"
                   className="block text-xs font-medium text-ink"
                 >
-                  Mật khẩu <span className="text-terracotta">*</span>
+                  Địa chỉ email <span className="text-terracotta">*</span>
                 </label>
-              </div>
-              <div className="relative mt-1.5">
-                <input
-                  id="auth-password-input"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete={modalMode === 'login' ? 'current-password' : 'new-password'}
-                  placeholder="Ít nhất 8 ký tự"
-                  value={password}
-                  onChange={handlePasswordChange}
-                  onBlur={() => handleBlur('password')}
-                  aria-invalid={Boolean(fieldErrors.password)}
-                  aria-describedby={fieldErrors.password ? 'auth-password-error' : undefined}
-                  className={`w-full rounded-xl border bg-white px-3.5 py-2.5 pr-10 text-sm text-ink placeholder:text-muted/60 transition focus:outline-none ${
-                    fieldErrors.password
-                      ? 'border-terracotta focus:border-terracotta focus:ring-2 focus:ring-terracotta/20'
-                      : 'border-border focus:border-terracotta focus:ring-2 focus:ring-terracotta/15'
-                  }`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                  aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiển thị mật khẩu'}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-ink focus:outline-none p-1"
-                >
-                  {showPassword ? (
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-                      <line x1="1" y1="1" x2="23" y2="23" />
+                <div className="relative mt-1.5">
+                  <input
+                    ref={emailInputRef}
+                    id="auth-email-input"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="ten@vidu.com"
+                    value={email}
+                    onChange={handleEmailChange}
+                    onBlur={() => handleBlur('email')}
+                    aria-invalid={Boolean(fieldErrors.email)}
+                    aria-describedby={fieldErrors.email ? 'auth-email-error' : undefined}
+                    className={`w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-muted/60 transition focus:outline-none ${
+                      fieldErrors.email
+                        ? 'border-terracotta focus:border-terracotta focus:ring-2 focus:ring-terracotta/20'
+                        : 'border-border focus:border-terracotta focus:ring-2 focus:ring-terracotta/15'
+                    }`}
+                  />
+                </div>
+                {fieldErrors.email && (
+                  <p
+                    id="auth-email-error"
+                    role="alert"
+                    className="mt-1.5 flex items-center gap-1 text-xs text-terracotta"
+                  >
+                    <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
                     </svg>
-                  ) : (
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                  )}
-                </button>
+                    {fieldErrors.email}
+                  </p>
+                )}
               </div>
-              {fieldErrors.password && (
-                <p
-                  id="auth-password-error"
-                  role="alert"
-                  className="mt-1.5 flex items-center gap-1 text-xs text-terracotta"
-                >
-                  <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
-                  {fieldErrors.password}
-                </p>
-              )}
-            </div>
+            )}
 
-            {/* Confirm Password (only in register mode) */}
-            {modalMode === 'register' && (
+            {/* Password field */}
+            {modalMode !== 'forgot_email' && (
+              <div>
+                <div className="flex items-center justify-between">
+                  <label
+                    htmlFor="auth-password-input"
+                    className="block text-xs font-medium text-ink"
+                  >
+                    {modalMode === 'reset_new_password' ? 'Mật khẩu mới' : 'Mật khẩu'}{' '}
+                    <span className="text-terracotta">*</span>
+                  </label>
+                  {modalMode === 'login' && (
+                    <button
+                      type="button"
+                      onClick={() => handleModeChange('forgot_email')}
+                      className="text-xs font-medium text-terracotta hover:underline focus:outline-none"
+                    >
+                      Quên mật khẩu?
+                    </button>
+                  )}
+                </div>
+                <div className="relative mt-1.5">
+                  <input
+                    id="auth-password-input"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete={modalMode === 'login' ? 'current-password' : 'new-password'}
+                    placeholder="Ít nhất 8 ký tự"
+                    value={password}
+                    onChange={handlePasswordChange}
+                    onBlur={() => handleBlur('password')}
+                    aria-invalid={Boolean(fieldErrors.password)}
+                    aria-describedby={fieldErrors.password ? 'auth-password-error' : undefined}
+                    className={`w-full rounded-xl border bg-white px-3.5 py-2.5 pr-10 text-sm text-ink placeholder:text-muted/60 transition focus:outline-none ${
+                      fieldErrors.password
+                        ? 'border-terracotta focus:border-terracotta focus:ring-2 focus:ring-terracotta/20'
+                        : 'border-border focus:border-terracotta focus:ring-2 focus:ring-terracotta/15'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiển thị mật khẩu'}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-ink focus:outline-none p-1"
+                  >
+                    {showPassword ? (
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                      </svg>
+                    ) : (
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                {fieldErrors.password && (
+                  <p
+                    id="auth-password-error"
+                    role="alert"
+                    className="mt-1.5 flex items-center gap-1 text-xs text-terracotta"
+                  >
+                    <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    {fieldErrors.password}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Confirm Password (register or reset_new_password mode) */}
+            {(modalMode === 'register' || modalMode === 'reset_new_password') && (
               <div>
                 <label
                   htmlFor="auth-confirm-password-input"
                   className="block text-xs font-medium text-ink"
                 >
-                  Xác nhận mật khẩu <span className="text-terracotta">*</span>
+                  {modalMode === 'reset_new_password' ? 'Xác nhận mật khẩu mới' : 'Xác nhận mật khẩu'}{' '}
+                  <span className="text-terracotta">*</span>
                 </label>
                 <div className="relative mt-1.5">
                   <input
@@ -745,7 +851,15 @@ export default function AuthModal() {
                     <span>Đang xử lý...</span>
                   </>
                 ) : (
-                  <span>{modalMode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}</span>
+                  <span>
+                    {modalMode === 'login'
+                      ? 'Đăng nhập'
+                      : modalMode === 'register'
+                        ? 'Tạo tài khoản'
+                        : modalMode === 'forgot_email'
+                          ? 'Gửi mã OTP'
+                          : 'Lưu mật khẩu mới'}
+                  </span>
                 )}
               </button>
             </div>
@@ -753,7 +867,7 @@ export default function AuthModal() {
         )}
 
         {/* Footer Toggle */}
-        {modalMode !== 'otp_verification' && (
+        {modalMode !== 'otp_verification' && modalMode !== 'forgot_otp' && (
           <div className="mt-5 text-center text-xs text-muted">
             {modalMode === 'login' ? (
               <p>
@@ -768,7 +882,7 @@ export default function AuthModal() {
               </p>
             ) : (
               <p>
-                Đã có tài khoản?{' '}
+                {modalMode === 'register' ? 'Đã có tài khoản? ' : 'Nhớ lại mật khẩu? '}
                 <button
                   type="button"
                   onClick={() => handleModeChange('login')}

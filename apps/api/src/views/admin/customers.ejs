@@ -1,0 +1,18 @@
+<%- include('layout-header') %>
+<p class="mb-4 text-xs uppercase tracking-widest text-muted">SOL / KHÁCH HÀNG</p>
+<div class="flex flex-wrap items-center justify-between gap-4"><div><h1 class="text-3xl font-bold">Quản lý khách hàng</h1><p class="mt-2 text-muted">Thông tin khách hàng và lịch sử ghé salon.</p></div><button id="add" class="rounded-xl bg-terracotta px-5 py-3 font-semibold text-white">+ Thêm khách hàng</button></div>
+<div id="summary" class="my-6 grid gap-4 sm:grid-cols-3"></div>
+<p id="message" role="status" class="my-4 text-terracotta"></p>
+<div>
+<section class="min-w-0 rounded-2xl border border-border bg-white p-5"><h2 class="mb-5 text-xl font-bold">Danh sách khách hàng</h2>
+<form id="filters" class="flex flex-wrap gap-3"><input aria-label="Tìm khách hàng" name="q" placeholder="Tìm tên, số điện thoại…" maxlength="120" class="min-w-0 flex-1 rounded-xl border border-border p-3"><select name="type" aria-label="Loại khách" class="rounded-xl border border-border p-3"><option value="all">Tất cả khách hàng</option><option value="account">Có tài khoản</option><option value="guest">Khách vãng lai</option></select><button class="rounded-xl border border-border p-3">Tìm kiếm</button></form>
+<div class="overflow-x-auto"><table class="my-5 w-full text-left text-sm"><thead><tr class="border-b border-border text-muted"><th class="p-3">Khách hàng</th><th class="p-3">Loại khách</th><th class="p-3">Lần ghé gần nhất</th><th class="p-3">Số lượt</th></tr></thead><tbody id="rows"></tbody></table></div><div id="pages" class="flex items-center justify-between gap-3 text-sm"></div></section>
+</div>
+<dialog id="detail-dialog" aria-labelledby="detail-title" class="w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-white p-6 text-ink shadow-xl backdrop:bg-black/40">
+<div class="mb-5 flex items-center justify-between gap-4"><h2 id="detail-title" class="text-xl font-bold">Chi tiết khách hàng</h2><button id="close-detail" aria-label="Đóng chi tiết" class="rounded-lg border border-border px-3 py-2">✕</button></div>
+<div id="detail" aria-live="polite"></div>
+</dialog>
+<dialog id="editor" class="w-full max-w-lg rounded-2xl p-6 backdrop:bg-black/30"><form id="customer-form"><h2 id="editor-title" class="mb-5 text-xl font-bold"></h2><label class="block">Họ tên<input name="displayName" required maxlength="120" class="mb-4 mt-2 block w-full rounded-xl border border-border p-3"></label><label class="block">Số điện thoại<input name="phone" type="tel" maxlength="24" placeholder="0901234567 hoặc +84901234567" class="mb-4 mt-2 block w-full rounded-xl border border-border p-3"></label><p class="mb-4 text-sm text-muted">Hồ sơ khách độc lập với tài khoản đăng nhập. Cập nhật không thay đổi thông tin trên lịch hẹn cũ.</p><p id="form-error" role="alert" class="mb-4 text-terracotta"></p><div class="flex justify-end gap-3"><button type="button" id="close-editor" class="rounded-xl border border-border px-5 py-3">Hủy</button><button id="save" class="rounded-xl bg-terracotta px-5 py-3 text-white">Lưu khách hàng</button></div></form></dialog>
+<script id="customer-config" type="application/json"><%- JSON.stringify({token: apiToken}).replace(/</g, '\\u003c') %></script>
+<script src="/admin/assets/customers-admin.js" defer></script>
+<%- include('layout-footer') %>
