@@ -8,6 +8,7 @@ import {
   updateServiceAction,
   toggleServiceStatusAction,
 } from './admin.controller.js'
+import { renderRevenue } from './revenue.controller.js'
 import { requireAdminAuth } from './admin.middleware.js'
 
 export const adminRouter = Router()
@@ -33,6 +34,8 @@ adminRouter.get('/admin', (req, res) => {
 // Owner Dashboard routes (EJS)
 adminRouter.get('/admin/dashboard', requireAdminAuth, renderDashboard)
 adminRouter.get('/owner/dashboard', requireAdminAuth, renderDashboard)
+
+adminRouter.get('/admin/revenue', requireAdminAuth, renderRevenue)
 
 // Owner Services management routes (EJS)
 adminRouter.get('/admin/services', requireAdminAuth, renderServices)

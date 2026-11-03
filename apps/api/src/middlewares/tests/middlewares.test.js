@@ -21,6 +21,22 @@ describe('phản hồi lỗi JSON thống nhất', () => {
     })
   })
 
+  it.each(['/', '/admin/khong-ton-tai', '/owner/khong-ton-tai', '/duong-dan-sai'])('redirects missing page %s to the protected dashboard', async (path) => {
+    const response = await request(createApp()).get(path).expect(302)
+    expect(response.headers.location).toBe('/admin/dashboard')
+    expect(response.headers['cache-control']).toBe('no-store')
+  })
+
+  it.each(['/api/khong-ton-tai', '/admin-assets/missing.png', '/admin/assets/missing.css'])('keeps JSON 404 for %s', async (path) => {
+    const response = await request(createApp()).get(path).expect(404)
+    expect(response.body.code).toBe('NOT_FOUND')
+    expect(response.headers.location).toBeUndefined()
+  })
+
+  it('does not redirect an unknown write request', async () => {
+    await request(createApp()).post('/admin/khong-ton-tai').expect(404)
+  })
+
   it('trả 400 khi request chứa JSON không hợp lệ', async () => {
     const response = await request(createApp())
       .post('/api/health')
