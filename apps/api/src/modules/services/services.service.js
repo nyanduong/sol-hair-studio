@@ -166,7 +166,7 @@ export async function getServiceDetail(id) {
 
 export async function createService(identity, input, session) {
   ensureOwner(identity)
-  if (input.categoryId && !session) return withManagedCategory(identity, input, (payload, transaction) => createService(identity, payload, transaction))
+  if (input.categoryId !== undefined && !session) return withManagedCategory(identity, input, (payload, transaction) => createService(identity, payload, transaction))
   const generatedId = input.id === undefined
   const id = generatedId ? `${generateSlug(input.name).slice(0, 60) || 'dich-vu'}-${randomUUID().slice(0, 8)}` : input.id
   const data = validateServicePayload({
@@ -225,7 +225,7 @@ export async function updateService(identity, id, input, session) {
   }
 
   if (!input.categoryId && input.category && existing.categoryId && input.category !== existing.category) input = { ...input, categoryId: await resolveCategoryName(input.category) }
-  if (input.categoryId && !session) return withManagedCategory(identity, input, (payload, transaction) => updateService(identity, id, payload, transaction), existing)
+  if (input.categoryId !== undefined && !session) return withManagedCategory(identity, input, (payload, transaction) => updateService(identity, id, payload, transaction), existing)
   const updates = validateServicePayload(input, true)
   if (input.categoryId) updates.categoryId = input.categoryId
 

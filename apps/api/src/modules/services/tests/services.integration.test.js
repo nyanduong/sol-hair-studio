@@ -101,6 +101,7 @@ describe('SOL-023: Tích hợp dịch vụ và hồi quy danh mục (M2 Integrat
     expect(service.status).toBe(201)
     expect(service.body.data.category).toBe('Chăm sóc')
     expect((await command('/services', 'POST', { ...payload, categoryId: 'bad' })).status).toBe(400)
+    expect((await command('/services', 'POST', { ...payload, categoryId: null })).status).toBe(400)
     expect((await command(`/service-categories/${category.id}`, 'PATCH', { name: 'Chăm sóc tóc' })).status).toBe(200)
     expect((await ServiceModel.findOne({ id: service.body.data.id }).lean()).category).toBe('Chăm sóc tóc')
     const page = await fetch(`${baseUrl}/admin/services`, { headers: { Cookie: `sol_admin_token=${ownerToken}` } })
