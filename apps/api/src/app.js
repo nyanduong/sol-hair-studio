@@ -8,6 +8,7 @@ import { errorHandler } from './middlewares/error-handler.js'
 import { notFound } from './middlewares/not-found.js'
 import { adminAppointmentsRouter } from './modules/admin/admin-appointments.routes.js'
 import { apiRouter } from './routes/index.js'
+import { adminRouter } from './routes/admin.routes.js'
 import { availabilityInvalidation } from './modules/availability/availability.realtime.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -23,6 +24,10 @@ export function createApp({ routes = apiRouter, logStream } = {}) {
 
   app.disable('x-powered-by')
   app.set('view engine', 'ejs')
+  app.set('views', fileURLToPath(new URL('./views', import.meta.url)))
+  app.use(cors({ origin: allowedOrigins }))
+  app.use('/admin/assets', express.static(fileURLToPath(new URL('./public/admin', import.meta.url))))
+  app.use(adminRouter)
   app.set('views', path.join(__dirname, 'views'))
 
   app.use('/admin-assets', express.static(path.join(__dirname, '../public')))
