@@ -43,9 +43,10 @@
       <img src="/admin-assets/logo/sol-logo.png" alt="" width="44" height="44" class="h-11 w-11 shrink-0 object-contain" decoding="async">
       <span><span class="block text-sm font-bold tracking-tight">SOL HAIR STUDIO</span><span class="mt-1 block text-[10px] font-semibold tracking-widest text-terracotta">QUẢN TRỊ SALON</span></span>
     </a>
-    <nav aria-label="Quản trị salon" class="grid grid-cols-2 gap-1 sm:grid-cols-4 px-3 pb-3 lg:mt-4 lg:flex lg:flex-col lg:gap-2">
+    <nav aria-label="Quản trị salon" class="grid grid-cols-2 gap-1 sm:grid-cols-5 px-3 pb-3 lg:mt-4 lg:flex lg:flex-col lg:gap-2">
       <% const navigation = [
         { key: 'dashboard', href: '/admin/dashboard', label: 'Tổng quan', path: 'M3 10l9-7 9 7M5 9v12h5v-7h4v7h5V9' },
+        { key: 'revenue', href: '/admin/revenue', label: 'Báo cáo doanh thu', path: 'M3 21h18M6 17v-4h3v4m3 0V8h3v9m3 0V3h3v14' },
         { key: 'appointments', href: '/owner/appointments', label: 'Lịch salon', path: 'M8 2v4m8-4v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2' },
         { key: 'staff', href: '/admin/nhan-su', label: 'Nhân sự', path: 'M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2m14-18a4 4 0 010 8m6 10v-2a4 4 0 00-3-3.87M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
         { key: 'services', href: '/admin/services', label: 'Quản lý dịch vụ', path: 'M14 14l7 7M14 10l7-7M3 3l18 18M9 7a3 3 0 11-6 0 3 3 0 016 0zm0 10a3 3 0 11-6 0 3 3 0 016 0zM8 15l3-3' }
