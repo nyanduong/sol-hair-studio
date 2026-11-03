@@ -3,21 +3,15 @@ import Feather from '@expo/vector-icons/Feather'
 import { useFeatureUnavailable } from '../components/FeatureUnavailableProvider.jsx'
 import { useAuth } from '../features/auth/hooks/useAuth.js'
 import { colors } from '../theme/tokens.js'
-
-const items = [
-  { route: 'Home', icon: 'home', label: 'Trang chủ' },
-  { route: 'Services', icon: 'grid', label: 'Dịch vụ' },
-  { route: 'Booking', icon: 'calendar', label: 'Đặt lịch', booking: true },
-  { route: 'StylistShifts', icon: 'clock', label: 'Lịch hẹn' },
-  { route: 'Profile', icon: 'user', label: 'Tài khoản' },
-]
+import { getBottomNavItems } from './navigation-items.js'
 
 export default function BottomNav({ navigation, active }) {
   const showFeature = useFeatureUnavailable()
   const { isAuthenticated, isStylist } = useAuth()
+  const items = getBottomNavItems(isStylist)
 
   function handlePress(item) {
-    if (item.label === 'Tài khoản') {
+    if (item.kind === 'profile') {
       if (active === 'Profile') return
       if (isAuthenticated) {
         navigation.navigate('Profile')
@@ -29,7 +23,7 @@ export default function BottomNav({ navigation, active }) {
       return
     }
 
-    if (item.label === 'Đặt lịch') {
+    if (item.kind === 'booking') {
       if (!isAuthenticated) {
         navigation.navigate('Login', {
           notice: 'Vui lòng đăng nhập tài khoản trước khi đặt lịch hẹn.',
@@ -41,15 +35,16 @@ export default function BottomNav({ navigation, active }) {
       return
     }
 
-    if (item.label === 'Lịch hẹn') {
-      if (!isAuthenticated) {
+    if (item.kind === 'stylist-shifts') {
+      if (active !== 'StylistShifts') navigation.navigate('StylistShifts')
+      return
+    }
+
+    if (item.kind === 'unavailable') {
+      if (item.requiresAuth && !isAuthenticated) {
         navigation.navigate('Login', {
           notice: 'Vui lòng đăng nhập để theo dõi lịch hẹn của bạn.',
         })
-        return
-      }
-      if (isStylist) {
-        if (active !== 'StylistShifts') navigation.navigate('StylistShifts')
         return
       }
       return showFeature(item.label)

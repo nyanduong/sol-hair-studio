@@ -120,7 +120,7 @@ apps/mobile/
 │   │   ├── resolve-api-base-url.js   Ưu tiên URL cấu hình; tự nhận host trong dev
 │   │   └── tests/                   Test chọn host, đổi mạng và cấu hình riêng
 │   ├── navigation/RootNavigator.jsx  Mở Home; giữ Services và Health trong stack
-│   ├── navigation/BottomNav.jsx      5 mục; stylist vào Ca làm của tôi từ Lịch hẹn
+│   ├── navigation/BottomNav.jsx      5 mục theo role; stylist đặt Ca làm của tôi ở giữa
 │   ├── components/FeatureUnavailableProvider.jsx  Một modal dùng chung toàn mobile
 │   ├── components/FeatureUnavailableModal.jsx     Báo tính năng đang phát triển, đóng bằng nút/Back
 │   ├── theme/tokens.js               Màu Sol và font hệ thống native
@@ -180,7 +180,7 @@ Mobile mở `HomeScreen` trước với logo, hero và danh mục thật; thanh 
 
 ### Luồng ca làm stylist (SOL-027)
 
-Stylist đã đăng nhập bấm **Lịch hẹn** trên `BottomNav` để vào `StylistShifts`. Screen lấy tuần hiện tại và gọi `useStylistShifts`; hook lần lượt gọi `GET /api/staff` với token phiên, lấy duy nhất hồ sơ được API lọc theo `accountId`, rồi gọi `GET /api/staff/:staffId/shifts?fromDate=...&toDate=...`. Mobile không cho người dùng chọn hoặc truyền staffId. API tiếp tục kiểm ownership độc lập. Màn hiển thị tải, lỗi/thử lại, tuần trống hoặc ca với ngày, giờ và trạng thái; đổi tuần hoặc rời màn hủy request cũ bằng `latest-request.js`. Khách hàng vẫn nhận modal tính năng chưa phát triển khi bấm **Lịch hẹn**.
+Stylist đã đăng nhập có thanh dưới riêng gồm **Trang chủ**, **Lịch hẹn được giao**, **Ca làm của tôi**, **Báo cáo** và **Tài khoản**. Mục giữa mở `StylistShifts`; các mục lịch hẹn được giao và báo cáo chưa có API/screen nên mở modal tính năng đang phát triển. Screen lấy tuần hiện tại và gọi `useStylistShifts`; hook lần lượt gọi `GET /api/staff` với token phiên, lấy duy nhất hồ sơ được API lọc theo `accountId`, rồi gọi `GET /api/staff/:staffId/shifts?fromDate=...&toDate=...`. Mobile không cho người dùng chọn hoặc truyền staffId. API tiếp tục kiểm ownership độc lập. Màn hiển thị tải, lỗi/thử lại, tuần trống hoặc ca với ngày, giờ và trạng thái; đổi tuần hoặc rời màn hủy request cũ bằng `latest-request.js`. Khách hàng giữ thanh điều hướng có Dịch vụ, Đặt lịch và Lịch hẹn của tôi.
 
 ## E. Luồng chạy health
 
