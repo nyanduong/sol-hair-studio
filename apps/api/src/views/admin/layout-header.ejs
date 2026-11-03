@@ -32,46 +32,32 @@
     }
   </script>
 </head>
-<body class="flex flex-col min-h-full font-sans antialiased text-[#2c2825] bg-[#fcfbf9]">
-  <header class="sticky top-0 z-30 border-b border-[#e7e2da] bg-white/95 backdrop-blur shadow-sm">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <div class="flex items-center space-x-4">
-        <a href="/admin/dashboard" class="flex items-center space-x-3">
-          <div class="w-9 h-9 rounded-full bg-[#b55338] text-white flex items-center justify-center font-bold text-sm tracking-wider">
-            SOL
-          </div>
-          <div>
-            <span class="font-bold text-base tracking-wide text-ink block leading-none">SOL HAIR STUDIO</span>
-            <span class="text-[10px] font-semibold text-[#b55338] uppercase tracking-widest block mt-0.5">Trang Quản Trị Salon</span>
-          </div>
+<body class="min-h-screen bg-canvas font-sans text-ink antialiased lg:pl-60">
+  <a href="#admin-content" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-lg focus:bg-white focus:p-3">Đến nội dung chính</a>
+  <header class="border-b border-border bg-white lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:w-60 lg:flex-col lg:border-b-0 lg:border-r">
+    <a href="/admin/dashboard" class="flex items-center gap-3 px-5 py-6">
+      <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-terracotta text-sm font-bold text-white">SOL</span>
+      <span><span class="block text-sm font-bold tracking-tight">SOL HAIR STUDIO</span><span class="mt-1 block text-[10px] font-semibold tracking-widest text-terracotta">QUẢN TRỊ SALON</span></span>
+    </a>
+    <nav aria-label="Quản trị salon" class="grid grid-cols-3 gap-1 px-3 pb-3 lg:mt-4 lg:flex lg:flex-col lg:gap-2">
+      <% const navigation = [
+        { key: 'dashboard', href: '/admin/dashboard', label: 'Tổng quan', path: 'M3 10l9-7 9 7M5 9v12h5v-7h4v7h5V9' },
+        { key: 'appointments', href: '/owner/appointments', label: 'Lịch salon', path: 'M8 2v4m8-4v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2' },
+        { key: 'services', href: '/admin/services', label: 'Quản lý dịch vụ', path: 'M14 14l7 7M14 10l7-7M3 3l18 18M9 7a3 3 0 11-6 0 3 3 0 016 0zm0 10a3 3 0 11-6 0 3 3 0 016 0zM8 15l3-3' }
+      ]; %>
+      <% navigation.forEach(function(item) { %>
+        <a href="<%= item.href %>" <%- locals.activeTab === item.key ? 'aria-current="page"' : '' %> class="flex min-h-11 flex-col items-center gap-2 rounded-xl px-2 py-3 text-xs font-semibold lg:flex-row lg:gap-3 lg:px-3 lg:text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-terracotta <%= locals.activeTab === item.key ? 'bg-terracotta-light text-terracotta' : 'text-muted hover:bg-soft-surface hover:text-ink' %>">
+          <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="<%= item.path %>" /></svg>
+          <%= item.label %>
         </a>
-        <nav class="hidden md:flex items-center space-x-1 pl-6">
-          <a href="/admin/dashboard" class="px-3 py-1.5 rounded-lg text-sm font-semibold transition <%= locals.activeTab === 'dashboard' ? 'bg-[#b55338]/10 text-[#b55338]' : 'text-[#7a7269] hover:text-ink hover:bg-[#f4f0ea]' %>">
-            Tổng quan
-          </a>
-          <a href="/admin/services" class="px-3 py-1.5 rounded-lg text-sm font-semibold transition <%= locals.activeTab === 'services' ? 'bg-[#b55338]/10 text-[#b55338]' : 'text-[#7a7269] hover:text-ink hover:bg-[#f4f0ea]' %>">
-            Quản lý Dịch vụ
-          </a>
-          <a href="/owner/appointments" class="px-3 py-1.5 rounded-lg text-sm font-medium text-[#7a7269] hover:text-ink hover:bg-[#f4f0ea] transition">
-            Lịch Salon
-          </a>
-
-        </nav>
+      <% }); %>
+    </nav>
+    <% if (locals.identity) { %>
+      <div class="mx-4 flex items-center gap-3 border-t border-border py-4 lg:mt-auto">
+        <span aria-hidden="true" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-terracotta-light text-xs font-bold text-terracotta"><%= (identity.displayName || identity.email || 'AD').slice(0, 2).toUpperCase() %></span>
+        <div class="min-w-0 flex-1"><p class="text-xs font-semibold">Chủ tiệm</p><p class="mt-1 truncate text-xs text-muted" title="<%= identity.displayName || identity.email %>"><%= identity.displayName || identity.email %></p></div>
+        <form action="/admin/logout" method="POST"><button type="submit" aria-label="Đăng xuất" title="Đăng xuất" class="flex h-11 w-11 items-center justify-center rounded-lg text-muted hover:bg-soft-surface hover:text-terracotta focus-visible:outline focus-visible:outline-2 focus-visible:outline-terracotta"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4H4v16h5m5-12 4 4-4 4m-6-4h14"/></svg></button></form>
       </div>
-
-      <div class="flex items-center space-x-4">
-        <% if (locals.identity) { %>
-          <div class="text-right hidden sm:block">
-            <div class="text-xs font-semibold text-ink"><%= identity.displayName || identity.email %></div>
-            <div class="text-[10px] font-medium text-emerald-600 uppercase tracking-wider">Chủ tiệm</div>
-          </div>
-          <form action="/admin/logout" method="POST" class="inline">
-            <button type="submit" class="text-xs font-medium text-[#7a7269] hover:text-[#b55338] border border-[#e7e2da] hover:border-[#b55338]/40 px-3 py-1.5 rounded-lg transition">
-              Đăng xuất
-            </button>
-          </form>
-        <% } %>
-      </div>
-    </div>
+    <% } %>
   </header>
-  <main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 max-w-7xl w-full mx-auto">
+  <main id="admin-content" class="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">

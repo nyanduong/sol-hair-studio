@@ -109,7 +109,12 @@ describe('Admin EJS Portal Routes', () => {
 
       expect(response.headers['content-type']).toMatch(/text\/html/)
       expect(response.text).toContain('Tổng quan Hoạt động Salon')
-      expect(response.text).toContain('Hàng đợi lịch hẹn hôm nay')
+      expect(response.text).toContain('Lịch hẹn hôm nay')
+      expect(response.text).toContain('15.850.000 đ')
+      expect(response.text).toContain('450.000 đ')
+      expect(response.text).toContain('datetime="2026-10-31"')
+      expect(response.text).toContain('/owner/appointments/507f1f77bcf86cd799439011')
+      expect(response.text).toContain('aria-current="page"')
       expect(response.text).toContain('Trương Khang')
       expect(response.text).toContain('Cắt &amp; tạo kiểu')
       expect(response.text).toContain('Top Dịch vụ đặt nhiều nhất')
