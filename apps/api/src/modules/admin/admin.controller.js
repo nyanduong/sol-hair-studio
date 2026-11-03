@@ -31,7 +31,7 @@ export async function handleLogout(req, res) {
   }
 
   res.clearCookie('sol_admin_token', { path: '/' })
-  return res.redirect(303, config.webBaseUrl + '/login?logout=1')
+  return res.redirect(303, config.webBaseUrl + '/?logout=1')
 }
 
 export async function renderDashboard(req, res) {

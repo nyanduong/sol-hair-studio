@@ -350,7 +350,7 @@ describe('Admin EJS Portal Routes', () => {
   })
 
   describe('POST /admin/logout', () => {
-    it('xóa cookie và redirect về /admin/login', async () => {
+    it('xóa cookie và redirect về trang chủ web', async () => {
       authenticate.mockResolvedValue(ownerIdentity)
       logout.mockResolvedValue(true)
 
@@ -359,7 +359,7 @@ describe('Admin EJS Portal Routes', () => {
         .set('Cookie', ['sol_admin_token=mock-owner-token'])
         .expect(303)
 
-      expect(response.headers.location).toBe('http://localhost:5173/login?logout=1')
+      expect(response.headers.location).toBe('http://localhost:5173/?logout=1')
       expect(response.headers['set-cookie']).toBeDefined()
     })
   })
