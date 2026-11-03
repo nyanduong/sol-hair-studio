@@ -54,3 +54,7 @@ Các lựa chọn dưới đây tạo điểm bắt đầu dễ bảo trì và c
 - Ràng buộc dữ liệu và quyền riêng tư, vai trò xác thực và việc thanh toán là mô phỏng hay tích hợp thật.
 
 Cho đến khi các thông tin trên được xác nhận, công việc phụ thuộc vào chúng phải giữ trạng thái `Bị chặn` hoặc nội dung `Chưa chốt` trên Sheet và không được tuyên bố đã đáp ứng rubric.
+
+## Bổ sung phạm vi thu tiền tại salon
+
+Yêu cầu ngày 03/11/2026 bổ sung luồng chuyển khoản qua ảnh QR chủ tiệm trên website và API dùng chung. Nhân viên thao tác tại máy salon dùng phiên Owner để xác nhận thủ công đã kiểm tra tiền vào tài khoản; không mở đăng nhập web cho stylist thuần. Nhật ký chỉ nhận diện tài khoản đang dùng, không suy diễn cá nhân thao tác. Khách xem trạng thái thanh toán của lịch mình. Báo cáo phân biệt giá trị dịch vụ, tiền đã thu và chưa thu. Không tích hợp cổng thanh toán, tự đối soát ngân hàng, thanh toán từng phần hoặc hoàn tiền trong thay đổi này. Xem `docs/payments-api.md`; chưa coi là xác nhận rubric hay nghiệm thu/merge hoàn tất.

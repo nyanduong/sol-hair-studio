@@ -2,6 +2,13 @@ import mongoose from 'mongoose'
 
 const customerSchema = new mongoose.Schema(
   {
+    avatar: {
+      type: new mongoose.Schema({
+        url: { type: String, required: true, match: /^https:\/\/res\.cloudinary\.com\// },
+        publicId: { type: String, required: true },
+      }, { _id: false }),
+      default: undefined,
+    },
     accountId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Account',

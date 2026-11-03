@@ -21,4 +21,5 @@
         </article>
       <% } %>
     
+<% if (appointment && locals.paymentToken) { %><%- include('../payment', { appointmentId: appointment.id, token: paymentToken }) %><% } %>
 <%- include('../layout-footer') %>
