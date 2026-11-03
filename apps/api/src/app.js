@@ -26,7 +26,6 @@ export function createApp({ routes = apiRouter, logStream } = {}) {
   app.set('view engine', 'ejs')
   app.set('views', fileURLToPath(new URL('./views', import.meta.url)))
   app.use(cors({ origin: allowedOrigins }))
-  app.use(express.json())
   app.use('/admin/assets', express.static(fileURLToPath(new URL('./public/admin', import.meta.url))))
   app.use(adminRouter)
   app.set('views', path.join(__dirname, 'views'))
