@@ -60,6 +60,18 @@ async function counts(expected) {
     await BookingRequestModel.countDocuments(),
   ]).toEqual(expected)
 }
+async function apiRequest(path, token, { method = 'GET', body, key } = {}) {
+  const response = await fetch(baseUrl + path, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      ...(key === undefined ? {} : { 'Idempotency-Key': key }),
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  })
+  return { response, body: await response.json() }
+}
 beforeAll(async () => {
   replica = await MongoMemoryReplSet.create({
     replSet: { count: 1 },
@@ -79,7 +91,7 @@ beforeEach(async () => {
   for (const model of models) await model.deleteMany({})
   fixture = await seedAcceptanceData(NOW)
   tokens = {}
-  for (const role of ['web', 'mobile', 'owner']) tokens[role] = await login(fixture.actors[role])
+  for (const role of ['web', 'mobile', 'owner', 'stylist']) tokens[role] = await login(fixture.actors[role])
   proxy = await startAcceptanceProxy(baseUrl)
 })
 afterEach(async () => {
@@ -246,6 +258,99 @@ describe('SOL-034 actual HTTP sockets, shared clients and MongoDB', () => {
       randomUUID(),
     )
     await counts([3, 3, 3])
+  })
+  it('SOL-028 protects real shifts from booked appointments and resolves a booking-versus-shift race', async () => {
+    const staffId = fixture.staffIds[0]
+    const localDate = '2026-10-21'
+    const baselineShift = await StaffShiftModel.findOne({ staffId, localDate, status: 'active' })
+    expect(baselineShift).not.toBeNull()
+
+    // Stylist may read only their own schedule and cannot change it.
+    expect((await apiRequest(`/api/staff/${staffId}/shifts?localDate=${localDate}`, tokens.stylist)).response.status).toBe(200)
+    expect((await apiRequest(`/api/staff/${fixture.staffIds[1]}/shifts?localDate=${localDate}`, tokens.stylist)).response.status).toBe(403)
+    expect((await apiRequest(`/api/staff/${staffId}/shifts`, tokens.stylist, {
+      method: 'POST', body: { localDate, startAt: at('10:00:00'), endAt: at('17:00:00') },
+    })).response.status).toBe(403)
+
+    // Replace fixture coverage through the owner route, then prove active shifts cannot overlap.
+    expect((await apiRequest(`/api/staff/${staffId}/shifts/${baselineShift._id}`, tokens.owner, {
+      method: 'DELETE',
+    })).response.status).toBe(200)
+    const createdShift = await apiRequest(`/api/staff/${staffId}/shifts`, tokens.owner, {
+      method: 'POST', body: { localDate, startAt: at('10:00:00'), endAt: at('17:00:00') },
+    })
+    expect(createdShift.response.status).toBe(201)
+    const shiftId = createdShift.body.data.shiftId
+    const overlap = await apiRequest(`/api/staff/${staffId}/shifts`, tokens.owner, {
+      method: 'POST', body: { localDate, startAt: at('16:45:00'), endAt: at('18:00:00') },
+    })
+    expect(overlap.response.status).toBe(409)
+    expect(overlap.body.code).toBe('SHIFT_OVERLAP')
+
+    // A booking created by the Web client is real input to M3's appointment guard.
+    const booked = await web.createBooking(baseUrl, tokens.web, payload({ startAt: at('13:30:00') }), randomUUID())
+    expect((await AppointmentModel.findById(booked.id)).status).toBe('confirmed')
+    const blockedShiftEdit = await apiRequest(`/api/staff/${staffId}/shifts/${shiftId}`, tokens.owner, {
+      method: 'PATCH', body: { endAt: at('13:55:00') },
+    })
+    expect(blockedShiftEdit.response.status).toBe(409)
+    expect(blockedShiftEdit.body.code).toBe('APPOINTMENT_CONFLICT')
+    expect(blockedShiftEdit.body.conflicts.map((item) => item.appointmentId)).toEqual([booked.id])
+    const blockedDeactivation = await apiRequest(`/api/staff/${staffId}`, tokens.owner, {
+      method: 'PATCH', body: { isActive: false },
+    })
+    expect(blockedDeactivation.response.status).toBe(409)
+    expect(blockedDeactivation.body.code).toBe('APPOINTMENT_CONFLICT')
+
+    // The customer resolves the real appointment first; M3 can then act on the shift.
+    const bookedDetail = await apiRequest(`/api/appointments/${booked.id}`, tokens.web)
+    expect(bookedDetail.response.status).toBe(200)
+    const cancelled = await apiRequest(`/api/appointments/${booked.id}/cancel`, tokens.web, {
+      method: 'POST', body: { expectedRevision: bookedDetail.body.data.revision, reason: 'SOL-028 acceptance cleanup' }, key: randomUUID(),
+    })
+    expect(cancelled.response.status).toBe(200)
+    expect((await AppointmentModel.findById(booked.id)).status).toBe('cancelled')
+
+    // Booking and cancelling the same shift concurrently may race, but exactly one writer wins.
+    const race = await Promise.all([
+      apiRequest(`/api/staff/${staffId}/shifts/${shiftId}`, tokens.owner, { method: 'DELETE' }),
+      mobile.createBooking(baseUrl, tokens.mobile, payload({ startAt: at('14:30:00') }), randomUUID())
+        .then((data) => ({ response: { status: 201 }, body: { data } }))
+        .catch((error) => ({ response: { status: error.status }, body: error })),
+    ])
+    expect(race[0].response.status).toBeOneOf([200, 409])
+    expect(race[1].response.status).toBeOneOf([201, 409])
+    expect(race.filter((result) => result.response.status !== 409)).toHaveLength(1)
+    const racedBooking = race[1].response.status === 201 ? race[1].body.data : null
+    if (racedBooking) {
+      const racedDetail = await apiRequest(`/api/appointments/${racedBooking.id}`, tokens.mobile)
+      expect((await apiRequest(`/api/appointments/${racedBooking.id}/cancel`, tokens.mobile, {
+        method: 'POST', body: { expectedRevision: racedDetail.body.data.revision, reason: 'SOL-028 race cleanup' }, key: randomUUID(),
+      })).response.status).toBe(200)
+      expect((await apiRequest(`/api/staff/${staffId}/shifts/${shiftId}`, tokens.owner, { method: 'DELETE' })).response.status).toBe(200)
+    }
+
+    // Completed history remains intact and no longer blocks cancelling its finished shift.
+    const completedShift = await apiRequest(`/api/staff/${staffId}/shifts`, tokens.owner, {
+      method: 'POST', body: { localDate, startAt: at('16:00:00'), endAt: at('18:00:00') },
+    })
+    expect(completedShift.response.status).toBe(201)
+    const completedBooking = await web.createBooking(baseUrl, tokens.web, payload({ startAt: at('16:30:00') }), randomUUID())
+    const completedDetail = await apiRequest(`/api/appointments/${completedBooking.id}`, tokens.web)
+    vi.setSystemTime(new Date(at('16:30:00')))
+    const started = await apiRequest(`/api/appointments/${completedBooking.id}/start`, tokens.stylist, {
+      method: 'POST', body: { expectedRevision: completedDetail.body.data.revision }, key: randomUUID(),
+    })
+    expect(started.response.status).toBe(200)
+    const completed = await apiRequest(`/api/appointments/${completedBooking.id}/complete`, tokens.stylist, {
+      method: 'POST', body: { expectedRevision: started.body.data.revision }, key: randomUUID(),
+    })
+    expect(completed.response.status).toBe(200)
+    expect((await apiRequest(`/api/staff/${staffId}/shifts/${completedShift.body.data.shiftId}`, tokens.owner, {
+      method: 'DELETE',
+    })).response.status).toBe(200)
+    expect((await AppointmentModel.findById(booked.id)).status).toBe('cancelled')
+    expect((await AppointmentModel.findById(completedBooking.id)).status).toBe('completed')
   })
   it('snapshots survive changed catalog/contact, retry stays on the same receipt', async () => {
     const key = randomUUID()
