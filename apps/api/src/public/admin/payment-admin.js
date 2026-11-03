@@ -38,7 +38,8 @@ paymentEl('payment-open').onclick = async () => {
   paymentEl('payment-attest').checked = false; paymentEl('payment-error').textContent = ''
   if (!paymentEl('payment-dialog').open) paymentEl('payment-dialog').showModal()
 }
-paymentEl('payment-close').onclick = () => paymentEl('payment-dialog').close()
+paymentEl('payment-close').onclick = () => { if (!paymentEl('payment-submit').disabled) paymentEl('payment-dialog').close() }
+paymentEl('payment-dialog').addEventListener('cancel', event => { if (paymentEl('payment-submit').disabled) event.preventDefault() })
 paymentEl('payment-confirm').onsubmit = async event => {
   event.preventDefault(); paymentEl('payment-submit').disabled = true
   try {
@@ -46,4 +47,5 @@ paymentEl('payment-confirm').onsubmit = async event => {
   } catch (error) { paymentEl('payment-error').textContent = error.name === 'AbortError' ? 'Chưa rõ kết quả. Tải lại trạng thái hoặc thử lại cùng yêu cầu, không yêu cầu khách chuyển lần nữa.' : error.message }
   finally { paymentEl('payment-submit').disabled = false }
 }
-refreshPayment()
+if (window.location.hash === '#payment') paymentEl('payment-open').click()
+else refreshPayment()

@@ -7,17 +7,7 @@ if (filters) {
     if (!filters.querySelector('[name="localDate"]').value && !filters.querySelector('[name="q"]').value.trim()) return
     if (filters.reportValidity()) filters.requestSubmit()
   })
-  const toggle = filters.querySelector('[data-filter-toggle]')
-  const fields = document.getElementById('owner-filter-fields')
-  fields.classList.add('hidden', 'sm:grid')
-  toggle.setAttribute('aria-expanded', 'false')
-  toggle.textContent = 'Lọc lịch'
-  toggle.addEventListener('click', () => {
-    const open = toggle.getAttribute('aria-expanded') !== 'true'
-    toggle.setAttribute('aria-expanded', String(open))
-    toggle.textContent = open ? 'Thu gọn' : 'Lọc lịch'
-    fields.classList.toggle('hidden', !open)
-  })
+
 }
 
 const dialogs = new Map()
@@ -266,6 +256,8 @@ if (dialogSupported && detail) {
     trigger.className = 'min-h-11 rounded-xl border border-border bg-white px-5 py-2 text-sm font-semibold text-ink hover:bg-soft-surface disabled:cursor-not-allowed disabled:opacity-50'
     trigger.dataset.readyAt = panel.dataset.readyAt
     trigger.textContent = summary.textContent
+    const operation = new URL(panel.querySelector('form').action).pathname.split('/').pop()
+    trigger.dataset.serviceOperation = operation
     const dialog = createActionDialog(summary.textContent, trigger, detail.dataset.appointmentDetail)
     const heading = document.createElement('h2')
     heading.className = 'text-2xl font-bold'
@@ -395,4 +387,8 @@ const appointmentNav = document.querySelector('header nav a[href="/owner/appoint
 if (appointmentNav) {
   appointmentNav.setAttribute('aria-current', 'page')
   appointmentNav.classList.add('bg-[#b55338]/10', 'text-[#b55338]', 'font-semibold')
+}
+
+if (['#start', '#complete'].includes(window.location.hash)) {
+  document.querySelector('[data-service-operation="' + window.location.hash.slice(1) + '"]')?.click()
 }
