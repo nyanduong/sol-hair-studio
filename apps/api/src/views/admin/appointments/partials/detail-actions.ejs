@@ -26,11 +26,11 @@
   const button = 'inline-flex min-h-11 items-center justify-center rounded-xl border border-border bg-white px-5 py-2 text-sm font-semibold text-ink transition-colors hover:bg-soft-surface'
 %>
 <% if (actions.length) { %>
-  <div class="border-t border-[#e7e2da] bg-[#f4f0ea]/50 px-6 py-5 sm:px-8">
+  <div class="border-t border-[#e7e2da] bg-white px-5 py-4 sm:px-6">
     <% if (!Number.isSafeInteger(appointment.revision) || appointment.revision < 0 || appointment.revision >= Number.MAX_SAFE_INTEGER) { %>
       <p role="alert" class="text-sm text-terracotta">Cần tải lại revision hợp lệ trước khi thao tác.</p>
     <% } else { %>
-      <div data-owner-action-bar class="flex flex-wrap justify-end gap-3">
+      <div data-owner-action-bar class="flex flex-wrap items-center gap-2">
         <% if (confirmed) { %><a data-open-reschedule="<%= appointment.id %>" href="<%= ownerUrl('/admin/appointments/' + appointment.id + '/reschedule') %>" class="<%= button %>">Đổi lịch</a><% } %>
         <% for (const action of actions) { %>
             <details data-owner-panel data-ready-at="<%= action.operation === 'no-show' ? Date.parse(appointment.startAt) + 900_000 : 0 %>" class="w-full rounded-2xl border border-border bg-white p-4">
@@ -72,7 +72,7 @@
                   <% if (action.operation.startsWith('correct-')) { %>
                     <label class="flex items-start gap-2 text-sm"><input type="checkbox" name="<%= correctingComplete ? 'serviceNotCompleted' : 'serviceNotStarted' %>" value="true" required class="mt-1" /><%= correctingComplete ? 'Tôi xác nhận hoàn tất nhầm và khách vẫn đang được phục vụ.' : 'Tôi xác nhận bắt đầu nhầm và thực tế chưa phục vụ khách.' %></label>
                   <% } %>
-                  <div class="flex flex-wrap justify-end gap-3 border-t border-border pt-4">
+                  <div class="flex flex-wrap items-center gap-2 border-t border-border pt-4">
                     <button type="button" data-close-panel hidden class="<%= button %>">Quay lại</button>
                     <button type="submit" class="min-h-11 rounded-xl bg-terracotta px-5 py-2 text-sm font-semibold text-white hover:bg-terracotta-hover">Xác nhận <%= action.label.toLowerCase() %></button>
                   </div>
