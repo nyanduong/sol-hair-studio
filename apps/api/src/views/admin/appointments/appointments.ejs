@@ -6,6 +6,7 @@
 %>
 <%- include('../layout-header', { title, identity: locals.identity, activeTab: 'appointments' }) %>
 <script src="/admin-assets/js/admin-appointments.js" defer></script>
+<script src="/admin-assets/js/admin-appointment-list.js" defer></script>
 
       <%- include('partials/page-header') %>
       <form method="get" action="/admin/appointments" data-owner-filters class="mt-6 rounded-2xl border border-[#e7e2da] bg-[#f4f0ea] p-4 shadow-sm sm:p-5">
@@ -18,8 +19,12 @@
           <a href="/admin/dashboard" class="hidden text-xs text-muted hover:text-terracotta sm:inline">Dashboard quản lý</a>
           <button type="button" data-filter-toggle aria-expanded="true" aria-controls="owner-filter-fields" class="min-h-10 text-xs font-semibold text-terracotta sm:hidden">Thu gọn bộ lọc</button>
         </div>
+        <label class="mt-4 block text-sm font-semibold">Tìm lịch hẹn
+          <input type="search" name="q" maxlength="100" value="<%= filters.q || '' %>" placeholder="Mã SOL-…, tên hoặc số điện thoại" class="<%= field %>" />
+        </label>
+        <p class="mt-2 text-xs text-muted">Bỏ trống ngày khi nhập từ khóa để tìm trên mọi ngày. Số Việt Nam nhận cả đầu 0 và +84.</p>
         <div id="owner-filter-fields" class="mt-4 grid gap-3 <%= ownerPersonal ? 'sm:grid-cols-2' : 'sm:grid-cols-3' %>">
-          <label class="text-xs font-semibold">Ngày hẹn<input type="date" name="localDate" value="<%= filters.localDate %>" required class="<%= field %>" /></label>
+          <label class="text-xs font-semibold">Ngày hẹn<input type="date" name="localDate" value="<%= filters.localDate %>" class="<%= field %>" /></label>
           <% if (!ownerPersonal) { %>
             <label class="text-xs font-semibold">Stylist
               <select name="staffId" class="<%= field %>">
@@ -36,9 +41,15 @@
             </select>
           </label>
         </div>
-        <button data-filter-submit type="submit" class="mt-4 min-h-11 rounded-xl bg-terracotta px-5 py-2 text-sm font-semibold text-white hover:bg-terracotta-hover">Lọc lịch hẹn</button>
+        <button data-filter-submit type="submit" class="mt-4 min-h-11 rounded-xl bg-terracotta px-5 py-2 text-sm font-semibold text-white hover:bg-terracotta-hover">Tìm và lọc lịch</button>
       </form>
-      <section class="mt-6" aria-label="Danh sách lịch hẹn">
+      <div class="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-muted">
+        <p>Tự cập nhật mỗi 30 giây · Cập nhật lúc <time data-list-updated datetime="<%= new Date().toISOString() %>"><%= time.format(new Date()) %></time></p>
+        <button type="button" data-refresh-appointments class="min-h-11 rounded-xl border border-border bg-white px-4 text-sm font-semibold text-terracotta disabled:opacity-50">Tải lại danh sách</button>
+      </div>
+      <p data-list-message role="status" class="mt-2 text-sm text-terracotta"></p>
+      <a data-list-login href="/admin/login" hidden class="text-sm font-semibold text-terracotta underline">Đăng nhập lại</a>
+      <section data-owner-appointments-list class="mt-6" aria-label="Danh sách lịch hẹn">
         <% if (error) { %>
           <div role="alert" class="rounded-2xl border border-terracotta/20 bg-terracotta/5 p-6 text-sm">
             <p><%= error %></p><a href="<%= ownerUrl('/admin/appointments') %>" class="mt-4 inline-flex min-h-11 items-center font-semibold text-terracotta hover:underline">Tải lại danh sách</a>
@@ -53,6 +64,7 @@
               <li>
                 <article class="group flex h-full flex-col justify-between rounded-2xl border border-[#e7e2da] bg-white p-4 shadow-sm transition-all hover:border-terracotta hover:shadow-sm sm:p-5">
                   <div>
+                    <p class="mb-3 font-mono text-sm font-semibold text-terracotta">Mã lịch: <%= appointment.referenceCode || 'Chưa cấp mã' %></p>
                     <div class="flex items-center justify-between gap-2 border-b border-[#e7e2da] pb-3">
                       <div class="flex items-center gap-2">
                         <span class="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[#f4f0ea] text-terracotta"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg></span>
