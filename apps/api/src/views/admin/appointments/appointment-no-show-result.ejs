@@ -1,0 +1,72 @@
+<%- include('partials/action-page-start') %>
+
+            <section class="mt-6 rounded-2xl border border-[#e7e2da] bg-white p-6 shadow-sm sm:p-8">
+                <% if (result) { %>
+                    <h2 class="text-lg font-semibold">
+                        Đã đánh dấu khách không đến
+                    </h2>
+                    <p class="mt-2 text-sm text-muted">
+                        Lịch hẹn đã được cập nhật trạng thái no-show.
+                    </p>
+                <% } else { %>
+                    <div role="alert">
+                        <h2 class="text-lg font-semibold">
+                            <%= pending ? 'Chưa xác định được kết quả' : 'Chưa thể đánh dấu khách không đến' %>
+                        </h2>
+                        <p class="mt-2 text-sm text-muted"><%= error %></p>
+                    </div>
+
+                    <% if (pending) { %>
+                        <p class="mt-4 text-sm text-muted">
+                            Kiểm tra chi tiết lịch trước. Nếu cần gửi lại, dùng nút bên
+                            dưới để giữ nguyên thời điểm liên hệ và mã yêu cầu vừa gửi.
+                        </p>
+
+                        <form
+                            method="post"
+                            action="<%= ownerUrl('/admin/appointments/' + appointmentId + '/no-show') %>"
+                            class="mt-4"
+                        >
+                            <input
+                                type="hidden"
+                                name="expectedRevision"
+                                value="<%= form.expectedRevision %>"
+                            />
+                            <input
+                                type="hidden"
+                                name="commandKey"
+                                value="<%= form.commandKey %>"
+                            />
+                            <input
+                                type="hidden"
+                                name="contactAttemptedLocal"
+                                value="<%= form.contactAttemptedLocal %>"
+                            />
+
+                            <button
+                                type="submit"
+                                class="min-h-11 rounded-xl bg-terracotta px-6 py-2 text-sm font-semibold text-white hover:bg-terracotta-hover"
+                            >
+                                Gửi lại cùng yêu cầu
+                            </button>
+                        </form>
+                    <% } %>
+                <% } %>
+
+                <div class="mt-6 flex flex-wrap gap-4">
+                    <a
+                        href="<%= ownerUrl('/admin/appointments/' + appointmentId + '') %>"
+                        class="text-sm font-semibold text-terracotta hover:underline"
+                    >
+                        Xem lại chi tiết lịch
+                    </a>
+                    <a
+                        href="<%= ownerUrl('/admin/appointments') %>"
+                        class="text-sm font-semibold text-terracotta hover:underline"
+                    >
+                        Về danh sách lịch
+                    </a>
+                </div>
+            </section>
+
+<%- include('partials/action-page-end') %>

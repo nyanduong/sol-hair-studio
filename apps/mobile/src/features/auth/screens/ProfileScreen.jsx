@@ -124,6 +124,7 @@ export default function ProfileScreen({ navigation }) {
 
   const roleLabel = getRoleLabel(account.roles)
   const avatarLetter = account.email?.charAt(0).toUpperCase() || 'S'
+  const isOwner = Array.isArray(account.roles) && account.roles.includes('owner')
 
   return (
     <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={authStyles.safeArea}>
@@ -184,6 +185,34 @@ export default function ProfileScreen({ navigation }) {
               </View>
             )}
           </View>
+
+          {/* Owner Dashboard Shortcut - ONLY visible to Owner role */}
+          {isOwner ? (
+            <View style={authStyles.card}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 8 }}>
+                <Feather name="bar-chart-2" size={20} color={colors.copper} />
+                <Text style={[authStyles.title, { fontSize: 18, marginBottom: 0 }]}>
+                  Khu vực Quản trị Salon
+                </Text>
+              </View>
+              <Text style={[authStyles.subtitle, { marginBottom: 16 }]}>
+                Dành riêng cho Chủ tiệm: Theo dõi doanh thu hôm nay, hàng đợi lịch hẹn và điều phối dịch vụ.
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Mở Dashboard Quản lý Salon"
+                onPress={() => navigation.navigate('OwnerDashboard')}
+                style={({ pressed }) => [
+                  authStyles.primaryButton,
+                  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+                  pressed && { opacity: 0.9 },
+                ]}
+              >
+                <Feather name="layout" size={18} color={colors.surface} />
+                <Text style={authStyles.primaryButtonText}>Mở Dashboard Salon →</Text>
+              </Pressable>
+            </View>
+          ) : null}
 
           {successMessage ? (
             <View style={authStyles.successBox}>

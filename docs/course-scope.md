@@ -19,6 +19,8 @@ Các lựa chọn dưới đây tạo điểm bắt đầu dễ bảo trì và c
 - Node.js 24 LTS cho toàn repository.
 - Web khách dùng React, Vite, JavaScript/JSX và Tailwind CSS; các chức năng Admin dùng Express + EJS theo yêu cầu giảng viên.
 - Mobile dùng React Native, Expo SDK 57 và JavaScript/JSX.
+- Web dùng React, Vite, JavaScript/JSX và Tailwind CSS.
+- Mobile dùng React Native, Expo SDK 58 và JavaScript/JSX.
 - API dùng Express 5 và JavaScript.
 - Dùng MongoDB với Mongoose 9 khi bắt đầu lưu dữ liệu.
 - Web và mobile dùng một hợp đồng API chung, nhưng base URL được cấu hình riêng theo môi trường chạy.

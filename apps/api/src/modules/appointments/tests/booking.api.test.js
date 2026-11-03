@@ -21,6 +21,8 @@ import { AppointmentEventModel } from '../appointment-events.model.js'
 import { BookingRequestModel } from '../booking-requests.model.js'
 import { prepareBookingStorage } from '../booking.repository.js'
 import { createBooking } from '../booking.service.js'
+import * as bookingReferences from '../booking-reference.js'
+import * as availabilityRepository from '../../availability/availability.repository.js'
 
 const NOW = new Date('2026-10-21T03:00:00.000Z')
 const at = (time) => new Date(`2026-10-21T${time}+07:00`)
@@ -149,7 +151,14 @@ afterEach(() => {
 
 describe('SOL-031 transactional booking HTTP + real temporary replica set', () => {
   it('creates confirmed snapshots, guards, event and 24h receipt; M5 reads the same appointment', async () => {
+    const servicesReader = vi.spyOn(availabilityRepository, 'findBookingServices')
+    const staffReader = vi.spyOn(availabilityRepository, 'findEligibleStaff')
+    const calendarReader = vi.spyOn(availabilityRepository, 'findAvailabilityCalendar')
     const response = await post({ serviceIds: ['spa', 'cut'] }).expect(201)
+    const session = servicesReader.mock.calls[0][1].session
+    expect(session).toBeInstanceOf(mongoose.mongo.ClientSession)
+    expect(staffReader.mock.calls[0][2].session).toBe(session)
+    expect(calendarReader.mock.calls[0][4].session).toBe(session)
     expect(response.headers['cache-control']).toBe('no-store')
     const appointment = await AppointmentModel.findById(response.body.data.id).lean()
     expect(appointment).toMatchObject({
@@ -162,6 +171,10 @@ describe('SOL-031 transactional booking HTTP + real temporary replica set', () =
       endAt: at('11:30:00'),
       occupiedUntil: at('11:40:00'),
     })
+    expect(appointment.referenceCode).toMatch(/^SOL-[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}$/)
+    expect(response.body.data.referenceCode).toBe(appointment.referenceCode)
+    expect(response.body.data.customerDisplayName).toBe(appointment.customerSnapshot.displayName)
+    expect(response.body.data.staffDisplayName).toBe(appointment.staffNameSnapshot)
     expect(appointment.items.map((i) => i.serviceId)).toEqual(['spa', 'cut'])
     expect((await CustomerModel.findById(customer.profile._id)).bookingRevision).toBe(1)
     expect((await StaffModel.findById(stylist.staff._id)).bookingRevision).toBe(1)
@@ -178,6 +191,7 @@ describe('SOL-031 transactional booking HTTP + real temporary replica set', () =
       .set('Authorization', `Bearer ${customer.token}`)
       .expect(200)
     expect(detail.body.data.id).toBe(response.body.data.id)
+    expect(detail.body.data.referenceCode).toBe(appointment.referenceCode)
     await ServiceModel.updateMany({}, { priceVnd: 99999, name: 'Changed catalog' })
     await CustomerModel.updateOne({ _id: customer.profile._id }, { displayName: 'Changed contact' })
     expect((await post({ serviceIds: ['spa', 'cut'] }).expect(201)).body.data).toEqual(
@@ -187,6 +201,19 @@ describe('SOL-031 transactional booking HTTP + real temporary replica set', () =
       'Synthetic customer',
     )
     expect(await AppointmentEventModel.countDocuments()).toBe(1)
+  })
+  it('retries a short-code collision without duplicating appointment or receipt', async () => {
+    const first = await post().expect(201)
+    const generator = vi.spyOn(bookingReferences, 'generateBookingReference')
+      .mockReturnValueOnce(first.body.data.referenceCode)
+      .mockReturnValue('SOL-23456789')
+    const second = await post({ startAt: at('12:00:00').toISOString() }, customer, 'sol043-reference-second').expect(201)
+    expect(generator).toHaveBeenCalledTimes(2)
+    expect(second.body.data.referenceCode).toBe('SOL-23456789')
+    expect(await AppointmentModel.countDocuments()).toBe(2)
+    expect(await BookingRequestModel.countDocuments()).toBe(2)
+    expect(await AppointmentEventModel.countDocuments()).toBe(2)
+    expect((await post({ startAt: at('12:00:00').toISOString() }, customer, 'sol043-reference-second').expect(201)).body.data.referenceCode).toBe('SOL-23456789')
   })
   it('replays concurrent identical keys once, even for a new guest', async () => {
     const patch = {

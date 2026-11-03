@@ -33,7 +33,7 @@ Cập nhật **14/10/2026** từ SOL-011 theo [PHẠM VI đã chốt](https://do
 
 ## Các mốc đã chốt
 
-Một tiệm, không lễ tân; khách Web + Mobile, chủ Web, stylist Mobile. 1–5 dịch vụ/một stylist; tổng giá/thời lượng lúc đặt, dọn 10 phút; bước giờ 15 phút, khách trước ≥30 phút, tối đa 7 ngày. Chủ đặt khách tới ngay dùng giờ thực tế server. Tự xác nhận khi commit; chỉ ngày đã có ca được mở booking. Khách đổi/hủy trước ≥2 giờ; no-show sau 15 phút và đã liên hệ. Xong sớm mở giờ sau dọn; ETA kéo dài chỉ cảnh báo. Chỉ chủ sửa nhầm hai trường hợp có lý do/audit. OTP 6 số/5 phút/60 giây/5 lần sai; receipt tạo lịch 24 giờ.
+Một tiệm, không lễ tân; khách Web + Mobile, chủ Web, stylist Mobile. 1–5 dịch vụ/một stylist; tổng giá/thời lượng lúc đặt, dọn 10 phút; bước giờ 15 phút, khách trước ≥30 phút, tối đa 7 ngày. Chủ đặt khách tới ngay dùng giờ thực tế server. Tự xác nhận khi commit; chỉ ngày đã có ca được mở booking. Khách đổi/hủy trước ≥2 giờ; no-show sau 15 phút và đã liên hệ. Xong sớm mở giờ sau dọn; ETA kéo dài chỉ cảnh báo. Chủ hoặc stylist được giao lịch sửa nhầm hai trường hợp có lý do/audit; xem audit quản trị vẫn chỉ dành cho chủ. OTP 6 số/5 phút/60 giây/5 lần sai; receipt tạo lịch 24 giờ.
 
 ## Kiểm tra và bàn giao
 

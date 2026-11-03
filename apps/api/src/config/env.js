@@ -14,6 +14,8 @@ export const config = Object.freeze({
   corsOrigin: process.env.CORS_ORIGIN ?? '*',
   mongoUri: process.env.MONGODB_URI?.trim() || undefined,
   cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME?.trim() || undefined,
+  cloudinaryApiKey: process.env.CLOUDINARY_API_KEY?.trim() || undefined,
+  cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET?.trim() || undefined,
   authSecret: process.env.AUTH_SECRET?.trim() || undefined,
   smtpHost: process.env.SMTP_HOST?.trim() || undefined,
   smtpPort: Number(process.env.SMTP_PORT || 587),

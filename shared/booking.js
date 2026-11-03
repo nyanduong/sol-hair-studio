@@ -12,9 +12,18 @@ export const slotTime = (value) =>
 export function contactInput(displayName, phone) {
   if (!displayName.trim() || displayName.trim().length > 120)
     throw new Error('Nhập tên khách, tối đa 120 ký tự.')
-  if (!/^\+[1-9]\d{1,14}$/.test(phone.trim()))
-    throw new Error('Nhập số điện thoại quốc tế, ví dụ +84901234567.')
-  return { displayName: displayName.trim(), phone: phone.trim() }
+  const compactPhone = phone.trim().replace(/[\s().-]/g, '')
+  const normalizedPhone = compactPhone.startsWith('0')
+    ? `+84${compactPhone.slice(1)}`
+    : compactPhone
+  // Local Vietnamese numbers and +84 input share the same validation.
+  const vietnamese = /^\+84(?:[1-9]\d{8}|2\d{9})$/
+  if (
+    !/^\+[1-9]\d{1,14}$/.test(normalizedPhone) ||
+    (normalizedPhone.startsWith('+84') && !vietnamese.test(normalizedPhone))
+  )
+    throw new Error('Nhập số Việt Nam đủ chữ số, ví dụ 0912345678, hoặc số quốc tế có mã +.')
+  return { displayName: displayName.trim(), phone: normalizedPhone }
 }
 
 export function bookingPayload({

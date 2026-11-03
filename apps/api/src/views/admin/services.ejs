@@ -1,0 +1,748 @@
+<%- include('layout-header', { title, identity }) %>
+
+<div class="space-y-6">
+  <!-- Notifications -->
+  <% if (success === 'created') { %>
+    <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-4 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <svg class="w-5 h-5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+        <span class="text-sm font-semibold text-emerald-900">Thêm dịch vụ mới thành công!</span>
+      </div>
+      <a href="/admin/services" class="text-xs font-semibold text-emerald-700 hover:underline">Đóng</a>
+    </div>
+  <% } else if (success === 'updated') { %>
+    <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-4 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <svg class="w-5 h-5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+        <span class="text-sm font-semibold text-emerald-900">Cập nhật dịch vụ thành công!</span>
+      </div>
+      <a href="/admin/services" class="text-xs font-semibold text-emerald-700 hover:underline">Đóng</a>
+    </div>
+  <% } else if (success === 'toggled') { %>
+    <div class="rounded-xl bg-blue-50 border border-blue-200 p-4 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <svg class="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+        <span class="text-sm font-semibold text-blue-900">Đã cập nhật trạng thái hiển thị của dịch vụ!</span>
+      </div>
+      <a href="/admin/services" class="text-xs font-semibold text-blue-700 hover:underline">Đóng</a>
+    </div>
+  <% } %>
+
+  <% if (error) { %>
+    <div class="rounded-xl bg-red-50 border border-red-200 p-4 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <svg class="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
+        <span class="text-sm font-semibold text-red-900"><%= error %></span>
+      </div>
+      <a href="/admin/services" class="text-xs font-semibold text-red-700 hover:underline">Đóng</a>
+    </div>
+  <% } %>
+
+  <!-- Page Header & Action -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#e7e2da] pb-6">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-ink">Quản lý Dịch vụ Salon</h1>
+      <p class="mt-1 text-sm text-[#7a7269]">
+        Cấu hình danh mục dịch vụ, thời lượng làm đẹp, giá niêm yết và trạng thái nhận đặt lịch của khách hàng.
+      </p>
+    </div>
+    <div>
+      <button
+        type="button"
+        onclick="openAddModal()"
+        class="inline-flex items-center px-4 py-2.5 rounded-xl bg-[#b55338] text-white text-sm font-semibold shadow-sm hover:bg-[#96422b] transition active:scale-[0.98] space-x-2"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        <span>Thêm dịch vụ mới</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI Stats -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div class="bg-white rounded-2xl p-5 border border-[#e7e2da] shadow-sm">
+      <div class="text-xs font-semibold text-[#7a7269] uppercase tracking-wider">Tổng dịch vụ</div>
+      <div class="mt-2 text-3xl font-bold text-ink"><%= stats.total %></div>
+      <div class="mt-1 text-xs text-[#7a7269]">Dịch vụ được đăng ký trong hệ thống</div>
+    </div>
+    <div class="bg-white rounded-2xl p-5 border border-[#e7e2da] shadow-sm">
+      <div class="text-xs font-semibold text-emerald-700 uppercase tracking-wider">Đang hiển thị (Nhận khách)</div>
+      <div class="mt-2 text-3xl font-bold text-emerald-700"><%= stats.activeCount %></div>
+      <div class="mt-1 text-xs text-[#7a7269]">Khách có thể xem và đặt lịch trên Web / App</div>
+    </div>
+    <div class="bg-white rounded-2xl p-5 border border-[#e7e2da] shadow-sm">
+      <div class="text-xs font-semibold text-amber-700 uppercase tracking-wider">Đang ẩn (Tạm ngưng)</div>
+      <div class="mt-2 text-3xl font-bold text-amber-700"><%= stats.inactiveCount %></div>
+      <div class="mt-1 text-xs text-[#7a7269]">Không nhận đặt mới, bảo lưu lịch sử cũ</div>
+    </div>
+  </div>
+
+  <!-- Filter & Search Toolbar -->
+  <div class="bg-white rounded-2xl p-4 border border-[#e7e2da] shadow-sm">
+    <form action="/admin/services" method="GET" class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+      <div class="md:col-span-5">
+        <label for="search" class="block text-xs font-semibold text-[#7a7269] mb-1">Tìm kiếm dịch vụ</label>
+        <div class="relative">
+          <input
+            id="search"
+            name="search"
+            type="text"
+            value="<%= currentSearch %>"
+            placeholder="Tìm theo tên hoặc mã dịch vụ..."
+            class="w-full rounded-xl border border-[#e7e2da] pl-9 pr-3 py-2 text-sm text-ink placeholder-[#7a7269]/60 focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
+          />
+          <svg class="w-4 h-4 text-[#7a7269] absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        </div>
+      </div>
+
+      <div class="md:col-span-3">
+        <label for="category" class="block text-xs font-semibold text-[#7a7269] mb-1">Danh mục</label>
+        <select
+          id="category"
+          name="category"
+          class="w-full rounded-xl border border-[#e7e2da] px-3 py-2 text-sm text-ink bg-white focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
+        >
+          <option value="all" <%= currentCategory === 'all' ? 'selected' : '' %>>Tất cả danh mục</option>
+          <% categories.forEach(function(cat) { %>
+            <option value="<%= cat %>" <%= currentCategory === cat ? 'selected' : '' %>><%= cat %></option>
+          <% }); %>
+        </select>
+      </div>
+
+      <div class="md:col-span-2">
+        <label for="status" class="block text-xs font-semibold text-[#7a7269] mb-1">Trạng thái</label>
+        <select
+          id="status"
+          name="status"
+          class="w-full rounded-xl border border-[#e7e2da] px-3 py-2 text-sm text-ink bg-white focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
+        >
+          <option value="all" <%= currentStatus === 'all' ? 'selected' : '' %>>Tất cả</option>
+          <option value="active" <%= currentStatus === 'active' ? 'selected' : '' %>>Đang hiện</option>
+          <option value="inactive" <%= currentStatus === 'inactive' ? 'selected' : '' %>>Đang ẩn</option>
+        </select>
+      </div>
+
+      <div class="md:col-span-2 flex items-center space-x-2">
+        <button
+          type="submit"
+          class="flex-1 rounded-xl bg-ink text-white py-2 px-3 text-sm font-semibold hover:bg-black transition text-center"
+        >
+          Lọc
+        </button>
+        <% if (currentSearch || currentCategory !== 'all' || currentStatus !== 'all') { %>
+          <a
+            href="/admin/services"
+            class="rounded-xl border border-[#e7e2da] py-2 px-3 text-xs font-semibold text-[#7a7269] hover:text-ink hover:bg-[#f4f0ea] transition text-center"
+          >
+            Đặt lại
+          </a>
+        <% } %>
+      </div>
+    </form>
+  </div>
+
+  <!-- Services Table -->
+  <div class="bg-white rounded-2xl border border-[#e7e2da] shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-[#e7e2da] text-left text-sm text-ink">
+        <thead class="bg-[#fcfbf9] text-xs font-semibold uppercase tracking-wider text-[#7a7269]">
+          <tr>
+            <th scope="col" class="py-3.5 pl-4 pr-3 sm:pl-6">Ảnh</th>
+            <th scope="col" class="px-3 py-3.5">Dịch vụ</th>
+            <th scope="col" class="px-3 py-3.5">Danh mục</th>
+            <th scope="col" class="px-3 py-3.5">Giá niêm yết</th>
+            <th scope="col" class="px-3 py-3.5">Thời lượng</th>
+            <th scope="col" class="px-3 py-3.5">Slot lịch</th>
+            <th scope="col" class="px-3 py-3.5">Trạng thái</th>
+            <th scope="col" class="py-3.5 pl-3 pr-4 sm:pr-6 text-right">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-[#e7e2da] bg-white">
+          <% if (services.length === 0) { %>
+            <tr>
+              <td colspan="8" class="py-12 text-center text-[#7a7269]">
+                <svg class="mx-auto h-10 w-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <p class="mt-2 text-sm font-medium">Không tìm thấy dịch vụ nào phù hợp.</p>
+                <p class="mt-1 text-xs text-gray-500">Hãy thử đổi từ khóa tìm kiếm hoặc bấm nút Thêm dịch vụ mới.</p>
+              </td>
+            </tr>
+          <% } %>
+
+          <% services.forEach(function(service) { %>
+            <tr class="hover:bg-[#fcfbf9]/70 transition">
+              <td class="whitespace-nowrap py-4 pl-4 pr-3 sm:pl-6">
+                <% if (service.imageUrl) { %>
+                  <img
+                    src="<%= service.imageUrl %>"
+                    alt="<%= service.name %>"
+                    class="h-14 w-14 rounded-xl object-cover border border-[#e7e2da] shadow-xs"
+                    loading="lazy"
+                  />
+                <% } else { %>
+                  <div class="h-14 w-14 rounded-xl bg-[#f4f0ea] border border-[#e7e2da] flex items-center justify-center text-[#7a7269]">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                  </div>
+                <% } %>
+              </td>
+              <td class="px-3 py-4">
+                <div class="font-semibold text-ink text-sm"><%= service.name %></div>
+                <div class="mt-0.5 flex items-center space-x-2 text-xs text-[#7a7269]">
+                  <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-mono bg-[#f4f0ea] text-[#2c2825]">
+                    Mã: <%= service.id %>
+                  </span>
+                </div>
+                <% if (service.description) { %>
+                  <p class="mt-1 text-xs text-[#7a7269] line-clamp-1 max-w-xs"><%= service.description %></p>
+                <% } %>
+              </td>
+              <td class="whitespace-nowrap px-3 py-4">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-[#b55338]/10 text-[#b55338]">
+                  <%= service.category %>
+                </span>
+              </td>
+              <td class="whitespace-nowrap px-3 py-4 font-semibold text-ink">
+                <%= (service.priceVnd || 0).toLocaleString('vi-VN') %> đ
+              </td>
+              <td class="whitespace-nowrap px-3 py-4 text-xs text-[#7a7269]">
+                <% if (service.durationMinutes) { %>
+                  <%= service.durationMinutes.min === service.durationMinutes.max ? service.durationMinutes.min : (service.durationMinutes.min + '–' + service.durationMinutes.max) %> phút
+                <% } else { %>
+                  —
+                <% } %>
+              </td>
+              <td class="whitespace-nowrap px-3 py-4 text-xs text-[#7a7269]">
+                <%= service.bookingDurationMinutes || (service.durationMinutes ? service.durationMinutes.max : '—') %> phút
+              </td>
+              <td class="whitespace-nowrap px-3 py-4">
+                <div class="flex items-center space-x-2">
+                  <% if (service.isActive) { %>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                      Đang hiện
+                    </span>
+                    <form action="/admin/services/<%= encodeURIComponent(service.id) %>/toggle" method="POST" class="inline">
+                      <input type="hidden" name="isActive" value="false" />
+                      <button
+                        type="submit"
+                        title="Tạm ẩn dịch vụ này (khách không đặt mới)"
+                        class="text-[11px] font-medium text-amber-700 hover:text-amber-900 border border-amber-200 hover:bg-amber-50 px-2 py-0.5 rounded transition"
+                      >
+                        Ẩn
+                      </button>
+                    </form>
+                  <% } else { %>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
+                      Đang ẩn
+                    </span>
+                    <form action="/admin/services/<%= encodeURIComponent(service.id) %>/toggle" method="POST" class="inline">
+                      <input type="hidden" name="isActive" value="true" />
+                      <button
+                        type="submit"
+                        title="Mở lại nhận khách cho dịch vụ này"
+                        class="text-[11px] font-medium text-emerald-700 hover:text-emerald-900 border border-emerald-200 hover:bg-emerald-50 px-2 py-0.5 rounded transition"
+                      >
+                        Hiện
+                      </button>
+                    </form>
+                  <% } %>
+                </div>
+              </td>
+              <td class="whitespace-nowrap py-4 pl-3 pr-4 sm:pr-6 text-right">
+                <button
+                  type="button"
+                  data-service='<%- JSON.stringify(service).replace(/'/g, "&#39;") %>'
+                  onclick="openEditModal(this)"
+                  class="inline-flex items-center space-x-1 text-xs font-semibold text-[#b55338] hover:text-[#96422b] bg-[#b55338]/10 hover:bg-[#b55338]/20 px-3 py-1.5 rounded-lg transition"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                  <span>Chỉnh sửa</span>
+                </button>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL: THÊM DỊCH VỤ ==================== -->
+<div id="addModal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+  <div class="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-[#e7e2da] overflow-hidden my-8">
+    <div class="px-6 py-4 border-b border-[#e7e2da] flex items-center justify-between bg-[#fcfbf9]">
+      <h3 class="text-lg font-bold text-ink">Thêm Dịch vụ Mới</h3>
+      <button type="button" onclick="closeAddModal()" class="text-[#7a7269] hover:text-ink text-lg font-bold p-1">&times;</button>
+    </div>
+
+    <form action="/admin/services" method="POST" class="p-6 space-y-4" onsubmit="return validateAddForm()">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label for="add_id" class="block text-xs font-semibold text-ink mb-1">Mã dịch vụ <span class="text-red-500">*</span></label>
+          <input
+            id="add_id"
+            name="id"
+            type="text"
+            required
+            pattern="^[a-z0-9-]+$"
+            placeholder="dv-cat-toc-nam"
+            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
+          />
+          <p class="mt-1 text-[11px] text-[#7a7269]">Mã viết thường, không dấu, ví dụ: dv-cat-toc, dv-hair-spa</p>
+        </div>
+
+        <div>
+          <label for="add_category" class="block text-xs font-semibold text-ink mb-1">Danh mục <span class="text-red-500">*</span></label>
+          <input
+            id="add_category"
+            name="category"
+            type="text"
+            required
+            placeholder="Tạo kiểu, Nhuộm, Chăm sóc..."
+            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label for="add_name" class="block text-xs font-semibold text-ink mb-1">Tên dịch vụ <span class="text-red-500">*</span></label>
+        <input
+          id="add_name"
+          name="name"
+          type="text"
+          required
+          placeholder="Cắt & tạo kiểu chuyên nghiệp"
+          class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
+        />
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label for="add_priceVnd" class="block text-xs font-semibold text-ink mb-1">Giá niêm yết (VNĐ) <span class="text-red-500">*</span></label>
+          <input
+            id="add_priceVnd"
+            name="priceVnd"
+            type="number"
+            min="0"
+            max="100000000"
+            step="1000"
+            required
+            placeholder="450000"
+            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
+          />
+        </div>
+
+        <div>
+          <label for="add_durationMin" class="block text-xs font-semibold text-ink mb-1">Thời lượng min (phút) <span class="text-red-500">*</span></label>
+          <input
+            id="add_durationMin"
+            name="durationMin"
+            type="number"
+            min="1"
+            max="480"
+            required
+            placeholder="45"
+            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
+          />
+        </div>
+
+        <div>
+          <label for="add_durationMax" class="block text-xs font-semibold text-ink mb-1">Thời lượng max (phút) <span class="text-red-500">*</span></label>
+          <input
+            id="add_durationMax"
+            name="durationMax"
+            type="number"
+            min="1"
+            max="480"
+            required
+            placeholder="60"
+            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
+          />
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label for="add_bookingDurationMinutes" class="block text-xs font-semibold text-ink mb-1">Thời lượng slot đặt lịch (phút)</label>
+          <input
+            id="add_bookingDurationMinutes"
+            name="bookingDurationMinutes"
+            type="number"
+            min="1"
+            max="480"
+            placeholder="Mặc định = thời lượng max"
+            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
+          />
+        </div>
+
+        <div>
+          <label for="add_displayOrder" class="block text-xs font-semibold text-ink mb-1">Thứ tự hiển thị</label>
+          <input
+            id="add_displayOrder"
+            name="displayOrder"
+            type="number"
+            min="0"
+            value="0"
+            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-ink mb-1.5">Hình ảnh dịch vụ <span class="text-red-500">*</span></label>
+        <div class="space-y-3 p-3.5 rounded-xl border border-[#e7e2da] bg-[#fcfbf9]/60">
+          <div class="flex flex-wrap items-center gap-3">
+            <label for="add_imageFileInput" class="cursor-pointer inline-flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-[#b55338] hover:bg-[#96422b] text-white text-xs font-semibold shadow-xs transition active:scale-[0.98]">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              <span>Chọn ảnh từ thiết bị</span>
+            </label>
+            <input
+              type="file"
+              id="add_imageFileInput"
+              accept="image/*"
+              class="hidden"
+              onchange="handleImageFileSelect(this, 'add_imageDataUrl', 'add_previewImg', 'add_fileLabel')"
+            />
+            <span id="add_fileLabel" class="text-xs text-[#7a7269]">Chưa chọn ảnh</span>
+            <input type="hidden" id="add_imageDataUrl" name="imageDataUrl" />
+            <input type="hidden" id="add_imageUrl" name="imageUrl" />
+          </div>
+
+          <div>
+            <img id="add_previewImg" class="h-20 w-20 rounded-xl object-cover hidden border border-[#e7e2da] shadow-xs" alt="Xem trước ảnh" />
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label for="add_description" class="block text-xs font-semibold text-ink mb-1">Mô tả dịch vụ</label>
+        <textarea
+          id="add_description"
+          name="description"
+          rows="2"
+          placeholder="Mô tả kỹ thuật, tác dụng và quy trình chăm sóc của dịch vụ..."
+          class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
+        ></textarea>
+      </div>
+
+      <div class="flex items-center space-x-2 pt-2">
+        <input
+          id="add_isActive"
+          name="isActive"
+          type="checkbox"
+          value="true"
+          checked
+          class="h-4 w-4 rounded border-[#e7e2da] text-[#b55338] focus:ring-[#b55338]"
+        />
+        <label for="add_isActive" class="text-xs font-semibold text-ink cursor-pointer">
+          Hiển thị ngay cho khách hàng đặt lịch trực tuyến
+        </label>
+      </div>
+
+      <div class="pt-4 border-t border-[#e7e2da] flex items-center justify-end space-x-3">
+        <button
+          type="button"
+          onclick="closeAddModal()"
+          class="rounded-xl border border-[#e7e2da] py-2 px-4 text-xs font-semibold text-[#7a7269] hover:bg-[#f4f0ea] transition"
+        >
+          Hủy bỏ
+        </button>
+        <button
+          type="submit"
+          class="rounded-xl bg-[#b55338] py-2 px-5 text-xs font-semibold text-white shadow-sm hover:bg-[#96422b] transition"
+        >
+          Lưu dịch vụ
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== MODAL: CHỈNH SỬA DỊCH VỤ ==================== -->
+<div id="editModal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+  <div class="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-[#e7e2da] overflow-hidden my-8">
+    <div class="px-6 py-4 border-b border-[#e7e2da] flex items-center justify-between bg-[#fcfbf9]">
+      <div>
+        <h3 class="text-lg font-bold text-ink">Chỉnh sửa Dịch vụ</h3>
+        <span id="edit_id_badge" class="text-xs font-mono text-[#7a7269]"></span>
+      </div>
+      <button type="button" onclick="closeEditModal()" class="text-[#7a7269] hover:text-ink text-lg font-bold p-1">&times;</button>
+    </div>
+
+    <form id="editForm" action="" method="POST" class="p-6 space-y-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label for="edit_name" class="block text-xs font-semibold text-ink mb-1">Tên dịch vụ <span class="text-red-500">*</span></label>
+          <input
+            id="edit_name"
+            name="name"
+            type="text"
+            required
+            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
+          />
+        </div>
+
+        <div>
+          <label for="edit_category" class="block text-xs font-semibold text-ink mb-1">Danh mục <span class="text-red-500">*</span></label>
+          <input
+            id="edit_category"
+            name="category"
+            type="text"
+            required
+            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
+          />
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label for="edit_priceVnd" class="block text-xs font-semibold text-ink mb-1">Giá niêm yết (VNĐ) <span class="text-red-500">*</span></label>
+          <input
+            id="edit_priceVnd"
+            name="priceVnd"
+            type="number"
+            min="0"
+            max="100000000"
+            step="1000"
+            required
+            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
+          />
+        </div>
+
+        <div>
+          <label for="edit_durationMin" class="block text-xs font-semibold text-ink mb-1">Thời lượng min (phút) <span class="text-red-500">*</span></label>
+          <input
+            id="edit_durationMin"
+            name="durationMin"
+            type="number"
+            min="1"
+            max="480"
+            required
+            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
+          />
+        </div>
+
+        <div>
+          <label for="edit_durationMax" class="block text-xs font-semibold text-ink mb-1">Thời lượng max (phút) <span class="text-red-500">*</span></label>
+          <input
+            id="edit_durationMax"
+            name="durationMax"
+            type="number"
+            min="1"
+            max="480"
+            required
+            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
+          />
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label for="edit_bookingDurationMinutes" class="block text-xs font-semibold text-ink mb-1">Thời lượng slot đặt lịch (phút)</label>
+          <input
+            id="edit_bookingDurationMinutes"
+            name="bookingDurationMinutes"
+            type="number"
+            min="1"
+            max="480"
+            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
+          />
+        </div>
+
+        <div>
+          <label for="edit_displayOrder" class="block text-xs font-semibold text-ink mb-1">Thứ tự hiển thị</label>
+          <input
+            id="edit_displayOrder"
+            name="displayOrder"
+            type="number"
+            min="0"
+            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-ink mb-1.5">Hình ảnh dịch vụ</label>
+        <div class="space-y-3 p-3.5 rounded-xl border border-[#e7e2da] bg-[#fcfbf9]/60">
+          <div class="flex flex-wrap items-center gap-3">
+            <label for="edit_imageFileInput" class="cursor-pointer inline-flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-[#b55338] hover:bg-[#96422b] text-white text-xs font-semibold shadow-xs transition active:scale-[0.98]">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              <span>Thay ảnh từ thiết bị</span>
+            </label>
+            <input
+              type="file"
+              id="edit_imageFileInput"
+              accept="image/*"
+              class="hidden"
+              onchange="handleImageFileSelect(this, 'edit_imageDataUrl', 'edit_previewImg', 'edit_fileLabel')"
+            />
+            <span id="edit_fileLabel" class="text-xs text-[#7a7269]">Đang dùng ảnh hiện tại</span>
+            <input type="hidden" id="edit_imageDataUrl" name="imageDataUrl" />
+            <input type="hidden" id="edit_imageUrl" name="imageUrl" />
+          </div>
+
+          <div>
+            <img id="edit_previewImg" class="h-20 w-20 rounded-xl object-cover hidden border border-[#e7e2da] shadow-xs" alt="Xem trước ảnh" />
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label for="edit_description" class="block text-xs font-semibold text-ink mb-1">Mô tả dịch vụ</label>
+        <textarea
+          id="edit_description"
+          name="description"
+          rows="2"
+          class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
+        ></textarea>
+      </div>
+
+      <div class="flex items-center space-x-2 pt-2">
+        <input
+          id="edit_isActive"
+          name="isActive"
+          type="checkbox"
+          value="true"
+          class="h-4 w-4 rounded border-[#e7e2da] text-[#b55338] focus:ring-[#b55338]"
+        />
+        <label for="edit_isActive" class="text-xs font-semibold text-ink cursor-pointer">
+          Hiển thị cho khách hàng đặt lịch trực tuyến
+        </label>
+      </div>
+
+      <div class="pt-4 border-t border-[#e7e2da] flex items-center justify-end space-x-3">
+        <button
+          type="button"
+          onclick="closeEditModal()"
+          class="rounded-xl border border-[#e7e2da] py-2 px-4 text-xs font-semibold text-[#7a7269] hover:bg-[#f4f0ea] transition"
+        >
+          Hủy bỏ
+        </button>
+        <button
+          type="submit"
+          class="rounded-xl bg-[#b55338] py-2 px-5 text-xs font-semibold text-white shadow-sm hover:bg-[#96422b] transition"
+        >
+          Lưu thay đổi
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function openAddModal() {
+    const fileInput = document.getElementById('add_imageFileInput');
+    if (fileInput) fileInput.value = '';
+    const dataUrlInput = document.getElementById('add_imageDataUrl');
+    if (dataUrlInput) dataUrlInput.value = '';
+    const label = document.getElementById('add_fileLabel');
+    if (label) label.textContent = 'Chưa chọn ảnh';
+    const preview = document.getElementById('add_previewImg');
+    if (preview) {
+      preview.src = '';
+      preview.classList.add('hidden');
+    }
+    document.getElementById('addModal').classList.remove('hidden');
+  }
+
+  function closeAddModal() {
+    document.getElementById('addModal').classList.add('hidden');
+  }
+
+  function openEditModal(button) {
+    try {
+      const data = JSON.parse(button.getAttribute('data-service'));
+      const form = document.getElementById('editForm');
+      form.action = '/admin/services/' + encodeURIComponent(data.id) + '/update';
+
+      document.getElementById('edit_id_badge').textContent = 'Mã ID: ' + data.id;
+      document.getElementById('edit_name').value = data.name || '';
+      document.getElementById('edit_category').value = data.category || '';
+      document.getElementById('edit_priceVnd').value = data.priceVnd !== undefined ? data.priceVnd : '';
+      document.getElementById('edit_durationMin').value = data.durationMinutes ? data.durationMinutes.min : '';
+      document.getElementById('edit_durationMax').value = data.durationMinutes ? data.durationMinutes.max : '';
+      document.getElementById('edit_bookingDurationMinutes').value = data.bookingDurationMinutes || '';
+      document.getElementById('edit_displayOrder').value = data.displayOrder !== undefined ? data.displayOrder : 0;
+      document.getElementById('edit_imageUrl').value = data.imageUrl || '';
+      const editFileInput = document.getElementById('edit_imageFileInput');
+      if (editFileInput) editFileInput.value = '';
+      const editDataUrlInput = document.getElementById('edit_imageDataUrl');
+      if (editDataUrlInput) editDataUrlInput.value = '';
+      const editLabel = document.getElementById('edit_fileLabel');
+      if (editLabel) editLabel.textContent = 'Đang dùng ảnh hiện tại';
+      document.getElementById('edit_description').value = data.description || '';
+      document.getElementById('edit_isActive').checked = Boolean(data.isActive);
+
+      const preview = document.getElementById('edit_previewImg');
+      if (data.imageUrl) {
+        preview.src = data.imageUrl;
+        preview.classList.remove('hidden');
+      } else {
+        preview.classList.add('hidden');
+      }
+
+      document.getElementById('editModal').classList.remove('hidden');
+    } catch (e) {
+      console.error('Không thể mở modal chỉnh sửa:', e);
+    }
+  }
+
+  function closeEditModal() {
+    document.getElementById('editModal').classList.add('hidden');
+  }
+
+  function handleImageFileSelect(input, hiddenInputId, previewImgId, labelId) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Vui lòng chọn ảnh có dung lượng dưới 5MB.');
+      input.value = '';
+      return;
+    }
+
+    if (labelId) {
+      const label = document.getElementById(labelId);
+      if (label) label.textContent = 'Đã chọn: ' + file.name;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const dataUrl = e.target.result;
+      document.getElementById(hiddenInputId).value = dataUrl;
+      const preview = document.getElementById(previewImgId);
+      if (preview) {
+        preview.src = dataUrl;
+        preview.classList.remove('hidden');
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function validateAddForm() {
+    const dataUrl = document.getElementById('add_imageDataUrl').value;
+    const url = document.getElementById('add_imageUrl') ? document.getElementById('add_imageUrl').value : '';
+    if (!dataUrl && !url) {
+      alert('Vui lòng bấm "Chọn ảnh từ thiết bị" để tải ảnh đại diện cho dịch vụ.');
+      return false;
+    }
+    return true;
+  }
+
+  // Close modals on clicking outside or pressing Escape
+  window.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      closeAddModal();
+      closeEditModal();
+    }
+  });
+
+  document.getElementById('addModal').addEventListener('click', function(e) {
+    if (e.target === this) closeAddModal();
+  });
+
+  document.getElementById('editModal').addEventListener('click', function(e) {
+    if (e.target === this) closeEditModal();
+  });
+</script>
+
+<%- include('layout-footer') %>
+
