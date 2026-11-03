@@ -1,8 +1,18 @@
 const paymentConfig = JSON.parse(document.querySelector('#payment-config').textContent)
 const paymentEl = id => document.getElementById(id)
-let paymentState = null
 const paymentKey = crypto.randomUUID()
 const paymentMoney = value => new Intl.NumberFormat('vi-VN').format(value) + ' đ'
+let paymentState = null
+let paymentBusy = false
+let paymentCommand = null
+
+function setPaymentBusy(busy) {
+  paymentBusy = busy
+  paymentEl('payment').dataset.paymentBusy = String(busy)
+  paymentEl('payment-refresh').disabled = busy
+  paymentEl('payment-attest').disabled = busy
+  paymentEl('payment-submit').disabled = busy || !paymentEl('payment-attest').checked
+}
 async function paymentRequest(confirm = false) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 15000)
@@ -10,52 +20,73 @@ async function paymentRequest(confirm = false) {
     const response = await fetch('/api/appointments/' + paymentConfig.appointmentId + '/payment' + (confirm ? '/confirm' : ''), {
       method: confirm ? 'POST' : 'GET', signal: controller.signal,
       headers: { Authorization: `Bearer ${paymentConfig.token}`, 'Content-Type': 'application/json', ...(confirm ? { 'Idempotency-Key': paymentKey } : {}) },
-      ...(confirm ? { body: JSON.stringify({ expectedRevision: paymentState.revision, receivedConfirmed: paymentEl('payment-attest').checked }) } : {}),
+      ...(confirm ? { body: paymentCommand } : {}),
     })
     const body = await response.json()
-    if (!response.ok) throw new Error(body.message || 'Không thể đọc trạng thái thanh toán.')
+    if (!response.ok) {
+      const error = new Error(body.message || 'Không thể đọc trạng thái thanh toán.')
+      error.status = response.status
+      throw error
+    }
     return body.data
   } finally { clearTimeout(timer) }
 }
 function renderPayment() {
   const waiting = paymentState.status !== 'paid' && paymentState.appointmentStatus === 'completed'
   paymentEl('payment-summary').className = waiting
-    ? 'my-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800'
-    : 'my-3 text-sm text-muted'
+    ? 'my-3 inline-block rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800'
+    : 'my-3 text-sm font-semibold text-emerald-800'
   paymentEl('payment-summary').textContent = paymentState.status === 'paid'
-    ? `Đã thanh toán ${paymentMoney(paymentState.amountVnd)} · ${new Date(paymentState.receivedAt).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}`
-    : paymentState.appointmentStatus === 'completed' ? `Chờ thu tiền · ${paymentMoney(paymentState.amountVnd)} · Chưa xác nhận nhận tiền` : ['cancelled', 'no_show'].includes(paymentState.appointmentStatus) ? 'Không có yêu cầu thanh toán cho lịch đã hủy hoặc không đến.' : 'Chưa ghi nhận thanh toán. Thu tiền sau khi hoàn tất phục vụ.'
-  paymentEl('payment-open').hidden = paymentState.status === 'paid' || paymentState.appointmentStatus !== 'completed'
+    ? `Đã thu tiền · ${new Date(paymentState.receivedAt).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}`
+    : waiting ? 'Chờ thu tiền · Chưa xác nhận nhận tiền'
+      : ['cancelled', 'no_show'].includes(paymentState.appointmentStatus) ? 'Không yêu cầu thu tiền' : 'Thu tiền sau khi hoàn tất phục vụ'
+  paymentEl('payment-amount').textContent = paymentMoney(paymentState.amountVnd)
+  paymentEl('payment-collection').hidden = !waiting
+  paymentEl('payment-reference').textContent = paymentState.transferContent
+  if (paymentState.status === 'paid') paymentCommand = null
 }
 async function refreshPayment() {
-  paymentEl('payment-refresh').disabled = true; paymentEl('payment-open').hidden = true
+  if (paymentBusy) return
+  setPaymentBusy(true)
+  paymentEl('payment-collection').hidden = true
+  paymentEl('payment-attest').checked = false
+  paymentEl('payment-error').textContent = ''
   try { paymentState = await paymentRequest(); renderPayment() }
-  catch { paymentState = null; paymentEl('payment-summary').textContent = 'Chưa đọc được trạng thái thanh toán. Vui lòng tải lại hoặc đăng nhập lại.' }
-  finally { paymentEl('payment-refresh').disabled = false }
+  catch {
+    paymentState = null
+    paymentEl('payment-amount').textContent = ''
+    paymentEl('payment-summary').textContent = 'Chưa đọc được trạng thái thanh toán. Vui lòng tải lại hoặc đăng nhập lại.'
+  } finally { setPaymentBusy(false) }
 }
 paymentEl('payment-refresh').onclick = refreshPayment
-paymentEl('payment-open').onclick = async () => {
-  await refreshPayment()
-  if (!paymentState || paymentState.status === 'paid' || paymentState.appointmentStatus !== 'completed') return
-  paymentEl('payment-amount').textContent = paymentMoney(paymentState.amountVnd)
-  paymentEl('payment-reference').textContent = paymentState.transferContent
-  paymentEl('payment-attest').checked = false; paymentEl('payment-error').textContent = ''
-  if (!paymentEl('payment-dialog').open) paymentEl('payment-dialog').showModal()
+paymentEl('payment-attest').onchange = () => {
+  paymentEl('payment-submit').disabled = paymentBusy || !paymentEl('payment-attest').checked
 }
-paymentEl('payment-close').onclick = () => { if (!paymentEl('payment-submit').disabled) paymentEl('payment-dialog').close() }
-paymentEl('payment-dialog').addEventListener('cancel', event => { if (paymentEl('payment-submit').disabled) event.preventDefault() })
 paymentEl('payment-confirm').onsubmit = async event => {
-  event.preventDefault(); paymentEl('payment-submit').disabled = true
+  event.preventDefault()
+  if (paymentBusy || !paymentEl('payment-attest').checked || paymentState?.status !== 'unpaid' || paymentState.appointmentStatus !== 'completed') return
+  paymentCommand ??= JSON.stringify({ expectedRevision: paymentState.revision, receivedConfirmed: true })
+  setPaymentBusy(true)
+  paymentEl('payment-error').textContent = ''
   try {
-    paymentState = await paymentRequest(true); renderPayment(); paymentEl('payment-dialog').close()
-  } catch (error) { paymentEl('payment-error').textContent = error.name === 'AbortError' ? 'Chưa rõ kết quả. Tải lại trạng thái hoặc thử lại cùng yêu cầu, không yêu cầu khách chuyển lần nữa.' : error.message }
-  finally { paymentEl('payment-submit').disabled = false }
+    paymentState = await paymentRequest(true)
+    renderPayment()
+  } catch (error) {
+    if (error.status && error.status < 500 && error.status !== 408) {
+      paymentCommand = null
+      paymentState = null
+      paymentEl('payment-collection').hidden = true
+      paymentEl('payment-summary').textContent = 'Cần tải lại trạng thái trước khi xác nhận.'
+      paymentEl('payment-error').textContent = error.message
+    } else {
+      paymentEl('payment-error').textContent = 'Chưa rõ kết quả. Tải lại trạng thái hoặc thử lại cùng yêu cầu; không yêu cầu khách chuyển lần nữa.'
+    }
+  } finally { setPaymentBusy(false) }
 }
 const paymentPageUrl = new URL(window.location.href)
-const collectAfterCompletion = paymentPageUrl.searchParams.get('collect') === '1'
-if (collectAfterCompletion) {
+if (paymentPageUrl.searchParams.get('collect') === '1') {
   paymentPageUrl.searchParams.delete('collect')
   window.history.replaceState(null, '', paymentPageUrl.href)
 }
-if (collectAfterCompletion || window.location.hash === '#payment') paymentEl('payment-open').click()
-else refreshPayment()
+// The collection panel is always inline; completion and QR shortcuts only focus it.
+void refreshPayment()

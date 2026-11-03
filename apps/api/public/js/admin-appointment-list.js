@@ -81,7 +81,7 @@ if (scheduleDialog && typeof scheduleDialog.showModal === 'function') {
   const dialogMessage = document.querySelector('[data-schedule-dialog-message]')
   const canCloseSchedule = () => {
     try {
-      if (scheduleFrame.contentDocument?.querySelector('dialog[open]')) {
+      if (scheduleFrame.contentDocument?.querySelector('dialog[open], [data-payment-busy="true"]')) {
         dialogMessage.textContent = 'Hãy hoàn tất hoặc đóng thao tác đang mở trước khi đóng chi tiết lịch.'
         return false
       }

@@ -77,7 +77,7 @@
     <footer class="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-4 text-xs text-muted"><p><%= appointments.length %> lịch trên trang này · Giờ hẹn tăng dần.<br><span class="mt-1 inline-block">Hoàn tất phục vụ chưa đồng nghĩa đã thu tiền.</span></p><div class="flex gap-2"><a class="<%= link %>" href="<%= ownerUrl('/admin/appointments') %>">Trang đầu</a><% if (pagination.hasNextPage) { %><a class="<%= link %> text-terracotta" href="<%= ownerUrl('/admin/appointments', { cursor: pagination.nextCursor, limit: pagination.limit }) %>">Xem trang lịch tiếp theo →</a><% } %></div></footer>
   <% } %>
 </section>
-<dialog data-schedule-dialog aria-labelledby="schedule-dialog-title" class="m-auto h-[94svh] max-h-[94svh] w-[calc(100%-1rem)] max-w-3xl overflow-hidden rounded-2xl border border-border bg-canvas p-0 text-ink shadow-2xl backdrop:bg-ink/40">
+<dialog data-schedule-dialog aria-labelledby="schedule-dialog-title" class="m-auto h-[94svh] max-h-[94svh] w-[calc(100%-1rem)] max-w-6xl overflow-hidden rounded-2xl border border-border bg-canvas p-0 text-ink shadow-2xl backdrop:bg-ink/40">
   <div class="flex items-center justify-between gap-3 border-b border-border bg-white px-5 py-3"><h2 id="schedule-dialog-title" class="font-bold">Chi tiết lịch hẹn</h2><button type="button" data-schedule-close class="min-h-11 rounded-xl border border-border px-4 text-sm font-semibold">Đóng</button></div>
   <p data-schedule-dialog-message role="status" class="px-5 text-sm text-terracotta"></p>
   <iframe data-schedule-frame title="Chi tiết và thao tác lịch hẹn" class="h-[calc(100%-5rem)] w-full border-0"></iframe>

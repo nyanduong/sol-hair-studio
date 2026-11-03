@@ -25,16 +25,20 @@ function closeDialog(dialog) {
 function openDialog(dialog) {
   const waiting = [...dialogs].find(([, state]) => locked(state))?.[0]
   if (waiting && waiting !== dialog) {
-    if (!waiting.open) waiting.showModal()
+    if (!waiting.open) waiting.show()
     return false
   }
-  if (!dialog.open) dialog.showModal()
+  for (const [other] of dialogs) {
+    if (other !== dialog && other.open) other.close()
+  }
+  if (!dialog.open) dialog.show()
+  dialog.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   return true
 }
 
 function createActionDialog(label, trigger, appointmentId, wide = false) {
   const dialog = document.createElement('dialog')
-  dialog.className = 'fixed inset-0 m-auto max-h-[96svh] w-[calc(100%_-_2rem)] overflow-y-auto rounded-3xl border border-border bg-[#fcfbf9] p-4 text-ink shadow-2xl backdrop:bg-ink/40 sm:p-5 ' + (wide ? 'max-w-6xl lg:h-[96svh] lg:overflow-hidden' : 'max-w-2xl')
+  dialog.className = 'relative m-0 w-full max-w-none rounded-none border-0 border-t border-border bg-canvas p-5 text-ink sm:p-6'
   dialog.setAttribute('aria-label', label)
   dialog.dataset.appointmentActionDialog = appointmentId
   const close = document.createElement('button')
@@ -44,10 +48,10 @@ function createActionDialog(label, trigger, appointmentId, wide = false) {
   close.className = 'absolute right-3 top-3 flex size-9 items-center justify-center rounded-xl text-xl text-muted hover:bg-soft-surface disabled:opacity-40'
   close.addEventListener('click', () => closeDialog(dialog))
   const content = document.createElement('div')
-  if (wide) content.className = 'lg:flex lg:h-full lg:min-h-0 lg:flex-col'
+  if (wide) content.className = 'flex min-w-0 flex-col'
   content.dataset.dialogContent = ''
   dialog.append(close, content)
-  document.body.append(dialog)
+  detail.append(dialog)
   dialogs.set(dialog, { referenceCode: detail?.dataset.appointmentReference || '', appointmentId, content, close, trigger, pending: false, busy: false, command: null, reader: null })
   dialog.addEventListener('cancel', event => {
     if (locked(dialogs.get(dialog))) event.preventDefault()
