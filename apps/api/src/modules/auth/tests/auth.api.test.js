@@ -235,7 +235,7 @@ describe('SOL-017 API + real isolated MongoDB replica set', { timeout: 30000 }, 
     const next = await post('otp/verify', { email, purpose: 'reset_password', code: code() }).expect(200)
     await AccountModel.updateOne({ emailNormalized: email }, { $set: { status: 'disabled' }, $inc: { authRevision: 1 } })
     await post('reset-password', { email, grant: next.body.data.grant, password }).expect(400)
-    await post('forgot-password', { email }).expect(200)
+    await post('forgot-password', { email }).expect(400)
     expect((await AccountModel.findOne({ emailNormalized: email })).status).toBe('disabled')
   })
 
@@ -315,7 +315,7 @@ describe('SOL-017 API + real isolated MongoDB replica set', { timeout: 30000 }, 
 
   it('rate limits spoofed forwarded IP headers and malformed email input safely', async () => {
     for (let i = 0; i < 20; i++) {
-      await request(app).post('/api/auth/forgot-password').set('X-Forwarded-For', `192.0.2.${i}`).send({ email: `missing${i}@example.test` }).expect(200)
+      await request(app).post('/api/auth/forgot-password').set('X-Forwarded-For', `192.0.2.${i}`).send({ email: `missing${i}@example.test` }).expect(404)
     }
     await post('forgot-password', { email: 'new@example.test' }).expect(429)
     await post('login', { email: {}, password }).expect(400)

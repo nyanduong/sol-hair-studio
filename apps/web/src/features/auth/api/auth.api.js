@@ -47,6 +47,9 @@ export async function resendActivationOtp(apiBaseUrl, { email }, { signal } = {}
 export async function verifyStaffActivationOtp(apiBaseUrl, { email, code }) { const response = await requestJson('/api/auth/otp/verify', { baseUrl: apiBaseUrl, method: 'POST', body: { email, purpose: 'activate_staff', code } }); return response.data }
 export async function completeStaffPassword(apiBaseUrl, { email, grant, password }) { const response = await requestJson('/api/auth/password/complete', { baseUrl: apiBaseUrl, method: 'POST', body: { email, purpose: 'activate_staff', grant, password } }); return response.data }
 export async function requestStaffActivationOtp(apiBaseUrl, { email }) { const response = await requestJson('/api/auth/otp/request', { baseUrl: apiBaseUrl, method: 'POST', body: { email, purpose: 'activate_staff' } }); return response.data }
+export async function requestPasswordResetOtp(apiBaseUrl, { email }) { const response = await requestJson('/api/auth/forgot-password', { baseUrl: apiBaseUrl, method: 'POST', body: { email } }); return response.data }
+export async function verifyPasswordResetOtp(apiBaseUrl, { email, code }) { const response = await requestJson('/api/auth/otp/verify', { baseUrl: apiBaseUrl, method: 'POST', body: { email, purpose: 'reset_password', code } }); return response.data }
+export async function completePasswordReset(apiBaseUrl, { email, grant, password }) { const response = await requestJson('/api/auth/reset-password', { baseUrl: apiBaseUrl, method: 'POST', body: { email, grant, password } }); return response.data }
 
 export async function getMe(apiBaseUrl, token, { signal } = {}) {
   const response = await requestJson('/api/auth/me', {
@@ -86,6 +89,9 @@ export function getAuthErrorMessage(error) {
     }
     if (error.code === 'EMAIL_ALREADY_EXISTS') {
       return 'Email này đã được đăng ký tài khoản.'
+    }
+    if (error.code === 'EMAIL_NOT_FOUND') {
+      return 'Email này chưa được đăng ký trong hệ thống.'
     }
     if (error.code === 'INVALID_OTP') {
       return 'Mã OTP không chính xác. Vui lòng kiểm tra lại hộp thư.'

@@ -2,11 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { apiBaseUrl } from '../../../config/env.js'
 import {
   activateCustomer,
+  completePasswordReset,
   getMe,
   loginUser,
   logoutUser,
   registerCustomer,
+  requestPasswordResetOtp,
   resendActivationOtp,
+  verifyPasswordResetOtp,
 } from '../api/auth.api.js'
 import { AuthContext } from './auth-context.js'
 import { isStylistOnly, STYLIST_APP_NOTICE } from '../validation/web-access.js'
@@ -104,6 +107,21 @@ export function AuthProvider({ children }) {
     return data
   }, [])
 
+  const requestPasswordReset = useCallback(async ({ email }) => {
+    const data = await requestPasswordResetOtp(apiBaseUrl, { email })
+    return data
+  }, [])
+
+  const verifyPasswordReset = useCallback(async ({ email, code }) => {
+    const data = await verifyPasswordResetOtp(apiBaseUrl, { email, code })
+    return data
+  }, [])
+
+  const completeResetPassword = useCallback(async ({ email, grant, password }) => {
+    const data = await completePasswordReset(apiBaseUrl, { email, grant, password })
+    return data
+  }, [])
+
   const logout = useCallback(async () => {
     const currentToken = authState.token
     try {
@@ -194,6 +212,9 @@ export function AuthProvider({ children }) {
     register,
     activate,
     resendActivation,
+    requestPasswordReset,
+    verifyPasswordReset,
+    completeResetPassword,
     logout,
   }), [
     authState.token,
@@ -209,6 +230,9 @@ export function AuthProvider({ children }) {
     register,
     activate,
     resendActivation,
+    requestPasswordReset,
+    verifyPasswordReset,
+    completeResetPassword,
     logout,
   ])
 
