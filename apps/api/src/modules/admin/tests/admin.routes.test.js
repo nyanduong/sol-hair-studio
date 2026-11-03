@@ -118,7 +118,7 @@ describe('Admin EJS Portal Routes', () => {
       expect(response.text).toContain('aria-current="page"')
       expect(response.text).toContain('Trương Khang')
       expect(response.text).toContain('Cắt &amp; tạo kiểu')
-      expect(response.text).toContain('Top Dịch vụ đặt nhiều nhất')
+      expect(response.text).toContain('Dịch vụ đã hoàn tất')
       expect(response.text).toContain('Phân bổ trạng thái lịch hẹn')
       expect(response.text).not.toContain('Xem trang chủ Salon')
     })

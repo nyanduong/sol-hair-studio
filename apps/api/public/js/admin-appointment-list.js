@@ -99,7 +99,7 @@ if (scheduleDialog && typeof scheduleDialog.showModal === 'function') {
     scheduleFrame.src = url.href
     scheduleDialog.showModal()
   })
-  scheduleFrame.addEventListener('load', () => { dialogMessage.textContent = '' })
+  scheduleFrame.addEventListener('load', () => { dialogMessage.textContent = ''; if (scheduleDialog.open) void refreshOwnerAppointmentList(true) })
   document.querySelector('[data-schedule-close]').addEventListener('click', () => {
     if (canCloseSchedule()) scheduleDialog.close()
   })

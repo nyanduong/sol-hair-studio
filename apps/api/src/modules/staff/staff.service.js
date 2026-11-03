@@ -371,6 +371,22 @@ export async function createStaff(identity, input = {}) {
 
   await ensureServiceIdsExist(serviceIds);
 
+  // A verified owner may create their own service profile without creating a
+  // duplicate login or changing any account roles. Never attach another account.
+  const self = await AccountModel.findOne({
+    _id: identity.accountId, emailNormalized: email, roles: 'owner', status: 'active',
+  }).lean();
+  if (self) {
+    return runInTransaction(async session => {
+      await verifyActiveOwnerInSession(identity, session);
+      await ensureServiceIdsExist(serviceIds, { session });
+      const [staff] = await StaffModel.create([{
+        accountId: self._id, displayName, isActive, serviceIds, bookingRevision: 0,
+      }], { session });
+      return staffDto(staff);
+    });
+  }
+
   const account = await createStaffAccount({
     actorId: identity.accountId,
     actorRevision: identity.authRevision,

@@ -81,7 +81,7 @@ export function findCustomerAppointments(customerId, {limit =20, cursor} = {}) {
 
     applyAppointmentCursor(filter, cursor, -1)
 
-    return findAppointmentPage(filter, limit, -1, { ...APPOINTMENT_LIST_FIELDS }, 50)
+    return findAppointmentPage(filter, limit, -1, { ...APPOINTMENT_LIST_FIELDS, 'payment.receivedAt': 1 }, 50)
 }
 
 // Đọc danh sách lịch theo hồ sơ khách.

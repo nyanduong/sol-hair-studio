@@ -1,3 +1,4 @@
+import { salonContact } from '../../../config/salon.js'
 const footerLinks = [
   { href: '/#services', label: 'Dịch vụ' },
   { href: '/#experience', label: 'Trải nghiệm' },
@@ -18,7 +19,9 @@ export default function SiteFooter() {
         <div>
           <h2 className="text-[0.6rem] font-semibold tracking-[0.16em] uppercase">Kết nối với Sol</h2>
           {/* Replace only with owner-verified salon/contact details. */}
-          <p className="mt-3 max-w-xs text-xs leading-relaxed text-muted">Thông tin salon và kênh liên hệ chính thức đang được cập nhật.</p>
+          {salonContact.phone && <a className="mt-2 flex min-h-11 items-center text-sm text-terracotta" href={`tel:${salonContact.phone}`}>Gọi salon: {salonContact.phone}</a>}
+          {salonContact.address && <p className="mt-2 text-sm text-muted">{salonContact.address}</p>}
+          {!salonContact.phone && <p className="mt-3 max-w-xs text-xs leading-relaxed text-muted">Kênh liên hệ chính thức đang được cập nhật. Nếu đang ở salon, vui lòng nhờ nhân viên tại quầy hỗ trợ.</p>}
         </div>
         <nav aria-label="Điều hướng cuối trang">
           <h2 className="text-[0.6rem] font-semibold tracking-[0.16em] uppercase">Điều hướng</h2>

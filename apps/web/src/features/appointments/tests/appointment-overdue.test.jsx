@@ -18,11 +18,11 @@ it('moves a due confirmed card into the separate tab and retains detail/support 
     expect(container.querySelector('a[href="/lich-cua-toi/due"]')).not.toBeNull()
     await act(async () => vi.advanceTimersByTime(1))
     expect(container.querySelector('a[href="/lich-cua-toi/due"]')).toBeNull()
-    await act(async () => [...container.querySelectorAll('button')].find(b=>b.textContent.includes('Đến/quá giờ')).click())
+    await act(async () => [...container.querySelectorAll('button')].find(b=>b.textContent.includes('Cần chú ý')).click())
     expect(container.textContent).toContain('tiệm chưa cập nhật kết quả')
     expect(container.textContent).toContain('Đã xác nhận')
     expect(container.querySelector('a[href="/lich-cua-toi/due"]')).not.toBeNull()
-    expect(container.querySelector('a[href="tel:19006828"]')).not.toBeNull()
+    expect(container.querySelector('a[href="/#contact"]')).not.toBeNull()
     expect(container.querySelector('a[href*="action=reschedule"]')).toBeNull()
     expect(appointment.status).toBe('confirmed')
   } finally { await act(async () => root.unmount());container.remove();vi.useRealTimers() }

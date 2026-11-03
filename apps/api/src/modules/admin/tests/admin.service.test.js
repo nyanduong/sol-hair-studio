@@ -106,6 +106,8 @@ describe('Admin Service — getDashboardData', () => {
     expect(result.statusMap.cancelled).toBe(1)
     expect(result.statusMap.no_show).toBe(0)
 
+    // Top-service revenue must exclude pending, cancelled and no-show bookings.
+    expect(AppointmentModel.aggregate.mock.calls[2][0][0]).toEqual({ $match: { status: 'completed' } })
     expect(result.topServices).toHaveLength(1)
     expect(result.topServices[0]._id).toBe('Cắt tóc nam')
     expect(result.activeServicesCount).toBe(5)

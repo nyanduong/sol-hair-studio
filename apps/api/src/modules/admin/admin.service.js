@@ -43,8 +43,9 @@ export async function getDashboardData() {
       { $match: { status: 'completed' } },
       { $group: { _id: null, totalRevenue: { $sum: '$totalPriceVnd' } } },
     ]),
-    // Top 5 dịch vụ được đặt nhiều nhất
+    // Chỉ giá trị dịch vụ đã hoàn tất, không phải tiền đã thu.
     AppointmentModel.aggregate([
+      { $match: { status: 'completed' } },
       { $unwind: '$items' },
       {
         $group: {

@@ -1,5 +1,5 @@
 import { Router, urlencoded } from 'express'
-import { requireAdminAuth } from './admin.middleware.js'
+import { getAdminTokenFromRequest, requireAdminAuth } from './admin.middleware.js'
 import {
     showOwnerAppointments,
     showOwnerAppointmentDetail,
@@ -49,6 +49,7 @@ adminAppointmentsRouter.get('/appointments/setup', requireAdminAuth, (req, res) 
     })
 })
 adminAppointmentsRouter.get('/appointments', requireAdminAuth, showOwnerAppointments)
+adminAppointmentsRouter.get('/appointments/new', requireAdminAuth, (req, res) => res.render('admin/appointments/appointment-create', { title: 'Đặt lịch cho khách', apiToken: getAdminTokenFromRequest(req) }))
 adminAppointmentsRouter.get('/appointments/:appointmentId', requireAdminAuth, showOwnerAppointmentDetail)
 adminAppointmentsRouter.post('/appointments/:appointmentId/cancel', requireAdminAuth, urlencoded({ extended: false, limit: '10kb' }), submitOwnerCancellation)
 adminAppointmentsRouter.get('/appointments/:appointmentId/reschedule', requireAdminAuth, showOwnerReschedule)

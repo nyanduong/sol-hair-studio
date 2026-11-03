@@ -223,7 +223,7 @@ export default function CustomerAppointmentDetail({ state, onLogin, actions }) {
                 <circle cx="12" cy="12" r="10" />
                 <path d="M12 11v6m0-10h.01" />
               </svg>
-              <span>Quy định đổi lịch: Chỉ áp dụng cho lịch đã xác nhận và còn ít nhất 2 giờ trước giờ hẹn.</span>
+              <span>{appointment.status === 'confirmed' ? `Có thể đổi hoặc hủy trực tuyến đến ${fmtTime.format(new Date(startDate.getTime() - 7200000))} ngày ${fmtDate.format(new Date(startDate.getTime() - 7200000))}.` : 'Thông tin được lưu theo lịch hẹn đã đặt.'}</span>
             </div>
           </section>
 
@@ -308,10 +308,10 @@ export default function CustomerAppointmentDetail({ state, onLogin, actions }) {
         </section>
       </div>
 
-      {/* ── Quy trình đón tiếp tại Atelier (lấy cảm hứng từ Card_detail.png) ── */}
+      {/* ── Tại Sol Hair Studio (lấy cảm hứng từ Card_detail.png) ── */}
       <div className="border-t border-[#f3eee6] bg-[#faf6f0] px-6 py-5 sm:px-8">
         <p className="text-[10px] font-bold uppercase tracking-[.2em] text-terracotta">
-          Quy trình đón tiếp tại Atelier
+          Tại Sol Hair Studio
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           <div className="flex items-start gap-3">
@@ -320,7 +320,7 @@ export default function CustomerAppointmentDetail({ state, onLogin, actions }) {
             </span>
             <div>
               <p className="text-xs font-bold text-ink">Đón tiếp</p>
-              <p className="mt-0.5 text-[11px] text-muted">Trà mộc quế &amp; tư vấn</p>
+              <p className="mt-0.5 text-[11px] text-muted">Xác nhận lịch hẹn và dịch vụ</p>
             </div>
           </div>
 
@@ -330,7 +330,7 @@ export default function CustomerAppointmentDetail({ state, onLogin, actions }) {
             </span>
             <div>
               <p className="text-xs font-bold text-ink">Thực hiện dịch vụ chuẩn salon</p>
-              <p className="mt-0.5 text-[11px] text-muted">Dưỡng chất hữu cơ Ý thuần khiết</p>
+              <p className="mt-0.5 text-[11px] text-muted">Stylist thực hiện dịch vụ đã chọn</p>
             </div>
           </div>
 
@@ -340,7 +340,7 @@ export default function CustomerAppointmentDetail({ state, onLogin, actions }) {
             </span>
             <div>
               <p className="text-xs font-bold text-ink">Hoàn thiện &amp; Hướng dẫn sấy</p>
-              <p className="mt-0.5 text-[11px] text-muted">Tặng cẩm nang chăm sóc tại nhà</p>
+              <p className="mt-0.5 text-[11px] text-muted">Kiểm tra kết quả và thanh toán</p>
             </div>
           </div>
         </div>
