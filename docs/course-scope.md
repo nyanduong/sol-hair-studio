@@ -8,8 +8,16 @@ Tài liệu này tách thông tin đã biết khỏi giả định kỹ thuật 
 - SDN302 yêu cầu website ReactJS hoàn chỉnh, bao gồm giao diện responsive trên trình duyệt điện thoại.
 - MMA301 yêu cầu ứng dụng React Native riêng cho Android và iOS.
 - Web và mobile dùng chung máy chủ và dữ liệu, nhưng mỗi môn vẫn cần luồng chạy, demo và bằng chứng yêu cầu riêng.
-- Không chia vai trò theo ứng dụng: không mặc định web chỉ dành cho quản trị viên hoặc mobile chỉ dành cho khách hàng.
+- Định hướng sản phẩm được người dùng xác nhận ngày 03/11/2026: website phục vụ quản trị và customer; mobile tập trung phục vụ stylist và customer.
 - Phần sản phẩm dùng chung đầu tiên là API danh mục dịch vụ thật được cả web và mobile sử dụng.
+
+## Thứ tự triển khai đã xác nhận
+
+Theo yêu cầu ngày 03/11/2026, tập trung hoàn thiện website và API cần thiết trước; sau đó audit commit, diff và PR để ghi nhận task thực tế lên Sheet. Không bắt buộc lập task trước khi triển khai. Vẫn review, kiểm thử và bàn giao từng PR trong quá trình làm website; chỉ ghi `Hoàn thành` khi có bằng chứng kiểm thử, nghiệm thu và merge.
+
+Chỉ triển khai tiếp tính năng mobile sau khi website hoàn tất theo phạm vi đã xác nhận và đã đối chiếu task lên Sheet. Giữ nguyên mobile hiện có, kiểm tra tương thích khi API thay đổi; phần mobile chưa nghiệm thu vẫn giữ trạng thái thực tế. Việc website hoàn tất không đồng nghĩa đã hoàn thành yêu cầu MMA301 hoặc toàn bộ rubric hai môn.
+
+API được thiết kế ngay từ giai đoạn website để cả web và mobile dùng chung nghiệp vụ, mô hình dữ liệu, hợp đồng xác thực, request/response và lỗi. Phân quyền dựa trên vai trò tại server; tránh phụ thuộc trình duyệt để mobile có thể tái sử dụng với ít thay đổi. Không tạo backend riêng cho mobile hoặc xây tầng mở rộng chưa cần thiết.
 
 ## Giả định kỹ thuật hiện tại
 

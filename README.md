@@ -10,6 +10,12 @@ Nền tảng dùng chung cho bài tập SDN302 và MMA301. Repository này chứ
 
 Repository có trang chủ web, danh mục dịch vụ trên mobile và API dùng chung. MongoDB lưu dịch vụ; Cloudinary phân phối ảnh dịch vụ. API tài khoản/OTP/phân quyền được triển khai ở SOL-017; giao diện tài khoản thuộc SOL-018/SOL-019. Đặt lịch có UI Web/Mobile và API tạo lịch SOL-031; nghiệm thu native/dữ liệu thực tế tiếp tục ở SOL-034. Trang tổng quan chưa triển khai, thanh toán ngoài MVP. Đây chưa phải tuyên bố đáp ứng rubric. Phạm vi hai môn và các giả định đang được ghi tại [docs/course-scope.md](docs/course-scope.md).
 
+## Thứ tự triển khai và đối tượng sử dụng
+
+Hoàn thiện website cho **quản trị và customer** trước, bao gồm API và các luồng đã xác nhận trong phạm vi website. Sau khi kiểm thử, nghiệm thu và merge PR của phần website, audit commit/diff/PR để gắn công việc thực tế cùng bằng chứng lên Sheet. Sau mốc đó mới triển khai tiếp mobile cho **stylist và customer**; giữ nguyên phần mobile hiện có trong thời gian tập trung website.
+
+API dùng chung được xây dựng ngay trong giai đoạn website: nghiệp vụ, validation và phân quyền theo vai trò nằm phía server; hợp đồng dữ liệu, lỗi và xác thực phục vụ được cả web lẫn native. Mobile tái sử dụng API và dữ liệu hiện có, với base URL riêng theo môi trường. Thay đổi API phải nêu ảnh hưởng tương thích và chạy kiểm tra liên quan cho cả hai client; không tạo backend riêng hoặc tầng mở rộng chưa cần thiết.
+
 ## Runtime và cài đặt
 
 - Node.js `24.15.0` (dòng Node 24 LTS; xem `.nvmrc`).
@@ -134,10 +140,11 @@ npm run bundle:mobile
 
 Luồng làm việc chuẩn:
 
-1. Chọn công việc trên Sheet và chuyển trạng thái sang `Đang làm` sau khi nhóm thống nhất.
-2. Tạo nhánh riêng, ví dụ `feat/SOL-003-service-catalog` hoặc `fix/SOL-008-api-timeout`.
-3. Triển khai, chạy kiểm tra liên quan và mở pull request có mã việc cùng liên kết Sheet.
-4. Review, sửa phản hồi và chỉ merge khi check `Lint, test and build` thành công theo policy repository.
-5. Sau khi nghiệm thu/merge, cập nhật trạng thái và bằng chứng trên Sheet.
+1. Triển khai website và API theo phạm vi đã xác nhận; tham khảo task hiện có, không bắt buộc tạo hoặc cập nhật hàng Sheet trước khi viết code.
+2. Tạo nhánh tập trung theo mã việc nếu đã có; nếu chưa có, dùng nhánh mô tả thay đổi với tiền tố `nyan/`.
+3. Chạy kiểm tra liên quan, mở PR và ghi bằng chứng thực tế. Gắn mã việc nếu đã có; nếu chưa có, ghi `Chờ đối chiếu sau audit website` cùng liên kết Sheet.
+4. Review từng PR, sửa phản hồi và chỉ merge khi check `Lint, test and build` thành công theo policy repository.
+5. Khi website hoàn tất, audit commit/diff/PR, đối chiếu task thực tế lên Sheet và bổ sung mã vào PR. Tái sử dụng mã phù hợp, không tạo task trùng hoặc suy diễn người làm/ngày thực hiện; phần thiếu bằng chứng giữ đúng trạng thái.
+6. Sau khi website đã kiểm thử, nghiệm thu, merge và hoàn tất đối chiếu Sheet, mới triển khai tiếp mobile cho stylist và customer. Task còn phần native chưa nghiệm thu không được đánh dấu hoàn thành toàn bộ.
 
 GitHub Issues hiện có được giữ làm lịch sử hoặc nguồn tham chiếu. Không bắt buộc tạo issue, GitHub Project, Sprint hay milestone cho công việc mới và không push thẳng vào `main`. Quy tắc đầy đủ dành cho thành viên và trợ lý mã nguồn nằm trong [AGENTS.md](AGENTS.md).

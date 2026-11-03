@@ -1,7 +1,8 @@
 ## Mã việc và Sheet
 
-- Mã việc: `SOL-xxx`
+- Mã việc: `SOL-xxx` hoặc `Chờ đối chiếu sau audit website`
 - Sheet: [Sol Hair Studio — Kế hoạch & phân công](https://docs.google.com/spreadsheets/d/1mKBFo0c1PcSJEVwbI80AAsorL47a7VyGk-nE0hIGLbw/edit)
+- Sau audit website: bổ sung mã/hàng Sheet tương ứng và liên kết commit/PR làm bằng chứng; không suy diễn người làm hoặc ngày thực hiện.
 
 ## Tóm tắt
 
@@ -11,6 +12,7 @@
 
 - Bao gồm:
 - Chủ động không thực hiện:
+- Ảnh hưởng tương thích API dùng chung với web/mobile (nếu có):
 
 ## Kiểm tra và bằng chứng
 
