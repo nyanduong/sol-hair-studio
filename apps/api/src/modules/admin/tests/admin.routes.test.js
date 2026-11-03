@@ -1,3 +1,5 @@
+import { listCategories } from '../../services/categories.service.js'
+vi.mock('../../services/categories.service.js', () => ({ listCategories: vi.fn().mockResolvedValue([]), createCategory: vi.fn(), updateCategory: vi.fn(), importLegacyCategories: vi.fn(), withManagedCategory: vi.fn(), resolveCategoryName: vi.fn() }))
 import request from 'supertest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -44,6 +46,7 @@ describe('Admin EJS Portal Routes', () => {
 
   beforeEach(() => {
     vi.resetAllMocks()
+    listCategories.mockResolvedValue([])
     getDatabaseStatus.mockReturnValue('connected')
   })
 

@@ -1,3 +1,4 @@
+import { listCategories } from '../services/categories.service.js'
 import * as authService from '../auth/auth.service.js'
 import * as servicesService from '../services/services.service.js'
 import * as adminService from './admin.service.js'
@@ -108,6 +109,7 @@ export async function renderServices(req, res) {
       activeTab: 'services',
       services: filtered,
       allServices,
+      serviceCategories: await listCategories(req.identity),
       stats,
       categories,
       currentCategory: category,
@@ -128,6 +130,7 @@ export async function createServiceAction(req, res) {
       id,
       name,
       category,
+      categoryId,
       description,
       priceVnd,
       durationMin,
@@ -139,6 +142,7 @@ export async function createServiceAction(req, res) {
       displayOrder,
     } = req.body || {}
 
+    if (req.body.managedCategory === 'true' && !categoryId) throw new Error('Vui lòng chọn danh mục từ danh sách quản lý.')
     let finalImageUrl = (imageUrl || '').trim()
     let coverImageId
 
@@ -172,6 +176,7 @@ export async function createServiceAction(req, res) {
       id: id ? id.trim() : undefined,
       name: name ? name.trim() : '',
       category: category ? category.trim() : '',
+      categoryId: categoryId || undefined,
       description: description ? description.trim() : '',
       priceVnd: priceVnd !== undefined && priceVnd !== '' ? Number(priceVnd) : undefined,
       durationMinutes: {
@@ -204,6 +209,7 @@ export async function updateServiceAction(req, res) {
     const {
       name,
       category,
+      categoryId,
       description,
       priceVnd,
       durationMin,
@@ -243,6 +249,7 @@ export async function updateServiceAction(req, res) {
     const updates = {}
     if (name !== undefined) updates.name = name.trim()
     if (category !== undefined) updates.category = category.trim()
+    if (categoryId) updates.categoryId = categoryId
     if (description !== undefined) updates.description = description.trim()
     if (priceVnd !== undefined && priceVnd !== '') updates.priceVnd = Number(priceVnd)
     if ((durationMin !== undefined && durationMin !== '') || bookingDurationMinutes) {

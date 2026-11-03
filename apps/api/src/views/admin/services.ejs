@@ -266,7 +266,6 @@
   </div>
 </div>
 
-<datalist id="service-categories"><% for (const category of categories) { %><option value="<%= category %>"></option><% } %></datalist>
 <!-- ==================== MODAL: THÊM DỊCH VỤ ==================== -->
 <dialog id="addModal" aria-label="Thêm dịch vụ" class="fixed inset-0 m-auto w-[min(760px,calc(100%_-_2rem))] max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-0 backdrop:bg-black/40">
   <div class="relative w-full max-w-none bg-white rounded-2xl shadow-2xl border border-[#e7e2da]">
@@ -330,6 +329,31 @@
   }
 
 
+  async function refreshCategories(prefix) {
+    const notice = document.getElementById(prefix + '_categoryNotice'); notice.textContent = 'Đang cập nhật…';
+    try {
+      const response = await fetch('/admin/service-categories/options', { cache: 'no-store', headers: { Accept: 'application/json' } });
+      if (!response.ok) throw new Error('Không tải được danh mục');
+      const body = await response.json();
+      const select = document.getElementById(prefix + '_category'); const value = select.value;
+      const existing = select.querySelector('[data-existing-category]');
+      select.replaceChildren(); const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = 'Chọn danh mục'; select.append(placeholder);
+      for (const item of body.data.filter(item => item.isActive)) { const option = document.createElement('option'); option.value = item.id; option.textContent = item.name; select.append(option); }
+      if (prefix === 'edit' && existing && ![...select.options].some(option => option.value === existing.value)) select.append(existing);
+      select.value = value;
+      notice.textContent = 'Đã cập nhật danh mục. Dữ liệu đang nhập được giữ nguyên.';
+    } catch { notice.textContent = 'Chưa tải được danh mục. Kiểm tra đăng nhập/kết nối và thử lại.'; }
+  }
+  function chooseCategory(prefix, data) {
+    const select = document.getElementById(prefix + '_category');
+    select.querySelectorAll('[data-existing-category]').forEach(option => option.remove());
+    const option = [...select.options].find(item => (data.categoryId && item.value === String(data.categoryId)) || item.textContent === data.category);
+    if (option) select.value = option.value;
+    else if (prefix === 'edit' && data.categoryId) {
+      const existing = document.createElement('option'); existing.value = String(data.categoryId); existing.textContent = data.category + ' (ngừng dùng)'; existing.dataset.existingCategory = 'true'; select.append(existing); select.value = existing.value;
+    } else select.value = '';
+  }
+
   function configureRange(prefix, enabled) {
     document.getElementById(prefix + '_flexible').checked = enabled;
     const range = document.getElementById(prefix + '_range');
@@ -351,8 +375,9 @@
     const data = JSON.parse(button.getAttribute('data-service'));
     openAddModal();
     document.getElementById('add_name').value = (data.name + ' (bản sao)').slice(0, 120);
-    for (const key of ['category', 'priceVnd', 'description', 'bookingDurationMinutes']) document.getElementById('add_' + key).value = data[key] ?? '';
+    for (const key of ['priceVnd', 'description', 'bookingDurationMinutes']) document.getElementById('add_' + key).value = data[key] ?? '';
     document.getElementById('add_bookingDurationMinutes').value = data.bookingDurationMinutes || data.durationMinutes.max;
+    chooseCategory('add', data);
     document.getElementById('add_durationMin').value = data.durationMinutes.min;
     document.getElementById('add_durationMax').value = data.durationMinutes.max;
     configureRange('add', data.durationMinutes.min !== data.durationMinutes.max || data.durationMinutes.min !== data.bookingDurationMinutes);
@@ -378,7 +403,7 @@
 
       document.getElementById('edit_id_badge').textContent = 'Mã ID: ' + data.id;
       document.getElementById('edit_name').value = data.name || '';
-      document.getElementById('edit_category').value = data.category || '';
+      chooseCategory('edit', data);
       document.getElementById('edit_priceVnd').value = data.priceVnd !== undefined ? data.priceVnd : '';
       document.getElementById('edit_durationMin').value = data.durationMinutes ? data.durationMinutes.min : '';
       document.getElementById('edit_durationMax').value = data.durationMinutes ? data.durationMinutes.max : '';

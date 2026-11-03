@@ -1,6 +1,6 @@
 # Tạo và nhân bản dịch vụ
 
-Form admin mặc định gồm tên, danh mục (gợi ý danh mục hiện có hoặc nhập mới), giá, thời lượng giữ chỗ và ảnh. Trạng thái nhận lịch hiển thị trước khi lưu. Phần Nâng cao chứa khoảng thời gian linh hoạt, mô tả tùy chọn và thứ tự tùy chỉnh. Khi không bật khoảng thời gian, min/max đều bằng thời lượng giữ chỗ. Khi sửa dịch vụ cũ, khoảng thời gian linh hoạt hiện có được giữ nguyên dù phần Nâng cao đang đóng.
+Form admin mặc định gồm tên, danh mục chọn từ dropdown quản lý tập trung, giá, thời lượng giữ chỗ và ảnh. Trạng thái nhận lịch hiển thị trước khi lưu. Phần Nâng cao chứa khoảng thời gian linh hoạt, mô tả tùy chọn và thứ tự tùy chỉnh. Khi không bật khoảng thời gian, min/max đều bằng thời lượng giữ chỗ. Khi sửa dịch vụ cũ, khoảng thời gian linh hoạt hiện có được giữ nguyên dù phần Nâng cao đang đóng.
 
 Nhân bản mở bản nháp trong form tạo mới: sao chép tên có hậu tố bản sao, danh mục, giá, thời lượng, mô tả, ảnh và trạng thái. Không sao chép mã, slug hoặc thứ tự; không ghi database trước khi bấm Lưu. Ảnh có thể thay; dùng lại URL ảnh không phát sinh upload Cloudinary mới. Nhân bản không gán stylist, không đổi lịch đã đặt.
 
@@ -14,6 +14,16 @@ Nhân bản mở bản nháp trong form tạo mới: sao chép tên có hậu t�
 - `description`: mặc định chuỗi rỗng, tối đa 2.000 ký tự. Response giữ trường description; model cho phép mô tả rỗng.
 
 Mã dịch vụ cũ không thay đổi. Mobile không cần đổi request hoặc response reader. Không có endpoint nhân bản riêng; bản nháp gửi qua API tạo dịch vụ hiện có sau khi người dùng kiểm tra.
+
+## Quản lý danh mục
+
+Trang `/admin/service-categories` có tạo, đổi tên, ngừng dùng và mở lại danh mục; có liên kết trong sidebar và trong form dịch vụ. Không xóa cứng danh mục đang tham chiếu. Nút cập nhật dropdown tải các danh mục đang dùng qua route admin có xác thực, giữ nguyên phần form khác.
+
+Collection `service_categories` gồm name, normalizedName (unique, chuẩn hóa NFC/chữ thường/khoảng trắng), isActive, revision và timestamps. Dịch vụ mới từ form lưu categoryId tham chiếu danh mục và category là tên tương thích DTO hiện có. Tạo/sửa dịch vụ theo categoryId khóa revision danh mục trong transaction cùng ghi dịch vụ; đổi tên danh mục và cập nhật tên trên dịch vụ liên quan cũng dùng transaction, không đổi snapshot lịch hẹn. Danh mục ngừng dùng không được chọn khi tạo/nhân bản; dịch vụ đang tham chiếu vẫn sửa được với danh mục đó.
+
+API owner: `GET/POST /api/service-categories`, `PATCH /api/service-categories/:id` (name/isActive). POST/PATCH dịch vụ thêm categoryId tùy chọn; khi có ID, server lấy tên từ danh mục, không tin tên client gửi và từ chối ID thiếu/không hợp lệ/ngừng dùng. Payload legacy chỉ gửi category dạng chuỗi tiếp tục được hỗ trợ để không phá client cũ; form web mới chỉ gửi categoryId. Public DTO category vẫn là chuỗi, không đổi reader mobile.
+
+Dữ liệu cũ có nút **Nhập danh mục từ dịch vụ cũ**: lệnh POST chủ động bổ sung các tên hiện có vào danh sách chung, không tự tạo dữ liệu khi GET trang và không bật lại danh mục đã ngừng dùng. Không tự chạy lệnh này trên database local của người dùng.
 
 ## Kiểm chứng
 

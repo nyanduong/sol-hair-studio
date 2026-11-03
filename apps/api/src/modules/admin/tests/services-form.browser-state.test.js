@@ -5,9 +5,9 @@ import { Window } from 'happy-dom'
 import { describe, expect, it, vi } from 'vitest'
 
 const template = fileURLToPath(new URL('../../../views/admin/services.ejs', import.meta.url))
-const service = { id: 'cut', name: "Cắt tóc O'Brien <đẹp>", category: 'Tóc', priceVnd: 150000, durationMinutes: { min: 30, max: 60 }, bookingDurationMinutes: 45, description: 'Mô tả', displayOrder: 9, imageUrl: 'https://res.cloudinary.com/demo/image/upload/cut.jpg', isActive: false }
+const service = { id: 'cut', categoryId: '507f1f77bcf86cd799439022', name: "Cắt tóc O'Brien <đẹp>", category: 'Tóc', priceVnd: 150000, durationMinutes: { min: 30, max: 60 }, bookingDurationMinutes: 45, description: 'Mô tả', displayOrder: 9, imageUrl: 'https://res.cloudinary.com/demo/image/upload/cut.jpg', isActive: false }
 async function setup() {
-  const html = await ejs.renderFile(template, { title: 'Dịch vụ', identity: { roles: ['owner'] }, services: [service], categories: ['Tóc'], stats: { total: 1, activeCount: 0, inactiveCount: 1 }, currentCategory: '', currentStatus: '', currentSearch: '', success: null, error: null })
+  const html = await ejs.renderFile(template, { title: 'Dịch vụ', identity: { roles: ['owner'] }, services: [service], serviceCategories: [{ id: service.categoryId, name: service.category, isActive: true }], categories: ['Tóc'], stats: { total: 1, activeCount: 0, inactiveCount: 1 }, currentCategory: '', currentStatus: '', currentSearch: '', success: null, error: null })
   const window = new Window()
   window.document.body.innerHTML = html
   const document = window.document
@@ -48,5 +48,16 @@ describe('service form drafts', () => {
     document.querySelector('#edit_bookingDurationMinutes').value = '90'
     expect(context.validateServiceForm(document.querySelector('#editForm'))).toBe(true)
     expect(document.querySelector('#edit_range').disabled).toBe(true)
+  })
+
+  it('refreshes the category dropdown without losing draft values', async () => {
+    const { document, context } = await setup()
+    context.openAddModal()
+    document.querySelector('#add_name').value = 'Dịch vụ đang nhập'
+    context.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: [{ id: 'new-category', name: 'Danh mục mới', isActive: true }, { id: 'inactive', name: 'Ngừng dùng', isActive: false }] }) })
+    await context.refreshCategories('add')
+    expect(document.querySelector('#add_name').value).toBe('Dịch vụ đang nhập')
+    expect([...document.querySelector('#add_category').options].map(item => item.value)).toEqual(['', 'new-category'])
+    expect(document.querySelector('#add_category').tagName).toBe('SELECT')
   })
 })
