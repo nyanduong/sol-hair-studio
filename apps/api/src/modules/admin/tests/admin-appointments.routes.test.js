@@ -73,11 +73,11 @@ describe('Owner EJS uses the shared Admin session', () => {
     expect(authenticate).not.toHaveBeenCalled()
   })
 
-  it('uses the unchanged Admin header and footer on the appointment page', async () => {
+  it('uses the shared Admin navigation and footer on the appointment page', async () => {
     const response = await request(app).get('/admin/appointments')
       .set('Cookie', `sol_admin_token=${token}`).expect(200)
-    expect(response.text).toContain('Trang Quản Trị Salon')
-    expect(response.text).toContain('Cổng Quản trị dành cho Chủ tiệm')
+    expect(response.text).toContain('QUẢN TRỊ SALON')
+    expect(response.text).toContain('Sol Hair Studio · Quản trị salon')
     expect(response.text).toContain('href="/admin/dashboard"')
     expect(response.text).not.toContain('fonts.googleapis.com/css2?family=Cormorant')
     expect(response.text).not.toContain('/owner-assets/css/owner.css')
