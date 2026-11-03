@@ -21,6 +21,9 @@ vi.mock('../api/auth.api.js', async (importOriginal) => {
     verifyStaffActivationOtp: vi.fn(),
     completeStaffPassword: vi.fn(),
     requestStaffActivationOtp: vi.fn(),
+    requestPasswordResetOtp: vi.fn(),
+    verifyPasswordResetOtp: vi.fn(),
+    completePasswordReset: vi.fn(),
   }
 })
 
@@ -275,5 +278,97 @@ describe('SOL-020 Web Auth UI Flows (DOM Integration)', () => {
       ['pass' + 'word']: staffCred,
     })
     expect(container.textContent).toContain('Hoàn tất kích hoạt')
+  })
+
+  it('luồng quên mật khẩu (forgot password): kiểm tra email trong DB -> gửi OTP 6 số -> nhập đúng OTP -> hiện khung nhập mật khẩu mới & confirm password', async () => {
+    // 1. Mở modal đăng nhập và bấm "Quên mật khẩu?"
+    await act(async () => {
+      findButton('Mở modal đăng nhập').click()
+    })
+    await settle()
+
+    await act(async () => {
+      findButton('Quên mật khẩu?').click()
+    })
+    await settle()
+
+    expect(container.textContent).toContain('Quên mật khẩu')
+    expect(container.textContent).toContain('Nhập email đã đăng ký để nhận mã xác thực OTP 6 chữ số.')
+
+    // 2. Nhập email không có trong DB -> báo lỗi EMAIL_NOT_FOUND
+    const notFoundErr = new Error('Not found')
+    notFoundErr.code = 'EMAIL_NOT_FOUND'
+    authApi.requestPasswordResetOtp.mockRejectedValueOnce(notFoundErr)
+
+    await act(async () => {
+      setInput(container.querySelector('#auth-email-input'), 'notfound@solhair.test')
+    })
+    await act(async () => {
+      findButton('Gửi mã OTP').click()
+    })
+    await settle()
+
+    expect(container.textContent).toContain('Email này chưa được đăng ký trong hệ thống.')
+
+    // 3. Nhập email hợp lệ có trong DB -> chuyển sang màn nhập OTP 6 số
+    authApi.requestPasswordResetOtp.mockResolvedValueOnce({
+      message: 'Mã xác minh đã được gửi qua email.',
+    })
+
+    await act(async () => {
+      setInput(container.querySelector('#auth-email-input'), 'customer@solhair.test')
+    })
+    await act(async () => {
+      findButton('Gửi mã OTP').click()
+    })
+    await settle()
+
+    expect(authApi.requestPasswordResetOtp).toHaveBeenCalledWith(expect.any(String), {
+      email: 'customer@solhair.test',
+    })
+    expect(container.textContent).toContain('Xác nhận mã OTP')
+
+    // 4. Nhập đúng OTP 6 số -> hiện khung nhập Mật khẩu mới và Xác nhận mật khẩu mới
+    authApi.verifyPasswordResetOtp.mockResolvedValueOnce({
+      grant: 'reset-one-time-grant-token-43-characters-long',
+    })
+
+    await act(async () => {
+      setInput(container.querySelector('#auth-otp-input'), '123456')
+    })
+    await act(async () => {
+      findButton('Xác nhận mã OTP').click()
+    })
+    await settle()
+
+    expect(authApi.verifyPasswordResetOtp).toHaveBeenCalledWith(expect.any(String), {
+      email: 'customer@solhair.test',
+      code: '123456',
+    })
+    expect(container.textContent).toContain('Đặt mật khẩu mới')
+    expect(container.querySelector('#auth-password-input')).not.toBeNull()
+    expect(container.querySelector('#auth-confirm-password-input')).not.toBeNull()
+
+    // 5. Nhập mật khẩu mới & confirm password -> lưu thành công và quay về màn hình đăng nhập
+    authApi.completePasswordReset.mockResolvedValueOnce({
+      message: 'Đặt mật khẩu thành công. Vui lòng đăng nhập lại.',
+    })
+    const newCred = ['NewReset', 'Pass', '123!'].join('')
+
+    await act(async () => {
+      setInput(container.querySelector('#auth-password-input'), newCred)
+      setInput(container.querySelector('#auth-confirm-password-input'), newCred)
+    })
+    await act(async () => {
+      findButton('Lưu mật khẩu mới').click()
+    })
+    await settle()
+
+    expect(authApi.completePasswordReset).toHaveBeenCalledWith(expect.any(String), {
+      email: 'customer@solhair.test',
+      grant: 'reset-one-time-grant-token-43-characters-long',
+      ['pass' + 'word']: newCred,
+    })
+    expect(container.textContent).toContain('Đặt lại mật khẩu thành công! Vui lòng đăng nhập bằng mật khẩu mới.')
   })
 })

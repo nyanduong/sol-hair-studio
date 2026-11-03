@@ -133,6 +133,9 @@ export function getAuthErrorMessage(error) {
     if (error.code === 'EMAIL_ALREADY_EXISTS') {
       return 'Email này đã được đăng ký tài khoản.'
     }
+    if (error.code === 'EMAIL_NOT_FOUND') {
+      return 'Email này chưa được đăng ký trong hệ thống.'
+    }
     if (error.code === 'INVALID_OTP') {
       return 'Mã OTP không chính xác. Vui lòng kiểm tra lại hộp thư.'
     }
