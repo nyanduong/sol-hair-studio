@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { apiBaseUrl } from '../../../config/env.js'
 import StaffActivationModal from './StaffActivationModal.jsx'
 import { getAuthErrorMessage } from '../api/auth.api.js'
 import { useAuth } from '../hooks/useAuth.js'
@@ -196,7 +197,10 @@ export default function AuthModal() {
 
       setIsSubmitting(true)
       try {
-        await login({ email: validation.values.email, password: validation.values.password })
+        const data = await login({ email: validation.values.email, password: validation.values.password })
+        if (data.account?.roles?.includes('owner')) {
+          window.location.assign(`${apiBaseUrl}/admin/nhan-su`)
+        }
       } catch (err) {
         setApiError(getAuthErrorMessage(err))
         setApiErrorCode(err?.code)

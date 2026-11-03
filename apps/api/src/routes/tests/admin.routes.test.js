@@ -9,6 +9,8 @@ describe('GET /admin/nhan-su', () => {
     expect(response.headers['content-type']).toContain('text/html')
     expect(response.text).toContain('Nhân sự &amp; ca làm')
     expect(response.text).toContain('/admin/assets/staff-admin.js')
+    expect(response.text).toContain('class="admin-sidebar"')
+    expect(response.text).not.toContain('class="site-header"')
   })
 
   it('giữ đường dẫn quản trị cũ khi chuyển sang EJS', async () => {

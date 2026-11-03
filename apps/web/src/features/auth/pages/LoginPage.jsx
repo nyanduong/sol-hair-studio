@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { apiBaseUrl } from '../../../config/env.js'
 import { getAuthErrorMessage } from '../api/auth.api.js'
 import { useAuth } from '../hooks/useAuth.js'
 import {
@@ -113,7 +114,11 @@ export default function LoginPage() {
 
       setIsSubmitting(true)
       try {
-        await login({ email: validation.values.email, password: validation.values.password })
+        const data = await login({ email: validation.values.email, password: validation.values.password })
+        if (data.account?.roles?.includes('owner')) {
+          window.location.assign(`${apiBaseUrl}/admin/nhan-su`)
+          return
+        }
         navigate('/')
       } catch (err) {
         setApiError(getAuthErrorMessage(err))
