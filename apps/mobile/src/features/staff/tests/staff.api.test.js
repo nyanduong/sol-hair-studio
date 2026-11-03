@@ -36,7 +36,7 @@ describe('ca làm của stylist trên mobile', () => {
   it('trình bày khoảng tuần và dữ liệu ca từ hợp đồng API', () => {
     expect(currentWeekRange(new Date('2026-10-21T12:00:00'))).toEqual(range)
     expect(moveWeek(range, 1)).toEqual({ fromDate: '2026-10-26', toDate: '2026-11-01' })
-    expect(formatShiftTime('2026-10-19T09:00:00+07:00')).toBe('09:00')
+    expect(formatShiftTime('2026-10-19T02:00:00.000Z')).toBe('09:00')
     expect(shiftStatusLabel('cancelled')).toBe('Đã hủy')
   })
 })
