@@ -1,10 +1,10 @@
+import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import StylistServiceHistoryScreen from '../features/appointments/screens/StylistServiceHistoryScreen.jsx'
 import StylistAppointmentsScreen from '../features/appointments/screens/StylistAppointmentsScreen.jsx'
 import StylistAppointmentDetailScreen from '../features/appointments/screens/StylistAppointmentDetailScreen.jsx'
 import CustomerAppointmentRescheduleScreen from '../features/appointments/screens/CustomerAppointmentRescheduleScreen.jsx'
 import CustomerAppointmentDetailScreen from '../features/appointments/screens/CustomerAppointmentDetailScreen.jsx'
 import CustomerAppointmentsScreen from '../features/appointments/screens/CustomerAppointmentsScreen.jsx'
-import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import ForgotPasswordScreen from '../features/auth/screens/ForgotPasswordScreen.jsx'
 import LoginScreen from '../features/auth/screens/LoginScreen.jsx'
 import OtpVerificationScreen from '../features/auth/screens/OtpVerificationScreen.jsx'
@@ -43,16 +43,7 @@ export default function RootNavigator() {
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       <Stack.Screen name="Profile" component={ProfileScreen} />
-      <Stack.Screen
-        name="Health"
-        component={HealthScreen}
-        options={{
-          headerShown: true,
-          title: 'Kết nối API',
-          headerTintColor: colors.copper,
-          headerStyle: { backgroundColor: colors.canvas },
-        }}
-      />
+      <Stack.Screen name="Health" component={HealthScreen} options={{ headerShown: true, title: 'Kết nối API', headerTintColor: colors.copper, headerStyle: { backgroundColor: colors.canvas } }} />
     </Stack.Navigator>
   )
 }
