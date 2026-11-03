@@ -11,8 +11,9 @@ describe('điều hướng dưới theo vai trò', () => {
   it('đặt ca làm của stylist ở giữa và không hiển thị dịch vụ hay đặt lịch', () => {
     const items = getBottomNavItems(true)
     expect(items.map((item) => item.label)).toEqual([
-      'Trang chủ', 'Lịch hẹn được giao', 'Ca làm của tôi', 'Báo cáo', 'Tài khoản',
+      'Trang chủ', 'Lịch hẹn', 'Ca làm của tôi', 'Báo cáo', 'Tài khoản',
     ])
     expect(items[2]).toMatchObject({ route: 'StylistShifts', booking: true })
+    expect(items[1]).toMatchObject({ route: 'StylistAppointments' })
   })
 })

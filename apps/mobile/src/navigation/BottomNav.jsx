@@ -40,6 +40,11 @@ export default function BottomNav({ navigation, active }) {
       return
     }
 
+    if (item.kind === 'stylist-appointments') {
+      if (active !== 'StylistAppointments') navigation.navigate('StylistAppointments')
+      return
+    }
+
     if (item.kind === 'unavailable') {
       if (item.requiresAuth && !isAuthenticated) {
         navigation.navigate('Login', {

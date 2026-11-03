@@ -44,6 +44,30 @@ export function shiftStatusLabel(status) {
   return status === 'cancelled' ? 'Đã hủy' : 'Đang áp dụng'
 }
 
+export function moveLocalDate(value, amount) {
+  const date = new Date(`${value}T00:00:00.000Z`)
+  date.setUTCDate(date.getUTCDate() + amount)
+  return date.toISOString().slice(0, 10)
+}
+
+export function appointmentDateLabel(value) {
+  return new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date(`${value}T00:00:00.000Z`))
+}
+
+export function appointmentStatusLabel(status) {
+  return {
+    confirmed: 'Đã xác nhận',
+    in_progress: 'Đang phục vụ',
+    completed: 'Đã hoàn tất',
+  }[status] ?? status
+}
+
 function formatShortDate(value) {
   const date = dateAtLocalMidnight(value)
   return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`
