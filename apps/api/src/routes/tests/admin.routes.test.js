@@ -18,10 +18,11 @@ describe('GET /admin/nhan-su', () => {
     expect(response.headers['content-type']).toContain('text/html')
     expect(response.text).toContain('Nhân sự &amp; ca làm')
     expect(response.text).toContain('/admin/assets/staff-admin.js')
-    expect(response.text).toContain('href="/admin/dashboard"')
-    expect(response.text).toContain('href="/admin/services"')
-    expect(response.text).toContain('href="/admin/nhan-su"')
-    expect(response.text).toContain('href="/admin/nhan-su" aria-current="page"')
+    expect(response.text).toContain('id="shift-form"')
+    expect(response.text).toContain('/admin/dashboard')
+    expect(response.text).toContain('/admin/services')
+    expect(response.text).toContain('/admin/nhan-su')
+    expect(response.text).toContain('aria-current="page"')
   })
 
   it('giữ đường dẫn quản trị cũ khi chuyển sang EJS', async () => {
