@@ -1,3 +1,4 @@
+import { getAdminTokenFromRequest } from './admin.middleware.js'
 
 import {
   AppointmentError,
@@ -94,6 +95,7 @@ export async function showOwnerAppointmentDetail(req, res, next) {
 
     return res.render('admin/appointments/appointment-detail', {
       title: 'Chi tiết lịch hẹn',
+      paymentToken: getAdminTokenFromRequest(req),
       appointment,
       personalStaff,
       cancelKey: randomUUID(),

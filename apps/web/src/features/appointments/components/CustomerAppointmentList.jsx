@@ -186,7 +186,7 @@ function AppointmentCard({ appointment, isUpcomingSoon, now }) {
                 {fmtDuration(appointment.totalDurationMinutes)}
               </p>
               <p className="mt-2 text-[10px] font-medium uppercase tracking-wider text-[#8c827a]">
-                {isPast ? 'Thanh toán' : 'Ước tính'}
+                {isPast ? 'Giá trị dịch vụ' : 'Ước tính'}
               </p>
               {/* Kiểu chữ giá tiền: dùng font-sans hiện đại, số rõ ràng, không dùng font serif */}
               <p className="mt-0.5 font-sans text-[#a14f3d] font-bold tracking-tight sm:text-2xl">
