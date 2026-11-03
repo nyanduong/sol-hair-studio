@@ -24,3 +24,8 @@ adminRouter.get(['/admin/nhan-su', '/quan-ly/nhan-su'], requireAdminAuth, (reque
     apiToken: getAdminTokenFromRequest(request),
   })
 })
+
+adminRouter.get('/admin/khach-hang', requireAdminAuth, (req, res) => res.render('admin/customers', {
+  title: 'Quản lý khách hàng — Sol Hair Studio', activeTab: 'customers', identity: req.identity,
+  apiToken: getAdminTokenFromRequest(req),
+}))

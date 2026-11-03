@@ -353,6 +353,8 @@ describe('SOL-037 EJS with real Login, Services and isolated MongoDB transaction
     await submit(id, 'start').expect(200)
     vi.setSystemTime('2026-10-31T03:20:00.000Z')
     await submit(id, 'complete', { expectedRevision: '1' }).expect(200)
+    const payment = { amountVnd: 250000, receivedAt: new Date(), receivedLocalDate: '2026-10-31', receivedByAccountId: owner._id, receivedByRole: 'owner', commandKey: 'payment-correction-receipt-01' }
+    await AppointmentModel.collection.updateOne({ _id: new mongoose.Types.ObjectId(id) }, { $set: { payment } })
     vi.setSystemTime('2026-10-31T05:00:00.000Z')
     await submit(id, 'correct-complete', { expectedRevision: '2', reason: 'Accidental completion' }).expect(400)
     await submit(id, 'correct-complete', { expectedRevision: '2', reason: 'Accidental completion', serviceNotCompleted: 'true' }).expect(400)
@@ -362,6 +364,7 @@ describe('SOL-037 EJS with real Login, Services and isolated MongoDB transaction
     const after = await stored(id)
     expect(after).toMatchObject({ status: 'in_progress', revision: 3, startedAt: NOW })
     expect(after.completedAt).toBeUndefined()
+    expect(after.payment).toEqual(payment)
     expect(after.estimatedEndAt.toISOString()).toBe('2026-10-31T05:30:00.000Z')
     expect(await eventCount(id)).toBe(4)
   })
