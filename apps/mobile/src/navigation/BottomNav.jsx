@@ -10,52 +10,38 @@ export default function BottomNav({ navigation, active }) {
   const { isAuthenticated, isStylist } = useAuth()
   const items = getBottomNavItems(isStylist)
 
+  function requireLogin(notice, returnTo) {
+    if (isAuthenticated) return false
+    navigation.navigate('Login', { notice, ...(returnTo ? { returnTo } : {}) })
+    return true
+  }
+
   function handlePress(item) {
     if (item.kind === 'profile') {
       if (active === 'Profile') return
-      if (isAuthenticated) {
-        navigation.navigate('Profile')
-      } else {
-        navigation.navigate('Login', {
-          notice: 'Vui lòng đăng nhập để xem thông tin tài khoản.',
-        })
-      }
+      if (requireLogin('Vui lòng đăng nhập để xem thông tin tài khoản.')) return
+      navigation.navigate('Profile')
       return
     }
 
     if (item.kind === 'booking') {
-      if (!isAuthenticated) {
-        navigation.navigate('Login', {
-          notice: 'Vui lòng đăng nhập tài khoản trước khi đặt lịch hẹn.',
-          returnTo: 'Booking',
-        })
-        return
-      }
+      if (requireLogin('Vui lòng đăng nhập tài khoản trước khi đặt lịch hẹn.', 'Booking')) return
       if (active !== 'Booking') navigation.navigate('Booking')
       return
     }
 
-    if (item.kind === 'stylist-shifts') {
-      if (active !== 'StylistShifts') navigation.navigate('StylistShifts')
-      return
-    }
-
-    if (item.kind === 'stylist-appointments') {
-      if (active !== 'StylistAppointments') navigation.navigate('StylistAppointments')
+    if (item.kind === 'stylist-shifts' || item.kind === 'stylist-appointments' || item.kind === 'customer-appointments') {
+      if (requireLogin('Vui lòng đăng nhập để theo dõi lịch hẹn của bạn.', item.route)) return
+      if (active !== item.route) navigation.navigate(item.route)
       return
     }
 
     if (item.kind === 'unavailable') {
-      if (item.requiresAuth && !isAuthenticated) {
-        navigation.navigate('Login', {
-          notice: 'Vui lòng đăng nhập để theo dõi lịch hẹn của bạn.',
-        })
-        return
-      }
-      return showFeature(item.label)
+      if (item.requiresAuth && requireLogin('Vui lòng đăng nhập để tiếp tục.')) return
+      showFeature(item.label)
+      return
     }
 
-    if (!item.route) return showFeature(item.label)
     if (item.route === active) return
     if (item.route === 'Home') navigation.popTo('Home')
     else navigation.navigate(item.route)
@@ -75,11 +61,7 @@ export default function BottomNav({ navigation, active }) {
             style={({ pressed }) => [styles.item, pressed && styles.pressed]}
           >
             <View style={[styles.icon, item.booking && styles.booking]}>
-              <Feather
-                name={item.icon}
-                size={25}
-                color={item.booking ? colors.surface : selected ? colors.copper : colors.ink}
-              />
+              <Feather name={item.icon} size={25} color={item.booking ? colors.surface : selected ? colors.copper : colors.ink} />
             </View>
             <Text style={[styles.label, selected && styles.active]}>{item.label}</Text>
             <View style={[styles.dot, selected && styles.activeDot]} />
@@ -91,26 +73,10 @@ export default function BottomNav({ navigation, active }) {
 }
 
 const styles = StyleSheet.create({
-  bar: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    borderTopWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.canvas,
-    paddingHorizontal: 4,
-    paddingTop: 4,
-    paddingBottom: 4,
-  },
+  bar: { flexDirection: 'row', alignItems: 'flex-start', borderTopWidth: 1, borderColor: colors.border, backgroundColor: colors.canvas, paddingHorizontal: 4, paddingTop: 4, paddingBottom: 4 },
   item: { flex: 1, minWidth: 44, minHeight: 64, alignItems: 'center', paddingHorizontal: 2 },
   icon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
-  booking: {
-    backgroundColor: colors.copper,
-    borderRadius: 28,
-    marginTop: -12,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: colors.canvas,
-  },
+  booking: { backgroundColor: colors.copper, borderRadius: 28, marginTop: -12, marginBottom: 12, borderWidth: 2, borderColor: colors.canvas },
   label: { fontSize: 12, fontWeight: '500', color: colors.muted, textAlign: 'center' },
   active: { color: colors.copper, fontWeight: '600' },
   dot: { width: 5, height: 5, borderRadius: 3, marginTop: 4 },

@@ -1,0 +1,100 @@
+<%- include('layout-header', { title, activeTab }) %>
+<%
+  const money = value => new Intl.NumberFormat('vi-VN').format(value) + ' đ'
+  const dateLabel = value => value.split('-').reverse().join('/')
+  const compact = value => new Intl.NumberFormat('vi-VN', { notation: 'compact', maximumFractionDigits: 1 }).format(value)
+  const link = changes => '/admin/revenue?' + new URLSearchParams({ ...filters, ...changes }).toString()
+  const field = 'w-full min-w-0 min-h-11 rounded-xl border border-border bg-white px-3 py-2 text-sm focus:outline-terracotta'
+%>
+<div class="space-y-5">
+  <div>
+    <p class="mb-4 text-xs uppercase tracking-wider text-muted"><span class="text-terracotta">SOL</span><span class="mx-3">/</span>Báo cáo</p>
+    <h1 class="text-3xl font-bold tracking-tight">Báo cáo doanh thu</h1>
+    <p class="mt-2 text-sm text-muted">Theo dõi giá trị dịch vụ, tiền đã thu và tiền chưa thu.</p>
+  </div>
+  <section aria-label="Bộ lọc báo cáo" class="rounded-2xl border border-border bg-white p-4">
+    <nav aria-label="Khoảng thời gian nhanh" class="mb-4 flex flex-wrap gap-2">
+      <% for (const [key, label] of [['today','Hôm nay'], ['week','7 ngày qua'], ['month','Tháng này']]) { %>
+        <a href="<%= link({ range: key }) %>" <%- filters.range === key ? 'aria-current="true"' : '' %> class="inline-flex min-h-11 items-center rounded-xl border px-4 text-sm font-semibold <%= filters.range === key ? 'border-terracotta bg-terracotta-light text-terracotta' : 'border-border text-muted hover:bg-soft-surface' %>"><%= label %></a>
+      <% } %>
+    </nav>
+    <form action="/admin/revenue" method="get" class="grid items-end gap-3 sm:grid-cols-2 xl:flex xl:flex-wrap">
+      <input type="hidden" name="range" value="custom">
+      <label class="flex min-w-0 flex-1 flex-col gap-2 text-xs font-semibold">Từ ngày<input required type="date" name="from" min="2000-01-01" max="2100-12-31" value="<%= filters.from %>" class="<%= field %>"></label>
+      <label class="flex min-w-0 flex-1 flex-col gap-2 text-xs font-semibold">Đến ngày<input required type="date" name="to" min="2000-01-01" max="2100-12-31" value="<%= filters.to %>" class="<%= field %>"></label>
+      <label class="flex flex-col gap-2 text-xs font-semibold">Nhóm biểu đồ<select name="group" class="<%= field %>"><option value="day" <%= filters.group === 'day' ? 'selected' : '' %>>Theo ngày</option><option value="month" <%= filters.group === 'month' ? 'selected' : '' %>>Theo tháng</option></select></label>
+      <button class="min-h-11 rounded-xl bg-terracotta px-6 py-2 text-sm font-semibold text-white hover:bg-terracotta-hover">Áp dụng</button>
+    </form>
+    <p class="mt-3 text-xs text-muted">Khoảng tùy chọn tối đa 366 ngày · Thời gian theo Việt Nam</p>
+  </section>
+  <% if (error) { %>
+    <div role="alert" class="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-800"><%= error %> <a href="<%= link({}) %>" class="ml-2 font-semibold underline">Tải lại báo cáo</a></div>
+  <% } %>
+  <% if (report) { %>
+    <div class="grid gap-4 md:grid-cols-3">
+      <% for (const card of [
+        ['Giá trị dịch vụ hoàn tất', money(report.revenueVnd), 'Theo ngày hẹn trong khoảng đã chọn'],
+        ['Tiền đã thu', money(report.paidVnd), 'Theo ngày xác nhận nhận tiền, gồm cả lịch hẹn ngày khác'],
+        ['Tiền chưa thu', money(report.unpaidVnd), 'Lịch hoàn tất có ngày hẹn trong khoảng đã chọn'],
+        ['Lịch hẹn hoàn tất', report.count + ' lịch', 'Chỉ tính các lịch đã hoàn tất'],
+        ['Trung bình mỗi lịch', money(report.averageVnd), 'Giá trị dịch vụ / số lịch hoàn tất']
+      ]) { %>
+        <section class="min-w-0 rounded-2xl border border-border bg-white p-5 shadow-sm"><h2 class="text-sm font-semibold"><%= card[0] %></h2><p class="mt-5 break-words text-3xl font-bold tracking-tight tabular-nums"><%= card[1] %></p><p class="mt-2 text-xs text-muted"><%= card[2] %></p></section>
+      <% } %>
+    </div>
+    <section class="overflow-hidden rounded-2xl border border-border bg-white p-5 shadow-sm" aria-labelledby="revenue-chart-title">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div><h2 id="revenue-chart-title" class="text-xl font-bold">Giá trị dịch vụ theo <%= filters.group === 'day' ? 'ngày' : 'tháng' %></h2><p class="mt-1 text-xs text-muted"><%= dateLabel(filters.from) %> – <%= dateLabel(filters.to) %></p></div>
+        <nav aria-label="Nhóm biểu đồ" class="flex rounded-xl border border-border p-1">
+          <% for (const [group, label] of [['day','Theo ngày'],['month','Theo tháng']]) { %>
+            <a href="<%= link({ group }) %>" <%- filters.group === group ? 'aria-current="true"' : '' %> class="flex min-h-10 items-center rounded-lg px-4 text-sm font-semibold <%= filters.group === group ? 'bg-terracotta text-white' : 'text-muted hover:bg-soft-surface' %>"><%= label %></a>
+          <% } %>
+        </nav>
+      </div>
+      <% if (!report.count) { %>
+        <div role="status" class="py-16 text-center"><p class="font-semibold">Chưa có lịch hẹn hoàn tất trong khoảng thời gian này</p><p class="mt-2 text-sm text-muted">Chọn khoảng thời gian khác để xem doanh thu.</p></div>
+      <% } else { %>
+        <%
+          const width = Math.max(800, report.periods.length * 42 + 85)
+          const left = 85, plotWidth = width - left - 20, height = 210, baseline = 250
+          const maximum = Math.max(1, ...report.periods.map(item => item.revenueVnd))
+          const magnitude = Math.pow(10, Math.floor(Math.log10(maximum)))
+          const step = Math.ceil(maximum / 4 / (magnitude / 10)) * (magnitude / 10)
+          const ceiling = step * 4
+          const slot = plotWidth / report.periods.length
+        %>
+        <p class="mt-5 text-xs text-muted">Giá trị dịch vụ (đồng) · Có thể cuộn ngang để xem đầy đủ</p>
+        <div tabindex="0" role="region" aria-label="Biểu đồ doanh thu có thể cuộn ngang" class="mt-2 overflow-x-auto focus:outline-terracotta">
+          <svg role="img" aria-labelledby="chart-description" viewBox="0 0 <%= width %> 300" style="min-width: <%= width %>px" class="h-[300px] w-full">
+            <title id="chart-description">Doanh thu từ <%= dateLabel(filters.from) %> đến <%= dateLabel(filters.to) %>. Tổng <%= money(report.revenueVnd) %>. Bảng số liệu đầy đủ bên dưới.</title>
+            <% for (let tick = 0; tick <= 4; tick++) { const y = baseline - tick / 4 * height; %>
+              <line x1="<%= left %>" x2="<%= width - 20 %>" y1="<%= y %>" y2="<%= y %>" stroke="#e7e2da" />
+              <text x="<%= left - 12 %>" y="<%= y + 4 %>" text-anchor="end" fill="#7a7269" font-size="12"><%= compact(tick * step) %></text>
+            <% } %>
+            <% report.periods.forEach((item, index) => { const barHeight = item.revenueVnd / ceiling * height; const x = left + index * slot; %>
+              <rect x="<%= x + slot * .2 %>" y="<%= baseline - barHeight %>" width="<%= slot * .6 %>" height="<%= barHeight %>" rx="4" fill="#b55338"><title><%= dateLabel(item.key) %>: <%= money(item.revenueVnd) %> · <%= item.count %> lịch hoàn tất</title></rect>
+              <text x="<%= x + slot / 2 %>" y="278" text-anchor="middle" fill="#7a7269" font-size="11"><%= filters.group === 'month' ? dateLabel(item.key) : item.key.slice(5).split('-').reverse().join('/') %></text>
+            <% }); %>
+          </svg>
+        </div>
+        <p class="mt-2 text-center text-xs text-muted">Giá trị dịch vụ được nhóm theo ngày hẹn · Giờ Việt Nam</p>
+        <details class="mt-4 border-t border-border pt-3"><summary class="cursor-pointer py-2 text-sm font-semibold text-terracotta">Xem bảng số liệu biểu đồ</summary><div class="max-h-72 overflow-auto"><table class="w-full text-left text-sm"><caption class="sr-only">Số liệu doanh thu theo thời gian</caption><thead><tr><th scope="col" class="p-3">Thời gian</th><th scope="col" class="p-3 text-right">Lịch hoàn tất</th><th scope="col" class="p-3 text-right">Doanh thu</th></tr></thead><tbody><% for (const item of report.periods) { %><tr class="border-t border-border"><td class="p-3"><%= dateLabel(item.key) %></td><td class="p-3 text-right"><%= item.count %></td><td class="p-3 text-right tabular-nums"><%= money(item.revenueVnd) %></td></tr><% } %></tbody></table></div></details>
+      <% } %>
+    </section>
+    <section class="rounded-2xl border border-border bg-white p-5 shadow-sm">
+      <h2 class="text-xl font-bold">Giá trị theo dịch vụ</h2>
+      <p class="mt-1 text-xs text-muted">Giá và tên dịch vụ tại thời điểm đặt lịch. Một lịch có thể gồm nhiều dịch vụ.</p>
+      <% if (!report.services.length) { %><p class="py-10 text-center text-sm text-muted">Chưa có doanh thu dịch vụ trong khoảng thời gian này.</p><% } else { %>
+        <div class="mt-4 overflow-x-auto"><table class="w-full min-w-[620px] text-left text-sm"><thead class="text-muted"><tr><th scope="col" class="pb-3 pr-4">Dịch vụ</th><th scope="col" class="px-4 pb-3 text-right">Lượt sử dụng</th><th scope="col" class="px-4 pb-3 text-right">Doanh thu</th><th scope="col" class="pb-3 pl-4">Tỷ trọng</th></tr></thead><tbody>
+          <% for (const service of report.services) { %>
+            <tr class="border-t border-border"><th scope="row" class="py-4 pr-4 font-semibold"><%= service.name %></th><td class="px-4 py-4 text-right tabular-nums"><%= service.count %></td><td class="whitespace-nowrap px-4 py-4 text-right tabular-nums"><%= money(service.revenueVnd) %></td><td class="py-4 pl-4"><div class="flex items-center gap-3"><span class="w-14 text-right tabular-nums"><%= service.share.toLocaleString('vi-VN', { maximumFractionDigits: 1 }) %>%</span><div aria-hidden="true" class="h-2 w-24 overflow-hidden rounded-full bg-soft-surface"><div class="h-full rounded-full bg-terracotta" style="width: <%= Math.min(100, service.share) %>%"></div></div></div></td></tr>
+          <% } %>
+        </tbody></table></div>
+      <% } %>
+    </section>
+    <section class="rounded-2xl border border-border bg-white p-5"><h2 class="text-xl font-bold">Lịch hoàn tất chưa thu tiền</h2><p class="mt-2 text-sm text-muted">Tối đa 20 lịch mới nhất trong khoảng ngày hẹn đã chọn. Lịch cũ chưa có xác nhận nhận tiền cũng xuất hiện tại đây; cần đối chiếu trước khi thu.</p><div class="mt-4 overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr><th class="p-3">Lịch hẹn / Khách</th><th class="p-3">Ngày hẹn</th><th class="p-3 text-right">Chưa thu</th></tr></thead><tbody><% for (const row of report.unpaid) { %><tr class="border-t border-border"><td class="p-3"><a href="/admin/appointments/<%= row.id %>" class="font-semibold text-terracotta underline"><%= row.referenceCode %> · <%= row.name %></a></td><td class="p-3"><%= dateLabel(row.localDate) %></td><td class="p-3 text-right"><%= money(row.amountVnd) %></td></tr><% } %></tbody></table><% if (!report.unpaid.length) { %><p class="py-5 text-sm text-muted">Chưa có lịch chưa thu trong khoảng này.</p><% } %></div></section>
+    <section class="rounded-2xl border border-border bg-white p-5"><h2 class="text-xl font-bold">Tiền đã thu theo thời gian</h2><p class="mt-2 text-sm text-muted">Theo ngày xác nhận nhận tiền · Giờ Việt Nam</p><div class="mt-4 max-h-72 overflow-auto"><table class="w-full text-left text-sm"><thead><tr><th class="p-3">Thời gian</th><th class="p-3 text-right">Đã thu</th></tr></thead><tbody><% for (const period of report.cashPeriods) { %><tr class="border-t border-border"><td class="p-3"><%= dateLabel(period.key) %></td><td class="p-3 text-right"><%= money(period.paidVnd) %></td></tr><% } %></tbody></table></div></section>
+    <p class="text-xs text-muted">Tiền đã thu tính theo ngày xác nhận nhận tiền; giá trị dịch vụ và tiền chưa thu tính theo ngày hẹn. Vì khác mốc thời gian, các số này không nhất thiết cộng trừ bằng nhau. Xác nhận nhận tiền vẫn được giữ khi sửa hoàn tất nhầm; đây không phải báo cáo lợi nhuận.</p>
+  <% } %>
+</div>
+<%- include('layout-footer') %>

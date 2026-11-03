@@ -209,7 +209,7 @@ function validate(data) {
     if (a.completedAt) assert(time(a.completedAt) >= time(a.startedAt))
     if (a.noShowAt) assert(time(a.noShowAt) >= start + 15 * 60000 && a.contactAttemptedAt && time(a.contactAttemptedAt) >= confirmed && time(a.contactAttemptedAt) <= time(a.noShowAt))
     else assert(!a.contactAttemptedAt)
-    if (a.lastRescheduledAt) assert(time(a.lastRescheduledAt) < start)
+    if (a.lastRescheduledAt) assert(time(a.lastRescheduledAt) <= start, 'reschedule cannot move start into the past')
     if (a.lastCommand !== undefined) {
       keys(a.lastCommand, ['key', 'actorId', 'hash', 'resultRevision'])
       str(a.lastCommand.key, 100, 16); ref('accounts', a.lastCommand.actorId)
@@ -472,6 +472,17 @@ if (process.argv.includes('--self-test')) {
   const change = { _id: { $oid: '000000000000000000000952' }, appointmentId: res._id, actorId: res.lastCommand.actorId, revision: 1, kind: 'rescheduled', occurredAt: res.updatedAt, before: previous, after: snapshot(res), reason: 'Dữ liệu giả: chủ hỗ trợ sát giờ', createdAt: res.updatedAt, updatedAt: res.updatedAt }
   rescheduled.appointment_events.push(change)
   assert.doesNotThrow(() => validate(rescheduled), 'owner reschedules customer-origin booking without customer lead time')
+  const immediateReschedule = structuredClone(rescheduled)
+  const immediate = immediateReschedule.appointments[0]
+  immediate.lastRescheduledAt = immediate.updatedAt = structuredClone(immediate.startAt)
+  const immediateEvent = immediateReschedule.appointment_events.find(e => e.kind === 'rescheduled')
+  immediateEvent.occurredAt = immediateEvent.createdAt = immediateEvent.updatedAt = structuredClone(immediate.startAt)
+  assert.doesNotThrow(() => validate(immediateReschedule), 'owner may reschedule to exactly server-now on the scheduled grid')
+  const pastReschedule = structuredClone(immediateReschedule)
+  pastReschedule.appointments[0].lastRescheduledAt = date(time(immediate.startAt) + 1)
+  pastReschedule.appointments[0].updatedAt = pastReschedule.appointments[0].lastRescheduledAt
+  assert.throws(() => validate(pastReschedule), /reschedule cannot move start into the past/)
+  console.log('PASS: owner reschedule accepts exact now and rejects a start before command time.')
   delete change.reason; assert.throws(() => validate(rescheduled), /owner late change reason/)
   change.reason = 'Dữ liệu giả'; change.actorId = rescheduled.accounts[0]._id; res.lastCommand.actorId = change.actorId
   assert.throws(() => validate(rescheduled), /customer change cutoff 2 hours/)

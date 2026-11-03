@@ -1,0 +1,43 @@
+<header class="flex flex-wrap items-start justify-between gap-4 px-5 pt-5 pb-0 sm:px-6">
+  <div class="flex min-w-0 items-center gap-3">
+    <span aria-hidden="true" class="flex size-12 shrink-0 items-center justify-center rounded-full bg-terracotta-light text-sm font-bold text-terracotta"><%= appointment.customerSnapshot.displayName.trim().split(/\s+/).slice(-2).map(word => word[0]).join('').toUpperCase() %></span>
+    <div class="min-w-0"><h2 class="break-words text-xl font-bold"><%= appointment.customerSnapshot.displayName %></h2></div>
+  </div>
+</header>
+<div class="px-5 py-4 sm:px-6">
+  <section aria-label="Thời gian hẹn" class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-soft-surface px-4 py-3">
+    <div><p class="text-xs text-muted">Lịch hẹn · <%= date.format(new Date(appointment.startAt)) %></p><p class="mt-1 text-xl font-bold"><%= time.format(new Date(appointment.startAt)) %> – <%= time.format(new Date(appointment.endAt)) %></p></div>
+    <p class="text-right text-xs text-muted"><span class="block font-semibold text-ink"><%= appointment.totalDurationMinutes %> phút</span><span class="mt-1 block">Giờ Việt Nam</span></p>
+  </section>
+  <div class="mt-4 grid gap-4 sm:grid-cols-2">
+    <section aria-label="Khách hàng"><h3 class="text-xs text-muted">Số điện thoại khách</h3><a href="tel:<%= appointment.customerSnapshot.phone %>" class="mt-1 inline-flex min-h-8 items-center text-sm font-semibold hover:text-terracotta"><%= appointment.customerSnapshot.phone %></a></section>
+    <section aria-label="Stylist"><h3 class="text-xs text-muted">Stylist phụ trách</h3><p class="mt-2 break-words text-sm font-semibold"><%= appointment.staffNameSnapshot %></p></section>
+  </div>
+  <section aria-label="Dịch vụ đã đặt" class="mt-4 border-t border-border pt-4">
+    <h3 class="text-sm font-bold">Dịch vụ đã đặt</h3>
+    <ul class="mt-2 divide-y divide-border">
+      <% for (const item of appointment.items) { %>
+        <li class="flex items-start justify-between gap-4 py-3"><div class="min-w-0"><p class="break-words text-sm font-medium"><%= item.name %></p><p class="mt-1 text-xs text-muted"><%= item.durationMinutes %> phút</p></div><p class="shrink-0 text-sm font-semibold"><%= money.format(item.priceVnd) %></p></li>
+      <% } %>
+    </ul>
+    <div class="flex items-center justify-between gap-3 border-t border-border pt-3"><p class="text-sm font-semibold">Tổng giá trị dịch vụ</p><p class="text-xl font-bold text-terracotta"><%= money.format(appointment.totalPriceVnd) %></p></div>
+    <p class="mt-2 text-xs text-muted">Giá và thời lượng theo thông tin đã lưu trong lịch hẹn.</p>
+  </section>
+
+</div>
+<% if (appointment.estimatedEndAt) { %>
+  <section aria-label="Lịch bị ETA ảnh hưởng" class="mx-6 mb-6 rounded-2xl border border-terracotta/20 bg-terracotta/5 p-5 sm:mx-8">
+    <h2 class="font-sans text-2xl font-bold">Lịch bị ảnh hưởng</h2>
+    <% if (appointment.ownerReviewRequired) { %><p role="alert" class="mt-2 text-sm font-semibold text-terracotta">Có lịch bị ảnh hưởng, Owner cần xem xét xử lý.</p><% } %>
+    <% if (!(appointment.affectedAppointments ?? []).length) { %><p class="mt-2 text-sm text-muted">Chưa ghi nhận lịch bị ảnh hưởng tại thời điểm tải dữ liệu.</p><% } %>
+    <ul class="mt-3 space-y-2">
+      <% for (const affected of appointment.affectedAppointments ?? []) { %>
+        <li class="rounded-xl border border-border bg-white p-4">
+          <a class="break-all text-sm font-semibold text-terracotta hover:underline" href="<%= ownerUrl('/admin/appointments/' + affected.id, { view: '' }) %>">Lịch <%= affected.id %></a>
+          <p class="mt-1 text-xs text-muted"><%= dateTime.format(new Date(affected.startAt)) %> – <%= dateTime.format(new Date(affected.endAt)) %></p>
+          <p class="mt-1 text-xs text-muted"><%= affected.reasons.map(reason => reason === 'staff_overlap' ? 'Trùng thời gian Stylist' : reason === 'customer_overlap' ? 'Trùng thời gian khách' : reason).join('; ') %></p>
+        </li>
+      <% } %>
+    </ul>
+  </section>
+<% } %>

@@ -1,0 +1,122 @@
+<%
+    const dateTime = new Intl.DateTimeFormat('vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hourCycle: 'h23',
+    })
+
+    const kinds = {
+        created: 'Tạo lịch',
+        rescheduled: 'Đổi lịch',
+        started: 'Bắt đầu phục vụ',
+        completed: 'Hoàn tất phục vụ',
+        cancelled: 'Hủy lịch',
+        no_show: 'Khách không đến',
+        eta_updated: 'Cập nhật ETA',
+        corrected: 'Sửa thao tác nhầm',
+    }
+
+    const fields = {
+        status: 'Trạng thái',
+        startAt: 'Giờ hẹn',
+        endAt: 'Giờ kết thúc dự kiến',
+        occupiedFrom: 'Bắt đầu khoảng giữ',
+        occupiedUntil: 'Kết thúc khoảng giữ',
+        startedAt: 'Bắt đầu thực tế',
+        completedAt: 'Hoàn tất thực tế',
+        estimatedEndAt: 'ETA',
+        staffId: 'Mã Stylist',
+    }
+
+    const formatValue = (key, value) => {
+            if (value === undefined) return '—'
+            return key.endsWith('At') || key.startsWith('occupied')
+            ? dateTime.format(new Date(value))
+            : String(value)
+    }
+%>
+
+<%- include('../layout-header', { title, identity: locals.identity, activeTab: 'appointments' }) %>
+<script src="/admin-assets/js/admin-appointments.js" defer></script>
+
+      <%- include('partials/page-header') %>
+      <p class="mt-3 font-mono text-sm">Mã lịch: <%= locals.referenceCode || 'Chưa cấp mã' %></p>
+      <a href="<%= ownerUrl('/admin/appointments/' + appointmentId) %>" class="mt-4 inline-flex min-h-10 items-center rounded-xl border border-border bg-white px-4 py-2 text-xs font-semibold text-terracotta hover:bg-soft-surface">← Về chi tiết lịch</a>
+
+            <% if (error) { %>
+                <section
+                    role="alert"
+                    class="mt-6 rounded-2xl border border-[#e7e2da] bg-white p-6 shadow-sm"
+                >
+                    <p class="text-sm text-muted"><%= error %></p>
+                </section>
+            <% } else if (!events.length) { %>
+                <section class="mt-6 rounded-2xl border border-[#e7e2da] bg-white p-6 shadow-sm">
+                    <p class="text-sm text-muted">Chưa có thao tác trong trang này.</p>
+                </section>
+            <% } else { %>
+                <div class="mt-6 space-y-4">
+                    <% for (const event of events) { %>
+                        <article class="rounded-2xl border border-[#e7e2da] bg-white p-6 shadow-sm">
+                        <h2 class="font-sans text-2xl font-semibold">
+                            <%= kinds[event.kind] ?? event.kind %>
+                        </h2>
+
+                        <p class="mt-2 text-sm text-muted">
+                            <%= dateTime.format(new Date(event.occurredAt)) %>
+                            · Revision <%= event.revision %>
+                        </p>
+                        <p class="mt-2 break-all text-sm text-muted">
+                            Mã tài khoản thao tác: <%= event.actorId %>
+                        </p>
+
+                        <% if (event.reason) { %>
+                            <p class="mt-2 whitespace-pre-wrap break-words text-sm">
+                                Lý do: <%= event.reason %>
+                            </p>
+                        <% } %>
+
+                            <details class="mt-4 border-t border-border pt-4">
+                                <summary class="cursor-pointer text-sm font-semibold text-terracotta">
+                                    Xem dữ liệu trước và sau
+                                </summary>
+
+                                <dl class="mt-4 space-y-4">
+                                    <% for (const [key, label] of Object.entries(fields)) {
+                                        if (
+                                        event.before[key] === undefined &&
+                                        event.after[key] === undefined
+                                        ) continue
+                                    %>
+                                        <div>
+                                            <dt class="text-sm font-semibold"><%= label %></dt>
+                                            <dd class="mt-1 break-all text-sm text-muted">
+                                                Trước: <%= formatValue(key, event.before[key]) %>
+                                            </dd>
+                                            <dd class="mt-1 break-all text-sm text-muted">
+                                                Sau: <%= formatValue(key, event.after[key]) %>
+                                            </dd>
+                                        </div>
+                                    <% } %>
+                                </dl>
+                            </details>
+                        </article>
+                    <% } %>
+                </div>
+
+                <% if (pagination.hasNextPage) { %>
+                    <a
+                        href="<%= ownerUrl('/admin/appointments/' + appointmentId + '/audit', { limit: pagination.limit, cursor: pagination.nextCursor }) %>"
+                        class="mt-6 inline-flex min-h-11 items-center rounded-xl border border-terracotta px-6 py-2 text-sm font-semibold text-terracotta hover:bg-soft-surface"
+                    >
+                        Xem trang tiếp theo
+                    </a>
+                <% } %>
+            <% } %>
+        
+<%- include('../layout-footer') %>

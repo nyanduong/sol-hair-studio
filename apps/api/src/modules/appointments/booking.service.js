@@ -1,3 +1,4 @@
+import { generateBookingReference } from './booking-reference.js'
 import { createHash } from 'node:crypto'
 import mongoose from 'mongoose'
 import { AppointmentError } from './appointments.service.js'
@@ -111,6 +112,10 @@ function result(appointment) {
   // Return only the shared booking DTO, never account details or receipt internals.
   return {
     id: String(appointment._id),
+    ...(appointment.referenceCode ? { referenceCode: appointment.referenceCode } : {}),
+    staffDisplayName: appointment.staffNameSnapshot,
+    customerDisplayName: appointment.customerSnapshot.displayName,
+    status: appointment.status,
     startAt: appointment.startAt.toISOString(),
     endAt: appointment.endAt.toISOString(),
     customerId: String(appointment.customerId),
@@ -213,6 +218,7 @@ async function execute(session, identity, input, key, hash, operation) {
     [
       {
         _id: operation.appointmentId,
+        referenceCode: operation.referenceCode,
         createdByAccountId: actor.accountId,
         customerId,
         staffId: input.staffId,
@@ -265,6 +271,7 @@ export async function createBooking(identity, body, key) {
   // Includes the selected profile/guest intent, excludes server-generated time and mutable catalog.
   const hash = createHash('sha256').update(JSON.stringify(input)).digest('hex')
   const operation = {
+    referenceCode: generateBookingReference(),
     appointmentId: new mongoose.Types.ObjectId(),
     guestId: new mongoose.Types.ObjectId(),
   }
@@ -281,6 +288,10 @@ export async function createBooking(identity, body, key) {
         },
       )
     } catch (error) {
+      if (error.code === 11000 && error.keyPattern?.referenceCode && attempt < 2) {
+        operation.referenceCode = generateBookingReference()
+        continue
+      }
       // Concurrent claims can fail unique insertion instead of a transient write conflict.
       if (error.code === 11000 && error.keyPattern?.actorId && error.keyPattern?.key && attempt < 2)
         continue

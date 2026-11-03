@@ -103,9 +103,23 @@ describe('booking intent and retry safety', () => {
     expect(slotTime('2026-10-21T03:30:00.000Z')).toBe('10:30')
   })
   it.each([
+    ['0912345678', '+84912345678'],
+    [' 0912 345 678 ', '+84912345678'],
+    ['0912.345.678', '+84912345678'],
+    ['+84 912-345-678', '+84912345678'],
+    ['02812345678', '+842812345678'],
+    ['+12025550123', '+12025550123'],
+  ])('normalizes contact %s before sending it to the API', (input, expected) => {
+    expect(contactInput(' Khách ', input)).toEqual({ displayName: 'Khách', phone: expected })
+  })
+  it.each([
     ['', '+84901234567'],
     ['a'.repeat(121), '+84901234567'],
-    ['Khách', '0901234567'],
+    ['Khách', '097915866'],
+    ['Khách', '+8497915866'],
+    ['Khách', '091234567890'],
+    ['Khách', '09abc45678'],
+    ['Khách', '+840912345678'],
   ])('validates a contact before profile/guest submission', (name, phone) => {
     expect(() => contactInput(name, phone)).toThrow()
   })

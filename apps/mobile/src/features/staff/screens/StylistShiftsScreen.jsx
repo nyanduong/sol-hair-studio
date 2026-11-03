@@ -42,6 +42,9 @@ export default function StylistShiftsScreen({ navigation }) {
         <Text style={styles.brand}>SOL HAIR STUDIO</Text>
         <Text accessibilityRole="header" style={styles.title}>Ca làm của tôi</Text>
         <Text style={styles.copy}>Xem các ca đã được chủ tiệm xếp cho bạn.</Text>
+        <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={() => navigation.navigate('StylistAppointments')}>
+          <Text style={styles.primaryButtonText}>Lịch hẹn được giao</Text>
+        </Pressable>
       </View>
       <View style={styles.weekControls}>
         <Pressable accessibilityRole="button" accessibilityLabel="Tuần trước" style={styles.iconButton} onPress={() => setRange(moveWeek(range, -1))}>

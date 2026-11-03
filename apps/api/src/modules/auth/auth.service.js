@@ -175,8 +175,11 @@ export async function requestOtp(input) {
   if (!['activate_customer', 'activate_staff', 'reset_password'].includes(input.purpose)) fail('INVALID_PURPOSE', 'Mục đích OTP không hợp lệ.')
   const mail = await transaction(async (session) => {
     const account = await lockAccount({ emailNormalized }, session)
-    if (!account || !stateMatches(account, input.purpose)) {
-      if (input.purpose === 'reset_password') return null
+    if (!account) {
+      if (input.purpose === 'reset_password') fail('EMAIL_NOT_FOUND', 'Email này chưa được đăng ký trong hệ thống.', 404)
+      fail('INVALID_ACCOUNT_STATE', 'Tài khoản không ở trạng thái phù hợp.')
+    }
+    if (!stateMatches(account, input.purpose)) {
       fail('INVALID_ACCOUNT_STATE', 'Tài khoản không ở trạng thái phù hợp.')
     }
     return issueChallenge(account, input.purpose, session)

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useBlocker } from 'react-router-dom'
 import { apiBaseUrl } from '../../../config/env.js'
 import { createBooking } from '../api/booking.api.js'
 import { createBookingSubmission } from '../../../../../../shared/booking.js'
@@ -35,6 +36,8 @@ export function useBookingSubmission(token) {
     }
   }
   const view = state.manager === manager ? state : { kind: 'idle' }
+  // Read the intent synchronously, including clicks before React has re-rendered.
+  const blocker = useBlocker(() => Boolean(manager.getPending()))
   const preventExit = view.kind === 'loading' || Boolean(manager.getPending())
   useEffect(() => {
     if (!preventExit) return
@@ -45,5 +48,8 @@ export function useBookingSubmission(token) {
     window.addEventListener('beforeunload', warn)
     return () => window.removeEventListener('beforeunload', warn)
   }, [preventExit])
-  return { ...view, submit, pending: manager.getPending() }
+  useEffect(() => {
+    if (!preventExit && blocker.state === 'blocked') blocker.reset()
+  }, [preventExit, blocker])
+  return { ...view, submit, pending: manager.getPending(), navigationBlocked: preventExit && blocker.state === 'blocked' }
 }
