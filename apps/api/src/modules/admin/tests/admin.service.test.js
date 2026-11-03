@@ -93,6 +93,8 @@ describe('Admin Service — getDashboardData', () => {
     expect(result.todayStr).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     expect(result.todayStats.total).toBe(4)
     expect(result.todayStats.completed).toBe(1)
+    expect(result.todayStats.unpaidCount).toBe(1)
+    expect(result.todayStats.unpaidVnd).toBe(500_000)
     expect(result.todayStats.inProgress).toBe(1)
     expect(result.todayStats.confirmed).toBe(1)
     expect(result.todayStats.cancelled).toBe(1)
@@ -115,6 +117,19 @@ describe('Admin Service — getDashboardData', () => {
     expect(result.activeStaffCount).toBe(3)
   })
 
+  it('excludes paid, pending and cancelled appointments from unpaid totals', async () => {
+    AppointmentModel.find.mockReturnValue({ sort: () => ({ lean: async () => [
+      { status: 'completed', totalPriceVnd: 100000 },
+      { status: 'completed', totalPriceVnd: 200000, payment: { receivedAt: new Date() } },
+      { status: 'confirmed', totalPriceVnd: 300000 },
+      { status: 'cancelled', totalPriceVnd: 400000 },
+    ] }) })
+    AppointmentModel.aggregate.mockResolvedValue([])
+    const result = await getDashboardData()
+    expect(result.todayStats.unpaidCount).toBe(1)
+    expect(result.todayStats.unpaidVnd).toBe(100000)
+  })
+
   it('xử lý an toàn khi cơ sở dữ liệu chưa có lịch hẹn nào', async () => {
     const sortMock = vi.fn().mockReturnValue({
       lean: vi.fn().mockResolvedValue([]),
@@ -134,6 +149,7 @@ describe('Admin Service — getDashboardData', () => {
 
     const result = await getDashboardData()
 
+    expect(result.todayStats.unpaidCount).toBe(0)
     expect(result.todayStats.total).toBe(0)
     expect(result.todayStats.completed).toBe(0)
     expect(result.todayStats.revenueVnd).toBe(0)
