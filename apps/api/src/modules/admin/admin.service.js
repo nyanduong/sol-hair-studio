@@ -19,9 +19,9 @@ export function getSalonTodayDate() {
 export async function getDashboardData() {
   const todayStr = getSalonTodayDate()
 
-  // 1. Lấy danh sách lịch hẹn hôm nay
+  // 1. Lịch trong ngày: lịch vừa được tạo xuất hiện trước.
   const todayAppointments = await AppointmentModel.find({ localDate: todayStr })
-    .sort({ startAt: 1 })
+    .sort({ createdAt: -1, _id: -1 })
     .lean()
 
   // 2. Chạy đồng thời các truy vấn thống kê
