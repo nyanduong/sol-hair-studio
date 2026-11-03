@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= title || 'Sol Hair Studio Admin' %></title>
+  <% if (locals.staffStylesheet) { %>
+    <link rel="stylesheet" href="/admin/assets/staff-admin.css">
+  <% } %>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -51,6 +54,9 @@
           </a>
           <a href="/admin/services" class="px-3 py-1.5 rounded-lg text-sm font-semibold transition <%= locals.activeTab === 'services' ? 'bg-[#b55338]/10 text-[#b55338]' : 'text-[#7a7269] hover:text-ink hover:bg-[#f4f0ea]' %>">
             Quản lý Dịch vụ
+          </a>
+          <a href="/admin/nhan-su"<% if (locals.activeTab === 'staff') { %> aria-current="page"<% } %> class="px-3 py-1.5 rounded-lg text-sm font-semibold transition <%= locals.activeTab === 'staff' ? 'bg-[#b55338]/10 text-[#b55338]' : 'text-[#7a7269] hover:text-ink hover:bg-[#f4f0ea]' %>">
+            Nhân sự
           </a>
           <a href="/owner/appointments" class="px-3 py-1.5 rounded-lg text-sm font-medium text-[#7a7269] hover:text-ink hover:bg-[#f4f0ea] transition">
             Lịch Salon
