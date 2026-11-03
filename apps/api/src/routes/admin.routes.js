@@ -15,5 +15,12 @@ function todayInVietnam() {
 // Giao diện EJS dùng cùng phiên owner với dashboard.
 adminRouter.get(['/admin/nhan-su', '/quan-ly/nhan-su'], requireAdminAuth, (request, response) => {
   response.set('Cache-Control', 'no-store')
-  return response.render('admin/staff', { today: todayInVietnam(), apiToken: getAdminTokenFromRequest(request) })
+  return response.render('admin/staff', {
+    title: 'Nhân sự & ca làm — Sol Hair Studio Admin',
+    activeTab: 'staff',
+    identity: request.identity,
+    staffStylesheet: true,
+    today: todayInVietnam(),
+    apiToken: getAdminTokenFromRequest(request),
+  })
 })

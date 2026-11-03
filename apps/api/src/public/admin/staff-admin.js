@@ -1,5 +1,5 @@
 (() => {
-  const q = (s) => document.querySelector(s); const state = { token: q('.page').dataset.apiToken, people: [], services: [], selected: null, creating: false };
+  const q = (s) => document.querySelector(s); const state = { token: q('.staff-page').dataset.apiToken, people: [], services: [], selected: null, creating: false };
   const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
   async function api(path, options = {}) { const response = await fetch(path, { ...options, headers: { ...(options.body && { 'Content-Type':'application/json' }), ...(state.token && { Authorization:`Bearer ${state.token}` }) } }); const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.message || 'Không thể kết nối với hệ thống.'); return body.data; }
   function login(error = '') { q('#feedback').textContent = error || 'Session expired'; window.location.replace('/admin/login'); }
