@@ -1,4 +1,12 @@
 const weekdayNames = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy']
+const actualTime = new Intl.DateTimeFormat('vi-VN', {
+  timeZone: 'Asia/Ho_Chi_Minh',
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+})
 
 function dateAtLocalMidnight(value) {
   return new Date(`${value}T00:00:00`)
@@ -36,8 +44,10 @@ export function formatShiftDate(localDate) {
 }
 
 export function formatShiftTime(value) {
-  const match = /T(\d{2}:\d{2})/.exec(value)
-  return match ? match[1] : value
+  const parts = Object.fromEntries(
+    actualTime.formatToParts(new Date(value)).map((part) => [part.type, part.value]),
+  )
+  return `${parts.hour}:${parts.minute}`
 }
 
 export function shiftStatusLabel(status) {
