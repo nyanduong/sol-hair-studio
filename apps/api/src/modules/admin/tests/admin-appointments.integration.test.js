@@ -68,9 +68,10 @@ beforeEach(async () => {
     priceVnd: 450000, imageUrl: 'https://res.cloudinary.com/demo/image/upload/sample.jpg',
   })
   browser = request.agent(app)
-  const login = await browser.post('/admin/login').type('form')
-    .send({ email: owner.emailNormalized, password: PASSWORD }).expect(302)
-  token = login.headers['set-cookie'][0].split(';')[0].slice('sol_admin_token='.length)
+  const login = await browser.post('/api/auth/login')
+    .send({ email: owner.emailNormalized, password: PASSWORD }).expect(200)
+  token = login.body.data.token
+  await browser.post('/admin/session').type('form').send({ token }).expect(303)
 })
 
 afterEach(() => {
@@ -431,15 +432,15 @@ describe('SOL-037 EJS with real Login, Services and isolated MongoDB transaction
     const before = await stored(id)
     const denied = await request(app).post(`/admin/appointments/${id}/start`)
       .set('Cookie', `sol_admin_token=${response.body.data.token}`).type('form')
-      .send({ expectedRevision: '0', commandKey: randomUUID() }).expect(302)
-    expect(denied.headers.location).toBe('/admin/login?error=forbidden')
+      .send({ expectedRevision: '0', commandKey: randomUUID() }).expect(303)
+    expect(denied.headers.location).toBe('http://localhost:5173/login?error=forbidden')
     expect(await stored(id)).toEqual(before)
   })
 
   it('logs out through the shared Admin flow and blocks the next appointment request', async () => {
-    await browser.post('/admin/logout').expect(302)
-    const response = await browser.get('/admin/appointments').expect(302)
-    expect(response.headers.location).toBe('/admin/login')
+    await browser.post('/admin/logout').expect(303)
+    const response = await browser.get('/admin/appointments').expect(303)
+    expect(response.headers.location).toBe('http://localhost:5173/login')
     expect((await AccountModel.findById(owner._id).lean()).authRevision).toBeGreaterThan(0)
   })
 })

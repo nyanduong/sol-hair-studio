@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { requireAdminAuth, getAdminTokenFromRequest } from '../modules/admin/admin.middleware.js'
 
 export const adminRouter = Router()
 
@@ -11,9 +12,8 @@ function todayInVietnam() {
   }).format(new Date())
 }
 
-// Giao diện quản trị được render trên Express. Dữ liệu minh họa giữ đúng phạm vi
-// SOL-026: chỉ ở bộ nhớ trình duyệt, không thay đổi dữ liệu API thật.
-adminRouter.get(['/admin/nhan-su', '/quan-ly/nhan-su'], (request, response) => {
+// Giao diện EJS dùng cùng phiên owner với dashboard.
+adminRouter.get(['/admin/nhan-su', '/quan-ly/nhan-su'], requireAdminAuth, (request, response) => {
   response.set('Cache-Control', 'no-store')
-  return response.render('admin/staff', { today: todayInVietnam() })
+  return response.render('admin/staff', { today: todayInVietnam(), apiToken: getAdminTokenFromRequest(request) })
 })

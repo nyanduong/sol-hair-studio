@@ -68,6 +68,10 @@ npm run dev:mobile
 - Ứng dụng di động đọc `EXPO_PUBLIC_API_BASE_URL`.
 
 Trang quản trị nhân sự EJS ở `http://localhost:4000/admin/nhan-su` yêu cầu đăng nhập bằng tài khoản chủ tiệm và đọc dữ liệu thật qua API SOL-025.
+
+Website dùng chung trang `/login` và modal đăng nhập cho customer/chủ tiệm. Tài khoản có vai trò `owner` được chuyển thẳng sang dashboard EJS `/admin/dashboard`, kể cả khi có thêm vai trò customer. Khi còn phiên owner, mở trực tiếp hoặc Back về route React sẽ chuyển lại dashboard; muốn dùng website khách với tài khoản khác phải đăng xuất trước. Dashboard không có liên kết quay về trang khách hàng.
+
+`/admin/login` chỉ còn là đường dẫn chuyển tiếp, không có form đăng nhập riêng. React bàn giao token bằng form `POST /admin/session`; server xác thực owner trước khi cấp cookie HttpOnly và chuyển về dashboard. API đăng nhập JSON và Bearer token dùng cho mobile giữ nguyên. Đặt `WEB_BASE_URL` trong môi trường API thành URL website thực tế (mặc định dev `http://localhost:5173`, đổi nếu Vite chạy cổng khác); React lấy địa chỉ admin từ `VITE_API_BASE_URL`. Cookie admin dùng Secure trong production, cần HTTPS.
 Mobile dùng Expo SDK 58 và React Native 0.88, tương thích Expo Go dành cho SDK 58. Sau khi lấy thay đổi nâng SDK, chạy `npm ci` tại root, dừng Metro cũ rồi chạy `npm run start --workspace @sol-hair/mobile -- --clear` và mở lại project trong Expo Go. Nếu dùng development build riêng, cần build lại ứng dụng native sau khi nâng SDK. Hướng dẫn nâng phiên bản: [Expo SDK upgrade](https://docs.expo.dev/workflow/upgrading-expo-sdk-walkthrough/).
 
 Trang `/quan-ly/nhan-su` hiện mặc định dùng phiên và HTTP giả lập, dữ liệu chỉ ở trong bộ nhớ; tải lại trang sẽ mất thay đổi và không tạo tài khoản thật. Giao diện đi qua `staff-client.js`, các hàm API SOL-025 và HTTP helper trước khi nhận phản hồi mẫu, bao gồm lỗi xung đột. Phiên mẫu không đăng nhập vào API thật; route chưa có phiên SOL-018 để cấp client thật và link xử lý từng lịch M5 chưa có. Cần ghép phiên SOL-018, kiểm thử API thật và kết nối M5 trước khi nghiệm thu.

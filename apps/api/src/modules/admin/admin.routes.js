@@ -1,7 +1,6 @@
 import { Router } from 'express'
 import {
   renderLogin,
-  handleLogin,
   handleLogout,
   renderDashboard,
   renderServices,
@@ -15,7 +14,15 @@ export const adminRouter = Router()
 
 // Authentication routes
 adminRouter.get('/admin/login', renderLogin)
-adminRouter.post('/admin/login', handleLogin)
+adminRouter.post('/admin/login', (req, res) => res.redirect(303, '/admin/login'))
+adminRouter.post('/admin/session', (req, res, next) => {
+  // Only this handoff endpoint accepts a token in the form body.
+  if (typeof req.body?.token === 'string') {
+    req.headers.authorization = `Bearer ${req.body.token}`
+    delete req.headers.cookie
+  }
+  next()
+}, requireAdminAuth, (req, res) => res.redirect(303, '/admin/dashboard'))
 adminRouter.post('/admin/logout', requireAdminAuth, handleLogout)
 
 // Default admin redirect

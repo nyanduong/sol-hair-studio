@@ -7,8 +7,8 @@
     <link rel="stylesheet" href="/admin/assets/staff-admin.css">
   </head>
   <body>
-    <main class="page" data-today="<%= today %>">
-      <header class="site-header"><a class="brand" href="/">SOL HAIR STUDIO</a><a href="/" class="home-link">← Trang chủ</a></header>
+    <main class="page" data-today="<%= today %>" data-api-token="<%= apiToken %>">
+      <header class="site-header"><a class="brand" href="/admin/dashboard">SOL HAIR STUDIO</a><a href="/admin/dashboard" class="home-link">← Dashboard</a></header>
       <div class="container">
         <section class="intro"><div><p class="eyebrow">Không gian quản lý</p><h1>Nhân sự &amp; ca làm</h1><p>Quản lý đội ngũ, dịch vụ và lịch làm việc theo tuần.</p></div><button class="primary" type="button" data-action="new-profile" hidden>+ Thêm nhân viên</button></section>
         <p id="feedback" role="status" aria-live="polite"></p><section id="access" class="card"></section>
