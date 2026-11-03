@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= title || 'Sol Hair Studio Admin' %></title>
+  <% if (locals.staffStylesheet) { %>
+    <link rel="stylesheet" href="/admin/assets/staff-admin.css">
+  <% } %>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -50,6 +53,21 @@
           <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="<%= item.path %>" /></svg>
           <%= item.label %>
         </a>
+        <nav class="hidden md:flex items-center space-x-1 pl-6">
+          <a href="/admin/dashboard" class="px-3 py-1.5 rounded-lg text-sm font-semibold transition <%= locals.activeTab === 'dashboard' ? 'bg-[#b55338]/10 text-[#b55338]' : 'text-[#7a7269] hover:text-ink hover:bg-[#f4f0ea]' %>">
+            Tổng quan
+          </a>
+          <a href="/admin/services" class="px-3 py-1.5 rounded-lg text-sm font-semibold transition <%= locals.activeTab === 'services' ? 'bg-[#b55338]/10 text-[#b55338]' : 'text-[#7a7269] hover:text-ink hover:bg-[#f4f0ea]' %>">
+            Quản lý Dịch vụ
+          </a>
+          <a href="/admin/nhan-su"<% if (locals.activeTab === 'staff') { %> aria-current="page"<% } %> class="px-3 py-1.5 rounded-lg text-sm font-semibold transition <%= locals.activeTab === 'staff' ? 'bg-[#b55338]/10 text-[#b55338]' : 'text-[#7a7269] hover:text-ink hover:bg-[#f4f0ea]' %>">
+            Nhân sự
+          </a>
+          <a href="/owner/appointments" class="px-3 py-1.5 rounded-lg text-sm font-medium text-[#7a7269] hover:text-ink hover:bg-[#f4f0ea] transition">
+            Lịch Salon
+          </a>
+
+        </nav>
       <% }); %>
     </nav>
     <% if (locals.identity) { %>

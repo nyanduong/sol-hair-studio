@@ -19,7 +19,9 @@ describe('GET /admin/nhan-su', () => {
     expect(response.text).toContain('Nhân sự &amp; ca làm')
     expect(response.text).toContain('/admin/assets/staff-admin.js')
     expect(response.text).toContain('href="/admin/dashboard"')
-    expect(response.text).not.toContain('href="/"')
+    expect(response.text).toContain('href="/admin/services"')
+    expect(response.text).toContain('href="/admin/nhan-su"')
+    expect(response.text).toContain('href="/admin/nhan-su" aria-current="page"')
   })
 
   it('giữ đường dẫn quản trị cũ khi chuyển sang EJS', async () => {
