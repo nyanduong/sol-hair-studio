@@ -23,7 +23,7 @@ export default function HomePage() {
               <div className="mt-5 flex flex-wrap gap-3">
                 <a href="#services" className="inline-flex min-h-11 items-center justify-center gap-3 rounded-full bg-terracotta px-5 text-xs font-semibold text-white shadow-[0_5px_14px_rgba(161,79,61,0.15)] transition-colors hover:bg-terracotta-dark">Khám phá dịch vụ <span aria-hidden="true">→</span></a>
                 <a
-                  href="#booking"
+                  href="/booking"
                   onClick={(e) => {
                     if (!isAuthenticated) {
                       e.preventDefault()
@@ -58,7 +58,7 @@ export default function HomePage() {
             </div>
             {isAuthenticated ? (
               <a
-                href="#services"
+                href="/booking"
                 className="mt-5 inline-flex min-h-11 shrink-0 items-center justify-center gap-3 rounded-full bg-canvas px-6 text-xs font-semibold text-ink sm:mt-0 shadow-sm transition hover:bg-soft-surface"
               >
                 Chọn dịch vụ ngay <span aria-hidden="true">→</span>

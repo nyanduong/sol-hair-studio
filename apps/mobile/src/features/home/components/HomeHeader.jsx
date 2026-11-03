@@ -6,7 +6,7 @@ import { colors, displayFont } from '../../../theme/tokens.js'
 
 export default function HomeHeader({ onServices, navigation }) {
   const showFeature = useFeatureUnavailable()
-  const { isAuthenticated, isProfileComplete, customer } = useAuth()
+  const { isAuthenticated, customer } = useAuth()
   const { width, fontScale } = useWindowDimensions()
   const compact = width < 390 || fontScale > 1.15
 
@@ -15,6 +15,7 @@ export default function HomeHeader({ onServices, navigation }) {
       if (navigation) {
         navigation.navigate('Login', {
           notice: 'Vui lòng đăng nhập tài khoản trước khi đặt lịch hẹn.',
+          returnTo: 'Booking',
         })
       } else {
         showFeature('Đặt lịch')
@@ -22,16 +23,8 @@ export default function HomeHeader({ onServices, navigation }) {
       return
     }
 
-    if (!isProfileComplete) {
-      if (navigation) {
-        navigation.navigate('Profile')
-      } else {
-        showFeature('Đặt lịch')
-      }
-      return
-    }
-
-    showFeature('Đặt lịch')
+    if (navigation) navigation.navigate('Booking')
+    else showFeature('Đặt lịch')
   }
 
   const greetingText = customer?.displayName

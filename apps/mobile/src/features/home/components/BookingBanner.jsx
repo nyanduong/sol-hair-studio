@@ -5,13 +5,14 @@ import { colors, displayFont } from '../../../theme/tokens.js'
 
 export default function BookingBanner({ navigation }) {
   const showFeature = useFeatureUnavailable()
-  const { isAuthenticated, isProfileComplete } = useAuth()
+  const { isAuthenticated } = useAuth()
 
   function handleBooking() {
     if (!isAuthenticated) {
       if (navigation) {
         navigation.navigate('Login', {
           notice: 'Vui lòng đăng nhập tài khoản trước khi đặt lịch hẹn.',
+          returnTo: 'Booking',
         })
       } else {
         showFeature('Đặt lịch')
@@ -19,16 +20,8 @@ export default function BookingBanner({ navigation }) {
       return
     }
 
-    if (!isProfileComplete) {
-      if (navigation) {
-        navigation.navigate('Profile')
-      } else {
-        showFeature('Đặt lịch')
-      }
-      return
-    }
-
-    showFeature('Đặt lịch')
+    if (navigation) navigation.navigate('Booking')
+    else showFeature('Đặt lịch')
   }
 
   return (

@@ -1,21 +1,16 @@
 import { app } from './app.js'
 import { config } from './config/env.js'
-import {
-  connectToDatabase,
-  disconnectFromDatabase,
-} from './config/database.js'
+import { prepareBookingStorage } from './modules/appointments/booking.repository.js'
+import { connectToDatabase, disconnectFromDatabase } from './config/database.js'
 
 async function start() {
   await connectToDatabase(config.mongoUri)
+  if (config.mongoUri) await prepareBookingStorage()
 
   const server = app.listen(config.port, '0.0.0.0', () => {
-    console.log(
-      `Sol Hair API đang chạy tại http://localhost:${config.port} (${config.nodeEnv}).`,
-    )
+    console.log(`Sol Hair API đang chạy tại http://localhost:${config.port} (${config.nodeEnv}).`)
     if (!config.mongoUri) {
-      console.log(
-        'Chưa cấu hình MONGODB_URI; chức năng truy cập cơ sở dữ liệu đang tắt.',
-      )
+      console.log('Chưa cấu hình MONGODB_URI; chức năng truy cập cơ sở dữ liệu đang tắt.')
     }
   })
 

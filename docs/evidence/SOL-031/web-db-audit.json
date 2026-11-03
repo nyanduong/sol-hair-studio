@@ -1,0 +1,16 @@
+{
+  "environment": "MongoDB 8.0.17 temporary replica set, synthetic data, actual Express routes",
+  "appointments": [
+    {
+      "id": "6ad81d381729c15f30138ec4",
+      "status": "confirmed",
+      "bookingMode": "customer",
+      "totalPriceVnd": 100000,
+      "totalDurationMinutes": 30,
+      "startAt": "2026-10-21T03:30:00.000Z",
+      "endAt": "2026-10-21T04:00:00.000Z"
+    }
+  ],
+  "events": 1,
+  "receipts": 1
+}

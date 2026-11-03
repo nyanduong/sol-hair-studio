@@ -1,8 +1,8 @@
 const footerLinks = [
-  { href: '#services', label: 'Dịch vụ' },
-  { href: '#experience', label: 'Trải nghiệm' },
-  { href: '#stories', label: 'Góc Sol' },
-  { href: '#booking', label: 'Thông tin đặt lịch' },
+  { href: '/#services', label: 'Dịch vụ' },
+  { href: '/#experience', label: 'Trải nghiệm' },
+  { href: '/#stories', label: 'Góc Sol' },
+  { href: '/booking', label: 'Thông tin đặt lịch' },
 ]
 
 export default function SiteFooter() {

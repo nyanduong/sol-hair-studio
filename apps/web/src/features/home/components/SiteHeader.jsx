@@ -3,10 +3,10 @@ import UserNav from '../../auth/components/UserNav.jsx'
 import { useAuth } from '../../auth/hooks/useAuth.js'
 
 const links = [
-  { href: '#services', label: 'Dịch vụ' },
-  { href: '#experience', label: 'Trải nghiệm' },
-  { href: '#stories', label: 'Góc Sol' },
-  { href: '#contact', label: 'Về chúng tôi' },
+  { href: '/#services', label: 'Dịch vụ' },
+  { href: '/#experience', label: 'Trải nghiệm' },
+  { href: '/#stories', label: 'Góc Sol' },
+  { href: '/#contact', label: 'Về chúng tôi' },
 ]
 
 export default function SiteHeader() {
@@ -55,7 +55,7 @@ export default function SiteHeader() {
     <header className="sticky top-0 z-40 border-b border-border/60 bg-canvas/95 backdrop-blur-md">
       <a href="#main-content" className="absolute left-4 top-3 -translate-y-24 rounded-full bg-ink px-5 py-3 text-sm text-white focus:translate-y-0">Bỏ qua điều hướng</a>
       <div className="mx-auto flex min-h-20 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
-        <a href="#home" aria-label="Sol Hair Studio — Trang chủ" className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+        <a href="/" aria-label="Sol Hair Studio — Trang chủ" className="flex min-w-0 items-center gap-2.5 sm:gap-3">
           <img src="/logo/sol-logo.png" alt="" width="44" height="44" className="h-10 w-10 shrink-0 object-contain sm:h-11 sm:w-11" decoding="async" />
           <span className="min-w-0 leading-none">
             <span className="block font-display text-[1.05rem] font-semibold tracking-[0.13em] sm:text-xl sm:tracking-[0.18em]">SOL HAIR STUDIO</span>
@@ -65,7 +65,7 @@ export default function SiteHeader() {
         <nav aria-label="Điều hướng chính" className="hidden items-center gap-5 lg:flex">
           {links.map(({ href, label }) => <a key={href} href={href} className="inline-flex min-h-11 items-center text-xs text-muted transition-colors hover:text-terracotta">{label}</a>)}
           <a
-            href="#booking"
+            href="/booking"
             onClick={handleBookingClick}
             className="inline-flex min-h-11 items-center rounded-full bg-terracotta px-5 text-xs font-semibold text-white transition-colors hover:bg-terracotta-dark"
           >
@@ -81,7 +81,7 @@ export default function SiteHeader() {
           <nav aria-label="Điều hướng chính trên điện thoại" className="absolute right-0 top-14 grid w-60 max-w-[calc(100vw-2rem)] gap-1 rounded-2xl border border-border bg-canvas p-2 shadow-lg">
             {links.map(({ href, label }) => <a key={href} href={href} onClick={navigate} className="flex min-h-11 items-center rounded-xl px-4 text-sm hover:bg-soft-surface">{label}</a>)}
             <a
-              href="#booking"
+              href="/booking"
               onClick={handleBookingClick}
               className="flex min-h-11 items-center rounded-xl bg-terracotta/10 px-4 text-sm font-semibold text-terracotta hover:bg-terracotta/20"
             >

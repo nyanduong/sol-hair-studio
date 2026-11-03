@@ -1,0 +1,7 @@
+{
+  "scenario": "owner_walkin",
+  "requests": 1,
+  "selectedCustomerB": true,
+  "serverAssignsTime": true,
+  "mode": "owner_walkin"
+}
