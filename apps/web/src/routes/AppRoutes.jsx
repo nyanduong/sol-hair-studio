@@ -1,3 +1,4 @@
+import ProfilePage from '../features/auth/pages/ProfilePage.jsx'
 import StylistAppointmentsPage from '../features/appointments/pages/StylistAppointmentsPage.jsx'
 import CustomerAppointmentDetailPage from '../features/appointments/pages/CustomerAppointmentDetailPage.jsx'
 import CustomerAppointmentsPage from '../features/appointments/pages/CustomerAppointmentsPage.jsx'
@@ -15,6 +16,7 @@ export default function AppRoutes() {
       <Route element={<MainLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/health" element={<HealthPage />} />
+        <Route path="/tai-khoan" element={<ProfilePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/booking" element={<BookingPage />} />
         <Route path="/lich-cua-toi" element={<CustomerAppointmentsPage />} />

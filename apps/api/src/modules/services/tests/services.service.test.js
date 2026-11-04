@@ -6,6 +6,7 @@ vi.mock('../services.repository.js', () => ({
   findServiceById: vi.fn(),
   findServiceBySlug: vi.fn(),
   createService: vi.fn(),
+  getNextDisplayOrder: vi.fn().mockResolvedValue(0),
   updateService: vi.fn(),
   findImageById: vi.fn(),
   findImageByPublicId: vi.fn(),

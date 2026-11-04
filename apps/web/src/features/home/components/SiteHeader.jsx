@@ -75,18 +75,18 @@ export default function SiteHeader() {
             <span className="mt-1.5 block text-[0.46rem] font-medium tracking-[0.18em] text-muted sm:text-[0.5rem] sm:tracking-[0.25em]">BEAUTY SHINES WITHIN</span>
           </span>
         </a>
-        <nav aria-label="Điều hướng chính" className="hidden items-center gap-5 lg:flex">
-          {links.map(({ href, label }) => <a key={href} href={href} className="inline-flex min-h-11 items-center text-xs text-muted transition-colors hover:text-terracotta">{label}</a>)}
-          {showStylistAppointments && <Link to="/nhan-vien/lich-hen" className="inline-flex min-h-11 items-center whitespace-nowrap text-xs text-muted transition-colors hover:text-terracotta">Lịch của tôi</Link>}
-          {showOwnerAppointments && <a href={adminAppointmentsUrl} className="inline-flex min-h-11 items-center whitespace-nowrap text-xs text-muted transition-colors hover:text-terracotta">Lịch salon</a>}
-          {showOwnerAppointments && <a href={adminServicesUrl} className="inline-flex min-h-11 items-center whitespace-nowrap text-xs text-muted transition-colors hover:text-terracotta">Quản lý dịch vụ</a>}
+        <nav aria-label="Điều hướng chính" className="hidden items-center gap-4 lg:flex">
+          {links.map(({ href, label }) => <a key={href} href={href} className="inline-flex min-h-11 items-center text-sm text-muted transition-colors hover:text-terracotta">{label}</a>)}
+          {showStylistAppointments && <Link to="/nhan-vien/lich-hen" className="inline-flex min-h-11 items-center whitespace-nowrap text-sm text-muted transition-colors hover:text-terracotta">Lịch của tôi</Link>}
+          {showOwnerAppointments && <a href={adminAppointmentsUrl} className="inline-flex min-h-11 items-center whitespace-nowrap text-sm text-muted transition-colors hover:text-terracotta">Lịch salon</a>}
+          {showOwnerAppointments && <a href={adminServicesUrl} className="inline-flex min-h-11 items-center whitespace-nowrap text-sm text-muted transition-colors hover:text-terracotta">Quản lý dịch vụ</a>}
           {showAppointments && (
-            <Link to="/lich-cua-toi" className="inline-flex min-h-11 items-center whitespace-nowrap text-xs text-muted transition-colors hover:text-terracotta">Lịch của tôi</Link>
+            <Link to="/lich-cua-toi" className="inline-flex min-h-11 items-center whitespace-nowrap text-sm text-muted transition-colors hover:text-terracotta">Lịch của tôi</Link>
           )}
           <a
             href="/booking"
             onClick={handleBookingClick}
-            className="inline-flex min-h-11 items-center rounded-full bg-terracotta px-5 text-xs font-semibold text-white transition-colors hover:bg-terracotta-dark"
+            className="inline-flex min-h-11 items-center rounded-full bg-terracotta px-5 text-sm font-semibold text-white transition-colors hover:bg-terracotta-dark"
           >
             Đặt lịch
           </a>

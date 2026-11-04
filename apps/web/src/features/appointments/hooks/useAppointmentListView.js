@@ -5,7 +5,7 @@ const UPCOMING = new Set(['confirmed', 'in_progress'])
 const HISTORY = new Set(['completed', 'cancelled', 'no_show'])
 
 export function getAppointmentTabView(state, tab, now = Date.now()) {
-  const attention = state.items.filter(item => item.status === 'confirmed' && new Date(item.startAt).getTime() <= now)
+  const attention = state.items.filter(item => (item.status === 'confirmed' && new Date(item.startAt).getTime() <= now) || (item.status === 'completed' && item.paymentStatus === 'unpaid'))
   const upcoming = state.items.filter(item => UPCOMING.has(item.status) && !attention.includes(item))
   const history = state.items.filter(item => HISTORY.has(item.status))
   // Chỉ có tổng chính xác và kết luận rỗng sau trang cuối thành công.

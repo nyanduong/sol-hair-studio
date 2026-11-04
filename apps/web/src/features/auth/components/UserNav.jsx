@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../hooks/useAuth.js'
 
@@ -79,6 +80,7 @@ export default function UserNav() {
           </div>
 
           <div className="pt-1">
+            <Link role="menuitem" to="/tai-khoan" onClick={() => setIsDropdownOpen(false)} className="flex min-h-11 items-center rounded-xl px-3 text-xs hover:bg-soft-surface">Thông tin cá nhân</Link>
             <button
               type="button"
               role="menuitem"

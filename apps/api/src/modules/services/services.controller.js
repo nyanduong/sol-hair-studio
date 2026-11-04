@@ -1,3 +1,4 @@
+import { CategoryError } from './categories.service.js'
 import { getDatabaseStatus } from '../../config/database.js'
 import { sendAuthError } from '../../middlewares/auth.js'
 import {
@@ -11,7 +12,7 @@ import {
 } from './services.service.js'
 
 export function sendServiceError(error, response, next) {
-  if (error instanceof ServiceError) {
+  if (error instanceof ServiceError || error instanceof CategoryError) {
     return response.status(error.status).json({
       status: 'error',
       code: error.code,
@@ -103,6 +104,7 @@ export const createServiceController = serviceHandler(
       'name',
       'description',
       'category',
+      'categoryId',
       'durationMinutes',
       'bookingDurationMinutes',
       'priceVnd',
@@ -123,6 +125,7 @@ export const updateServiceController = serviceHandler(
       'name',
       'description',
       'category',
+      'categoryId',
       'durationMinutes',
       'bookingDurationMinutes',
       'priceVnd',

@@ -1,6 +1,8 @@
+import { withManagedCategory, resolveCategoryName } from './categories.service.js'
 import * as servicesRepo from './services.repository.js'
 import { config } from '../../config/env.js'
 import { uploadImagePayload } from '../../config/cloudinary.js'
+import { randomUUID } from 'node:crypto'
 
 export class ServiceError extends Error {
   constructor(message, { code = 'BAD_REQUEST', status = 400, details } = {}) {
@@ -162,10 +164,20 @@ export async function getServiceDetail(id) {
   return service
 }
 
-export async function createService(identity, input) {
+export async function createService(identity, input, session) {
   ensureOwner(identity)
-  const data = validateServicePayload(input, false)
+  if (input.categoryId !== undefined && !session) return withManagedCategory(identity, input, (payload, transaction) => createService(identity, payload, transaction))
+  const generatedId = input.id === undefined
+  const id = generatedId ? `${generateSlug(input.name).slice(0, 60) || 'dich-vu'}-${randomUUID().slice(0, 8)}` : input.id
+  const data = validateServicePayload({
+    ...input,
+    id,
+    slug: input.slug || (generatedId ? id : undefined),
+    description: input.description ?? '',
+    durationMinutes: input.durationMinutes ?? { min: Number(input.bookingDurationMinutes), max: Number(input.bookingDurationMinutes) },
+  }, false)
 
+  if (input.categoryId) data.categoryId = input.categoryId
   const existingId = await servicesRepo.findServiceById(data.id)
   if (existingId) {
     fail('DUPLICATE_SERVICE_ID', `Mã dịch vụ '${data.id}' đã tồn tại.`, 409)
@@ -196,17 +208,26 @@ export async function createService(identity, input) {
     fail('MISSING_IMAGE', 'Cần cung cấp imageUrl hoặc coverImageId hợp lệ cho dịch vụ.')
   }
 
-  return await servicesRepo.createService(data)
+  if (data.displayOrder === undefined) data.displayOrder = await servicesRepo.getNextDisplayOrder()
+  try {
+    return await (session ? servicesRepo.createService(data, session) : servicesRepo.createService(data))
+  } catch (error) {
+    if (error.code === 11000) fail('DUPLICATE_SERVICE_ID', 'Mã hoặc đường dẫn dịch vụ đã tồn tại. Vui lòng thử lại.', 409)
+    throw error
+  }
 }
 
-export async function updateService(identity, id, input) {
+export async function updateService(identity, id, input, session) {
   ensureOwner(identity)
   const existing = await servicesRepo.findServiceById(id)
   if (!existing) {
     fail('SERVICE_NOT_FOUND', `Không tìm thấy dịch vụ có mã '${id}'.`, 404)
   }
 
+  if (!input.categoryId && input.category && existing.categoryId && input.category !== existing.category) input = { ...input, categoryId: await resolveCategoryName(input.category) }
+  if (input.categoryId !== undefined && !session) return withManagedCategory(identity, input, (payload, transaction) => updateService(identity, id, payload, transaction), existing)
   const updates = validateServicePayload(input, true)
+  if (input.categoryId) updates.categoryId = input.categoryId
 
   const currentMin = updates.durationMinutes?.min ?? existing.durationMinutes.min
   const currentMax = updates.durationMinutes?.max ?? existing.durationMinutes.max
@@ -228,7 +249,7 @@ export async function updateService(identity, id, input) {
     }
   }
 
-  return await servicesRepo.updateService(id, updates)
+  return await (session ? servicesRepo.updateService(id, updates, session) : servicesRepo.updateService(id, updates))
 }
 
 export async function uploadOrRegisterImage(identity, input) {

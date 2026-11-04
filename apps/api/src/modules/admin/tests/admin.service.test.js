@@ -22,7 +22,7 @@ vi.mock('../../staff/staff.model.js', () => ({
 import { AppointmentModel } from '../../appointments/appointments.model.js'
 import { ServiceModel } from '../../services/services.model.js'
 import { StaffModel } from '../../staff/staff.model.js'
-import { getDashboardData, getSalonTodayDate } from '../admin.service.js'
+import { getDashboardData, getFutureBookingCountsByServiceIds, getSalonTodayDate } from '../admin.service.js'
 
 describe('Admin Service — getDashboardData', () => {
   beforeEach(() => {
@@ -32,6 +32,28 @@ describe('Admin Service — getDashboardData', () => {
   it('trả về định dạng ngày YYYY-MM-DD theo giờ salon', () => {
     const today = getSalonTodayDate()
     expect(today).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+
+  it('đếm riêng lịch tương lai đã xác nhận theo từng dịch vụ', async () => {
+    const now = new Date('2026-11-04T02:00:00.000Z')
+    AppointmentModel.aggregate.mockResolvedValue([
+      { _id: 'cut', count: 2 },
+      { _id: 'color', count: 1 },
+    ])
+
+    await expect(getFutureBookingCountsByServiceIds(['cut', 'color', 'cut'], now)).resolves.toEqual({ cut: 2, color: 1 })
+    expect(AppointmentModel.aggregate).toHaveBeenCalledWith([
+      { $match: { status: 'confirmed', startAt: { $gt: now }, 'items.serviceId': { $in: ['cut', 'color'] } } },
+      { $unwind: '$items' },
+      { $match: { 'items.serviceId': { $in: ['cut', 'color'] } } },
+      { $group: { _id: { appointmentId: '$_id', serviceId: '$items.serviceId' } } },
+      { $group: { _id: '$_id.serviceId', count: { $sum: 1 } } },
+    ])
+  })
+
+  it('không truy vấn lịch khi danh sách dịch vụ rỗng', async () => {
+    await expect(getFutureBookingCountsByServiceIds([])).resolves.toEqual({})
+    expect(AppointmentModel.aggregate).not.toHaveBeenCalled()
   })
 
   it('tổng hợp dữ liệu dashboard chính xác từ các model Mongoose', async () => {
@@ -93,6 +115,8 @@ describe('Admin Service — getDashboardData', () => {
     expect(result.todayStr).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     expect(result.todayStats.total).toBe(4)
     expect(result.todayStats.completed).toBe(1)
+    expect(result.todayStats.unpaidCount).toBe(1)
+    expect(result.todayStats.unpaidVnd).toBe(500_000)
     expect(result.todayStats.inProgress).toBe(1)
     expect(result.todayStats.confirmed).toBe(1)
     expect(result.todayStats.cancelled).toBe(1)
@@ -106,11 +130,26 @@ describe('Admin Service — getDashboardData', () => {
     expect(result.statusMap.cancelled).toBe(1)
     expect(result.statusMap.no_show).toBe(0)
 
+    // Top-service revenue must exclude pending, cancelled and no-show bookings.
+    expect(AppointmentModel.aggregate.mock.calls[2][0][0]).toEqual({ $match: { status: 'completed' } })
     expect(result.topServices).toHaveLength(1)
     expect(result.topServices[0]._id).toBe('Cắt tóc nam')
     expect(result.activeServicesCount).toBe(5)
     expect(result.totalServicesCount).toBe(7)
     expect(result.activeStaffCount).toBe(3)
+  })
+
+  it('excludes paid, pending and cancelled appointments from unpaid totals', async () => {
+    AppointmentModel.find.mockReturnValue({ sort: () => ({ lean: async () => [
+      { status: 'completed', totalPriceVnd: 100000 },
+      { status: 'completed', totalPriceVnd: 200000, payment: { receivedAt: new Date() } },
+      { status: 'confirmed', totalPriceVnd: 300000 },
+      { status: 'cancelled', totalPriceVnd: 400000 },
+    ] }) })
+    AppointmentModel.aggregate.mockResolvedValue([])
+    const result = await getDashboardData()
+    expect(result.todayStats.unpaidCount).toBe(1)
+    expect(result.todayStats.unpaidVnd).toBe(100000)
   })
 
   it('xử lý an toàn khi cơ sở dữ liệu chưa có lịch hẹn nào', async () => {
@@ -132,6 +171,7 @@ describe('Admin Service — getDashboardData', () => {
 
     const result = await getDashboardData()
 
+    expect(result.todayStats.unpaidCount).toBe(0)
     expect(result.todayStats.total).toBe(0)
     expect(result.todayStats.completed).toBe(0)
     expect(result.todayStats.revenueVnd).toBe(0)

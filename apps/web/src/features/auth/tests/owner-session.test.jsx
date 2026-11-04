@@ -37,7 +37,7 @@ async function mount() {
 }
 describe('restored owner sessions', () => {
   it('clears the stale React session after EJS logout rather than redirecting back to dashboard', async () => {
-    window.history.replaceState(null, '', '/login?logout=1')
+    window.history.replaceState(null, '', '/?logout=1')
     const page = await mount()
     expect(page.textContent).toBe('Shared login')
     expect(localStorage.getItem('sol_auth_token')).toBeNull()

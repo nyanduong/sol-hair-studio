@@ -8,7 +8,6 @@
 %>
 <div class="space-y-5">
   <div>
-    <p class="mb-4 text-xs uppercase tracking-wider text-muted"><span class="text-terracotta">SOL</span><span class="mx-3">/</span>Báo cáo</p>
     <h1 class="text-3xl font-bold tracking-tight">Báo cáo doanh thu</h1>
     <p class="mt-2 text-sm text-muted">Theo dõi giá trị dịch vụ, tiền đã thu và tiền chưa thu.</p>
   </div>
@@ -93,7 +92,7 @@
       <% } %>
     </section>
     <section class="rounded-2xl border border-border bg-white p-5"><h2 class="text-xl font-bold">Lịch hoàn tất chưa thu tiền</h2><p class="mt-2 text-sm text-muted">Tối đa 20 lịch mới nhất trong khoảng ngày hẹn đã chọn. Lịch cũ chưa có xác nhận nhận tiền cũng xuất hiện tại đây; cần đối chiếu trước khi thu.</p><div class="mt-4 overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr><th class="p-3">Lịch hẹn / Khách</th><th class="p-3">Ngày hẹn</th><th class="p-3 text-right">Chưa thu</th></tr></thead><tbody><% for (const row of report.unpaid) { %><tr class="border-t border-border"><td class="p-3"><a href="/admin/appointments/<%= row.id %>" class="font-semibold text-terracotta underline"><%= row.referenceCode %> · <%= row.name %></a></td><td class="p-3"><%= dateLabel(row.localDate) %></td><td class="p-3 text-right"><%= money(row.amountVnd) %></td></tr><% } %></tbody></table><% if (!report.unpaid.length) { %><p class="py-5 text-sm text-muted">Chưa có lịch chưa thu trong khoảng này.</p><% } %></div></section>
-    <section class="rounded-2xl border border-border bg-white p-5"><h2 class="text-xl font-bold">Tiền đã thu theo thời gian</h2><p class="mt-2 text-sm text-muted">Theo ngày xác nhận nhận tiền · Giờ Việt Nam</p><div class="mt-4 max-h-72 overflow-auto"><table class="w-full text-left text-sm"><thead><tr><th class="p-3">Thời gian</th><th class="p-3 text-right">Đã thu</th></tr></thead><tbody><% for (const period of report.cashPeriods) { %><tr class="border-t border-border"><td class="p-3"><%= dateLabel(period.key) %></td><td class="p-3 text-right"><%= money(period.paidVnd) %></td></tr><% } %></tbody></table></div></section>
+    <section id="cash-receipts" class="scroll-mt-6 rounded-2xl border border-border bg-white p-5"><h2 class="text-xl font-bold">Tiền đã thu theo thời gian</h2><p class="mt-2 text-sm text-muted">Theo ngày xác nhận nhận tiền · Giờ Việt Nam</p><div class="mt-4 max-h-72 overflow-auto"><table class="w-full text-left text-sm"><thead><tr><th class="p-3">Thời gian</th><th class="p-3 text-right">Đã thu</th></tr></thead><tbody><% for (const period of report.cashPeriods) { %><tr class="border-t border-border"><td class="p-3"><%= dateLabel(period.key) %></td><td class="p-3 text-right"><%= money(period.paidVnd) %></td></tr><% } %></tbody></table></div></section>
     <p class="text-xs text-muted">Tiền đã thu tính theo ngày xác nhận nhận tiền; giá trị dịch vụ và tiền chưa thu tính theo ngày hẹn. Vì khác mốc thời gian, các số này không nhất thiết cộng trừ bằng nhau. Xác nhận nhận tiền vẫn được giữ khi sửa hoàn tất nhầm; đây không phải báo cáo lợi nhuận.</p>
   <% } %>
 </div>

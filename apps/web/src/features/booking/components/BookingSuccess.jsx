@@ -30,11 +30,11 @@ export default function BookingSuccess({ receipt, services = [], owner = false }
     }
   }
   return (
-    <div className="mx-auto max-w-3xl pb-36 lg:pb-4">
+    <div className="mx-auto max-w-4xl rounded-3xl border border-border bg-white p-6 sm:p-10">
       <div className="mb-6 text-center">
         <div
           aria-hidden="true"
-          className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full border border-terracotta bg-terracotta/5 text-terracotta"
+          className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full border border-green-600 bg-green-50 text-green-700"
         >
           <svg
             viewBox="0 0 24 24"
@@ -126,8 +126,10 @@ export default function BookingSuccess({ receipt, services = [], owner = false }
             <dd className="mt-1 font-semibold">
               {receipt.customerDisplayName || 'Xem trong chi tiết lịch hẹn'}
             </dd>
+            {receipt.customerPhone && <dd className="mt-1 text-muted">{receipt.customerPhone}</dd>}
           </div>
         </dl>
+        {receipt.note && <p className="mb-5 rounded-xl bg-canvas p-4 text-sm"><strong>Ghi chú cho salon:</strong> {receipt.note}</p>}
         <h2 className="border-t border-border pt-4 font-display text-xl">Dịch vụ đã đặt</h2>
         <ul className="mt-3 divide-y divide-border">
           {receipt.items.map((item) => (
