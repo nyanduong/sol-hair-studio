@@ -18,7 +18,7 @@ async function setup() {
 }
 
 describe('service form drafts', () => {
-  it('starts with a compact form and resets duplicate data when opening a fresh form', async () => {
+  it('starts with a compact form and resets a cancelled draft', async () => {
     const { document, context } = await setup()
     context.openAddModal()
     expect(document.querySelector('#add_advanced')).toBeNull()
@@ -27,12 +27,11 @@ describe('service form drafts', () => {
     expect(document.querySelector('#addForm [name="id"]')).toBeNull()
     expect(document.querySelector('#addForm [name="displayOrder"]')).toBeNull()
     expect(document.querySelector('#add_description').closest('details')).toBeNull()
-    const button = document.querySelector('[onclick="duplicateService(this)"]')
-    context.duplicateService(button)
-    expect(document.querySelector('#add_name').value).toBe(service.name + ' (bản sao)')
-    expect(document.querySelector('#add_imageUrl').value).toBe(service.imageUrl)
-    expect(document.querySelector('#add_isActive').checked).toBe(false)
-    expect(document.querySelector('#add_bookingDurationMinutes').value).toBe('45')
+    expect(document.querySelector('[onclick="duplicateService(this)"]')).toBeNull()
+    expect(document.body.textContent).not.toContain('Nhân bản')
+    document.querySelector('#add_name').value = 'Bản nháp không lưu'
+    document.querySelector('#add_imageUrl').value = service.imageUrl
+    document.querySelector('#add_isActive').checked = false
     context.closeAddModal(); context.openAddModal()
     expect(document.querySelector('#add_imageUrl').value).toBe('')
     expect(document.querySelector('#add_name').value).toBe('')

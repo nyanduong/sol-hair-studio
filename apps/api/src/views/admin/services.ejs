@@ -256,7 +256,6 @@
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
                   <span>Chỉnh sửa</span>
                 </button>
-                <button type="button" data-service='<%= JSON.stringify(service) %>' onclick="duplicateService(this)" class="ml-2 min-h-11 rounded-lg border border-border px-3 text-xs font-semibold text-terracotta">Nhân bản</button>
               </td>
             </tr>
           <% }); %>
@@ -346,22 +345,6 @@
     else if (prefix === 'edit' && data.categoryId) {
       const existing = document.createElement('option'); existing.value = String(data.categoryId); existing.textContent = data.category + ' (ngừng dùng)'; existing.dataset.existingCategory = 'true'; select.append(existing); select.value = existing.value;
     } else select.value = '';
-  }
-
-  function duplicateService(button) {
-    const data = JSON.parse(button.getAttribute('data-service'));
-    openAddModal();
-    document.getElementById('add_name').value = (data.name + ' (bản sao)').slice(0, 120);
-    for (const key of ['priceVnd', 'description', 'bookingDurationMinutes']) document.getElementById('add_' + key).value = data[key] ?? '';
-    document.getElementById('add_bookingDurationMinutes').value = data.bookingDurationMinutes || data.durationMinutes.max;
-    chooseCategory('add', data);
-    document.getElementById('add_imageUrl').value = data.imageUrl || '';
-    const preview = document.getElementById('add_previewImg');
-    if (data.imageUrl) { preview.src = data.imageUrl; preview.classList.remove('hidden'); }
-    document.getElementById('add_fileLabel').textContent = 'Dùng ảnh từ dịch vụ gốc · có thể thay ảnh';
-    document.getElementById('add_isActive').checked = Boolean(data.isActive);
-    document.getElementById('add_draftNotice').querySelector('p').textContent = 'Bản nháp nhân bản. Kiểm tra tên, giá và trạng thái; mã mới và thứ tự sẽ được tạo tự động.';
-    document.getElementById('add_name').focus();
   }
 
   function closeAddModal() {
