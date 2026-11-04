@@ -18,36 +18,37 @@ async function setup() {
 }
 
 describe('service form drafts', () => {
-  it('starts with one duration and resets duplicate data when opening a fresh form', async () => {
+  it('starts with a compact form and resets duplicate data when opening a fresh form', async () => {
     const { document, context } = await setup()
     context.openAddModal()
-    expect(document.querySelector('#add_advanced').open).toBe(false)
-    expect(document.querySelector('#add_range').disabled).toBe(true)
+    expect(document.querySelector('#add_advanced')).toBeNull()
+    expect(document.querySelector('#add_durationMin')).toBeNull()
+    expect(document.querySelector('#add_durationMax')).toBeNull()
     expect(document.querySelector('#addForm [name="id"]')).toBeNull()
-    expect(document.querySelector('#add_displayOrder').value).toBe('')
+    expect(document.querySelector('#addForm [name="displayOrder"]')).toBeNull()
+    expect(document.querySelector('#add_description').closest('details')).toBeNull()
     const button = document.querySelector('[onclick="duplicateService(this)"]')
     context.duplicateService(button)
     expect(document.querySelector('#add_name').value).toBe(service.name + ' (bản sao)')
     expect(document.querySelector('#add_imageUrl').value).toBe(service.imageUrl)
     expect(document.querySelector('#add_isActive').checked).toBe(false)
-    expect(document.querySelector('#add_range').disabled).toBe(false)
+    expect(document.querySelector('#add_bookingDurationMinutes').value).toBe('45')
     context.closeAddModal(); context.openAddModal()
     expect(document.querySelector('#add_imageUrl').value).toBe('')
     expect(document.querySelector('#add_name').value).toBe('')
     expect(document.querySelector('#add_isActive').checked).toBe(true)
   })
 
-  it('preserves an existing flexible range on edit and allows a single fixed duration', async () => {
+  it('explains legacy flexible ranges and edits them as one fixed duration', async () => {
     const { document, context } = await setup()
     context.openEditModal(document.querySelector('[onclick="openEditModal(this)"]'))
     expect(document.querySelector('#editForm').getAttribute('action')).toBe('/admin/services/cut/update')
-    expect(document.querySelector('#edit_durationMin').value).toBe('30')
-    expect(document.querySelector('#edit_durationMax').value).toBe('60')
-    expect(document.querySelector('#edit_range').disabled).toBe(false)
-    context.configureRange('edit', false)
+    expect(document.querySelector('#edit_durationMin')).toBeNull()
+    expect(document.querySelector('#edit_durationMax')).toBeNull()
+    expect(document.querySelector('#edit_bookingDurationMinutes').value).toBe('45')
+    expect(document.querySelector('#edit_draftNotice').textContent).toContain('chuyển về một thời lượng')
     document.querySelector('#edit_bookingDurationMinutes').value = '90'
     expect(context.validateServiceForm(document.querySelector('#editForm'))).toBe(true)
-    expect(document.querySelector('#edit_range').disabled).toBe(true)
   })
 
   it('refreshes the category dropdown without losing draft values', async () => {

@@ -1,37 +1,64 @@
 <% const field = 'mt-2 min-h-11 w-full rounded-xl border border-border px-3 py-2 text-sm focus:outline-terracotta'; %>
-<form <%- prefix === 'edit' ? 'id="editForm" action=""' : 'id="addForm" action="/admin/services"' %> method="POST" class="space-y-5 p-6" onsubmit="return validateServiceForm(this)<%- prefix === 'add' ? ' &amp;&amp; validateAddForm()' : '' %>">
-  <p id="<%= prefix %>_draftNotice" class="text-sm text-muted"><%= prefix === 'add' ? 'Mã dịch vụ tự tạo. Dịch vụ mới tự xếp cuối danh sách.' : 'Thay đổi chỉ áp dụng cho dịch vụ; lịch đã đặt giữ nguyên thông tin.' %></p>
-  <label class="block text-sm font-semibold">Tên dịch vụ *<input id="<%= prefix %>_name" name="name" required maxlength="120" class="<%= field %>" placeholder="Ví dụ: Cắt & tạo kiểu"></label>
+<form <%- prefix === 'edit' ? 'id="editForm" action=""' : 'id="addForm" action="/admin/services"' %> method="POST" class="space-y-4 p-5" onsubmit="return validateServiceForm(this)<%- prefix === 'add' ? ' &amp;&amp; validateAddForm()' : '' %>">
+  <div id="<%= prefix %>_draftNotice" class="flex items-start gap-3 rounded-xl bg-[#fbede8] px-4 py-2.5 text-sm text-[#7f3825]">
+    <span aria-hidden="true" class="text-lg leading-5">✦</span>
+    <p><%= prefix === 'add' ? 'Mã dịch vụ và thứ tự hiển thị sẽ được tạo tự động.' : 'Thay đổi chỉ áp dụng cho dịch vụ; lịch đã đặt giữ nguyên thông tin.' %></p>
+  </div>
+
+  <label class="block text-sm font-semibold">Tên dịch vụ *
+    <input id="<%= prefix %>_name" name="name" required maxlength="120" class="<%= field %>" placeholder="Ví dụ: Cắt & tạo kiểu chuyên nghiệp">
+  </label>
+
   <input type="hidden" name="managedCategory" value="true">
-  <label class="block text-sm font-semibold">Danh mục *<select id="<%= prefix %>_category" name="categoryId" required class="<%= field %>"><option value="">Chọn danh mục</option><% for (const category of serviceCategories.filter(item => item.isActive)) { %><option value="<%= category.id %>"><%= category.name %></option><% } %></select></label>
-  <p class="text-xs text-muted">Chưa có danh mục phù hợp? <a href="/admin/service-categories" target="_blank" rel="noopener" class="font-semibold text-terracotta underline">Quản lý danh mục ↗</a>. Tạo xong, bấm cập nhật để giữ nguyên dữ liệu đang nhập.</p>
-  <button type="button" onclick="refreshCategories('<%= prefix %>')" class="min-h-11 text-sm font-semibold text-terracotta underline">Cập nhật danh mục</button><p id="<%= prefix %>_categoryNotice" role="status" class="text-xs text-muted"></p>
-  <div class="grid gap-4 sm:grid-cols-2">
-    <label class="block text-sm font-semibold">Giá niêm yết (VNĐ) *<input id="<%= prefix %>_priceVnd" name="priceVnd" type="number" min="0" max="100000000" step="1" required class="<%= field %>" placeholder="150000"></label>
-    <label class="block text-sm font-semibold">Thời lượng (phút) *<input id="<%= prefix %>_bookingDurationMinutes" name="bookingDurationMinutes" type="number" min="1" max="480" step="1" required class="<%= field %>" placeholder="60"><span class="mt-2 block text-xs font-normal text-muted">Số phút giữ chỗ khi khách đặt lịch.</span></label>
+  <div class="grid gap-4 md:grid-cols-2">
+    <div>
+      <div class="flex items-center justify-between gap-3">
+        <label for="<%= prefix %>_category" class="text-sm font-semibold">Danh mục *</label>
+        <span class="flex items-center gap-3 text-xs">
+          <a href="/admin/service-categories" target="_blank" rel="noopener" class="font-semibold text-terracotta underline">Quản lý danh mục ↗</a>
+          <button type="button" onclick="refreshCategories('<%= prefix %>')" class="font-semibold text-terracotta underline">Tải lại</button>
+        </span>
+      </div>
+      <select id="<%= prefix %>_category" name="categoryId" required class="<%= field %>">
+        <option value="">Chọn danh mục</option>
+        <% for (const category of serviceCategories.filter(item => item.isActive)) { %><option value="<%= category.id %>"><%= category.name %></option><% } %>
+      </select>
+      <p id="<%= prefix %>_categoryNotice" role="status" class="mt-2 text-xs text-muted empty:hidden"></p>
+    </div>
+    <label class="block text-sm font-semibold">Giá niêm yết (VNĐ) *
+      <input id="<%= prefix %>_priceVnd" name="priceVnd" type="number" min="0" max="100000000" step="1" required class="<%= field %>" placeholder="450000">
+    </label>
   </div>
-  <div class="rounded-xl border border-border p-4">
-    <label for="<%= prefix %>_imageFileInput" class="inline-flex min-h-11 cursor-pointer items-center rounded-xl bg-terracotta px-4 text-sm font-semibold text-white">Chọn ảnh từ thiết bị</label>
-    <input type="file" id="<%= prefix %>_imageFileInput" accept="image/*" class="hidden" onchange="handleImageFileSelect(this, '<%= prefix %>_imageDataUrl', '<%= prefix %>_previewImg', '<%= prefix %>_fileLabel')">
-    <span id="<%= prefix %>_fileLabel" class="ml-2 text-xs text-muted">Chưa chọn ảnh</span>
-    <input type="hidden" id="<%= prefix %>_imageDataUrl" name="imageDataUrl"><input type="hidden" id="<%= prefix %>_imageUrl" name="imageUrl">
-    <img id="<%= prefix %>_previewImg" class="mt-3 hidden h-20 w-20 rounded-xl object-cover" alt="Xem trước ảnh dịch vụ">
-    <p class="mt-2 text-xs text-muted">Ảnh đại diện <%= prefix === 'add' ? 'bắt buộc' : 'có thể giữ nguyên' %> · tối đa 5 MB.</p>
+
+  <div class="grid items-start gap-4 md:grid-cols-2">
+    <label class="block text-sm font-semibold">Thời lượng (phút) *
+      <input id="<%= prefix %>_bookingDurationMinutes" name="bookingDurationMinutes" type="number" min="1" max="480" step="1" required class="<%= field %>" placeholder="60">
+      <span class="mt-2 block text-xs font-normal text-muted">Thời gian dùng để giữ lịch.</span>
+    </label>
+    <div>
+      <p class="text-sm font-semibold">Hình ảnh dịch vụ *</p>
+      <div class="mt-2 rounded-xl border border-border p-2.5">
+        <label for="<%= prefix %>_imageFileInput" class="inline-flex min-h-11 cursor-pointer items-center rounded-xl bg-terracotta px-4 text-sm font-semibold text-white">Chọn ảnh từ thiết bị</label>
+        <input type="file" id="<%= prefix %>_imageFileInput" accept="image/*" class="hidden" onchange="handleImageFileSelect(this, '<%= prefix %>_imageDataUrl', '<%= prefix %>_previewImg', '<%= prefix %>_fileLabel')">
+        <span id="<%= prefix %>_fileLabel" class="ml-2 text-xs text-muted">Chưa chọn ảnh</span>
+        <input type="hidden" id="<%= prefix %>_imageDataUrl" name="imageDataUrl"><input type="hidden" id="<%= prefix %>_imageUrl" name="imageUrl">
+        <img id="<%= prefix %>_previewImg" class="mt-3 hidden h-20 w-20 rounded-xl object-cover" alt="Xem trước ảnh dịch vụ">
+      </div>
+      <p class="mt-1.5 text-xs text-muted"><%= prefix === 'add' ? 'Ảnh đại diện bắt buộc' : 'Không chọn ảnh mới để giữ ảnh hiện tại' %> · tối đa 5 MB.</p>
+    </div>
   </div>
-  <details id="<%= prefix %>_advanced" class="rounded-xl border border-border p-4">
-    <summary class="min-h-11 cursor-pointer py-3 text-sm font-semibold">Nâng cao · thời gian linh hoạt, mô tả, thứ tự</summary>
-    <label class="my-3 flex items-center gap-2 text-sm"><input type="checkbox" id="<%= prefix %>_flexible">Hiển thị khoảng thời gian linh hoạt</label>
-    <fieldset id="<%= prefix %>_range" disabled hidden class="grid gap-4 sm:grid-cols-2">
-      <label class="text-sm">Thời gian từ (phút)<input id="<%= prefix %>_durationMin" name="durationMin" type="number" min="1" max="480" required class="<%= field %>"></label>
-      <label class="text-sm">Thời gian đến (phút)<input id="<%= prefix %>_durationMax" name="durationMax" type="number" min="1" max="480" required class="<%= field %>"></label>
-    </fieldset>
-    <p class="my-3 text-xs text-muted">Nếu không bật khoảng thời gian, thời gian tham khảo bằng thời lượng giữ chỗ.</p>
-    <label class="block text-sm">Mô tả (không bắt buộc)<textarea id="<%= prefix %>_description" name="description" rows="2" maxlength="2000" class="<%= field %>"></textarea></label>
-    <label class="mt-4 block text-sm">Thứ tự hiển thị<input id="<%= prefix %>_displayOrder" name="displayOrder" type="number" min="0" step="1" class="<%= field %>" placeholder="Tự xếp cuối danh sách"></label>
-  </details>
+
+  <label class="block text-sm font-semibold">Mô tả (không bắt buộc)
+    <textarea id="<%= prefix %>_description" name="description" rows="2" maxlength="2000" class="<%= field %>" placeholder="Giới thiệu ngắn để khách dễ chọn dịch vụ"></textarea>
+  </label>
+
   <input type="hidden" name="isActivePresent" value="true">
-  <label class="flex items-center gap-2 text-sm"><input id="<%= prefix %>_isActive" name="isActive" type="checkbox" value="true" checked>Đang nhận lịch · hiển thị cho khách đặt</label>
-  <div class="sticky bottom-0 -mx-6 -mb-6 flex justify-end gap-3 border-t border-border bg-white px-6 py-4">
+  <label class="flex items-center gap-2 text-sm font-semibold">
+    <input id="<%= prefix %>_isActive" name="isActive" type="checkbox" value="true" checked>
+    Đang hiển thị để khách đặt lịch
+  </label>
+
+  <div class="sticky bottom-0 -mx-5 -mb-5 flex justify-end gap-3 border-t border-border bg-white px-5 py-3">
     <button type="button" onclick="<%= prefix === 'add' ? 'closeAddModal' : 'closeEditModal' %>()" class="min-h-11 rounded-xl border border-border px-5 text-sm">Hủy bỏ</button>
     <button type="submit" class="min-h-11 rounded-xl bg-terracotta px-5 text-sm font-semibold text-white">Lưu dịch vụ</button>
   </div>

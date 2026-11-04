@@ -267,10 +267,10 @@
 </div>
 
 <!-- ==================== MODAL: THÊM DỊCH VỤ ==================== -->
-<dialog id="addModal" aria-label="Thêm dịch vụ" class="fixed inset-0 m-auto w-[min(760px,calc(100%_-_2rem))] max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-0 backdrop:bg-black/40">
+<dialog id="addModal" aria-label="Thêm dịch vụ" class="fixed inset-0 m-auto w-[min(920px,calc(100%_-_2rem))] max-h-[calc(100vh_-_0.5rem)] overflow-y-auto rounded-2xl bg-white p-0 backdrop:bg-black/40">
   <div class="relative w-full max-w-none bg-white rounded-2xl shadow-2xl border border-[#e7e2da]">
-    <div class="sticky top-0 z-10 px-6 py-4 border-b border-[#e7e2da] flex items-center justify-between bg-[#fcfbf9]">
-      <h3 class="text-lg font-bold text-ink">Thêm Dịch vụ Mới</h3>
+    <div class="sticky top-0 z-10 px-5 py-3 border-b border-[#e7e2da] flex items-center justify-between bg-[#fcfbf9]">
+      <h3 class="text-lg font-bold text-ink">Thêm dịch vụ mới</h3>
       <button type="button" onclick="closeAddModal()" aria-label="Đóng form dịch vụ" class="text-[#7a7269] hover:text-ink text-lg font-bold min-h-11 min-w-11">&times;</button>
     </div>
 
@@ -279,11 +279,11 @@
 </dialog>
 
 <!-- ==================== MODAL: CHỈNH SỬA DỊCH VỤ ==================== -->
-<dialog id="editModal" aria-label="Chỉnh sửa dịch vụ" class="fixed inset-0 m-auto w-[min(760px,calc(100%_-_2rem))] max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-0 backdrop:bg-black/40">
+<dialog id="editModal" aria-label="Chỉnh sửa dịch vụ" class="fixed inset-0 m-auto w-[min(920px,calc(100%_-_2rem))] max-h-[calc(100vh_-_0.5rem)] overflow-y-auto rounded-2xl bg-white p-0 backdrop:bg-black/40">
   <div class="relative w-full max-w-none bg-white rounded-2xl shadow-2xl border border-[#e7e2da]">
-    <div class="sticky top-0 z-10 px-6 py-4 border-b border-[#e7e2da] flex items-center justify-between bg-[#fcfbf9]">
+    <div class="sticky top-0 z-10 px-5 py-3 border-b border-[#e7e2da] flex items-center justify-between bg-[#fcfbf9]">
       <div>
-        <h3 class="text-lg font-bold text-ink">Chỉnh sửa Dịch vụ</h3>
+        <h3 class="text-lg font-bold text-ink">Chỉnh sửa dịch vụ</h3>
         <span id="edit_id_badge" class="text-xs font-mono text-[#7a7269]"></span>
       </div>
       <button type="button" onclick="closeEditModal()" aria-label="Đóng form dịch vụ" class="text-[#7a7269] hover:text-ink text-lg font-bold min-h-11 min-w-11">&times;</button>
@@ -296,11 +296,7 @@
 <script>
   function validateServiceForm(form) {
     const duration = form.elements.bookingDurationMinutes;
-    const prefix = form.id === 'editForm' ? 'edit' : 'add';
-    const flexible = document.getElementById(prefix + '_flexible').checked;
-    const min = flexible ? Number(form.elements.durationMin.value) : Number(duration.value);
-    const max = flexible ? Number(form.elements.durationMax.value) : Number(duration.value);
-    duration.setCustomValidity(Number(duration.value) < min || Number(duration.value) > max ? 'Thời lượng giữ chỗ phải nằm trong khoảng thời gian tham khảo.' : '');
+    duration.setCustomValidity('');
     return form.reportValidity();
   }
   document.addEventListener('input', function(event) {
@@ -311,9 +307,7 @@
     document.getElementById('addForm').reset();
     document.getElementById('add_bookingDurationMinutes').setCustomValidity('');
     document.getElementById('add_imageUrl').value = '';
-    document.getElementById('add_advanced').open = false;
-    document.getElementById('add_draftNotice').textContent = 'Mã dịch vụ tự tạo. Dịch vụ mới tự xếp cuối danh sách.';
-    configureRange('add', false);
+    document.getElementById('add_draftNotice').querySelector('p').textContent = 'Mã dịch vụ và thứ tự hiển thị sẽ được tạo tự động.';
     const fileInput = document.getElementById('add_imageFileInput');
     if (fileInput) fileInput.value = '';
     const dataUrlInput = document.getElementById('add_imageDataUrl');
@@ -354,23 +348,6 @@
     } else select.value = '';
   }
 
-  function configureRange(prefix, enabled) {
-    document.getElementById(prefix + '_flexible').checked = enabled;
-    const range = document.getElementById(prefix + '_range');
-    range.disabled = !enabled; range.hidden = !enabled;
-    if (enabled) {
-      for (const suffix of ['durationMin', 'durationMax']) {
-        const input = document.getElementById(prefix + '_' + suffix);
-        if (!input.value) input.value = document.getElementById(prefix + '_bookingDurationMinutes').value;
-      }
-    }
-  }
-  for (const prefix of ['add', 'edit']) {
-    document.getElementById(prefix + '_flexible').addEventListener('change', event => configureRange(prefix, event.target.checked));
-    document.getElementById(prefix + 'Form').addEventListener('invalid', event => {
-      if (event.target.closest('details')) document.getElementById(prefix + '_advanced').open = true;
-    }, true);
-  }
   function duplicateService(button) {
     const data = JSON.parse(button.getAttribute('data-service'));
     openAddModal();
@@ -378,15 +355,12 @@
     for (const key of ['priceVnd', 'description', 'bookingDurationMinutes']) document.getElementById('add_' + key).value = data[key] ?? '';
     document.getElementById('add_bookingDurationMinutes').value = data.bookingDurationMinutes || data.durationMinutes.max;
     chooseCategory('add', data);
-    document.getElementById('add_durationMin').value = data.durationMinutes.min;
-    document.getElementById('add_durationMax').value = data.durationMinutes.max;
-    configureRange('add', data.durationMinutes.min !== data.durationMinutes.max || data.durationMinutes.min !== data.bookingDurationMinutes);
     document.getElementById('add_imageUrl').value = data.imageUrl || '';
     const preview = document.getElementById('add_previewImg');
     if (data.imageUrl) { preview.src = data.imageUrl; preview.classList.remove('hidden'); }
     document.getElementById('add_fileLabel').textContent = 'Dùng ảnh từ dịch vụ gốc · có thể thay ảnh';
     document.getElementById('add_isActive').checked = Boolean(data.isActive);
-    document.getElementById('add_draftNotice').textContent = 'Bản nháp nhân bản. Kiểm tra tên, giá và trạng thái trước khi lưu. Mã mới tự tạo, tự xếp cuối.';
+    document.getElementById('add_draftNotice').querySelector('p').textContent = 'Bản nháp nhân bản. Kiểm tra tên, giá và trạng thái; mã mới và thứ tự sẽ được tạo tự động.';
     document.getElementById('add_name').focus();
   }
 
@@ -405,10 +379,7 @@
       document.getElementById('edit_name').value = data.name || '';
       chooseCategory('edit', data);
       document.getElementById('edit_priceVnd').value = data.priceVnd !== undefined ? data.priceVnd : '';
-      document.getElementById('edit_durationMin').value = data.durationMinutes ? data.durationMinutes.min : '';
-      document.getElementById('edit_durationMax').value = data.durationMinutes ? data.durationMinutes.max : '';
       document.getElementById('edit_bookingDurationMinutes').value = data.bookingDurationMinutes || data.durationMinutes?.max || '';
-      document.getElementById('edit_displayOrder').value = data.displayOrder !== undefined ? data.displayOrder : 0;
       document.getElementById('edit_imageUrl').value = data.imageUrl || '';
       const editFileInput = document.getElementById('edit_imageFileInput');
       if (editFileInput) editFileInput.value = '';
@@ -427,8 +398,10 @@
         preview.classList.add('hidden');
       }
 
-      document.getElementById('edit_advanced').open = false;
-      configureRange('edit', Boolean(data.durationMinutes && (data.durationMinutes.min !== data.durationMinutes.max || data.durationMinutes.min !== data.bookingDurationMinutes)));
+      const hasLegacyRange = Boolean(data.durationMinutes && data.durationMinutes.min !== data.durationMinutes.max);
+      document.getElementById('edit_draftNotice').querySelector('p').textContent = hasLegacyRange
+        ? 'Dịch vụ này đang dùng khoảng thời gian cũ. Khi lưu, hệ thống sẽ chuyển về một thời lượng; lịch đã đặt không thay đổi.'
+        : 'Thay đổi chỉ áp dụng cho dịch vụ; lịch đã đặt giữ nguyên thông tin.';
       document.getElementById('editModal').showModal();
     } catch (e) {
       console.error('Không thể mở modal chỉnh sửa:', e);

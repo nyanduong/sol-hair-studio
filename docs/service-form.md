@@ -1,6 +1,8 @@
 # Tạo và nhân bản dịch vụ
 
-Form admin mặc định gồm tên, danh mục chọn từ dropdown quản lý tập trung, giá, thời lượng giữ chỗ và ảnh. Trạng thái nhận lịch hiển thị trước khi lưu. Phần Nâng cao chứa khoảng thời gian linh hoạt, mô tả tùy chọn và thứ tự tùy chỉnh. Khi không bật khoảng thời gian, min/max đều bằng thời lượng giữ chỗ. Khi sửa dịch vụ cũ, khoảng thời gian linh hoạt hiện có được giữ nguyên dù phần Nâng cao đang đóng.
+Form admin gồm tên, danh mục chọn từ dropdown quản lý tập trung, giá, một thời lượng giữ chỗ, ảnh và mô tả tùy chọn. Trạng thái hiển thị cho khách nằm ngay trước nút lưu. Mã dịch vụ và thứ tự không xuất hiện trên form vì server tự sinh mã và tự xếp dịch vụ mới ở cuối.
+
+Khoảng thời gian linh hoạt không còn xuất hiện trên giao diện quản trị. Khi sửa một dịch vụ cũ đang có khoảng thời gian, form thông báo trước và lần lưu tiếp theo sẽ quy về thời lượng cố định đang hiển thị. Snapshot của lịch đã đặt không bị thay đổi. API vẫn chấp nhận `durationMinutes.min/max` từ client cũ để giữ tương thích.
 
 Nhân bản mở bản nháp trong form tạo mới: sao chép tên có hậu tố bản sao, danh mục, giá, thời lượng, mô tả, ảnh và trạng thái. Không sao chép mã, slug hoặc thứ tự; không ghi database trước khi bấm Lưu. Ảnh có thể thay; dùng lại URL ảnh không phát sinh upload Cloudinary mới. Nhân bản không gán stylist, không đổi lịch đã đặt.
 
