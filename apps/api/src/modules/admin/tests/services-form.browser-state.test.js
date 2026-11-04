@@ -18,6 +18,13 @@ async function setup() {
 }
 
 describe('service form drafts', () => {
+  it('submits category and status filters immediately without a filter button', async () => {
+    const { document } = await setup()
+    expect(document.querySelector('#category').getAttribute('onchange')).toBe('this.form.requestSubmit()')
+    expect(document.querySelector('#status').getAttribute('onchange')).toBe('this.form.requestSubmit()')
+    expect([...document.querySelectorAll('button')].some(button => button.textContent.trim() === 'Lọc')).toBe(false)
+  })
+
   it('starts with a compact form and resets a cancelled draft', async () => {
     const { document, context } = await setup()
     context.openAddModal()
