@@ -4,6 +4,8 @@ Form admin gồm tên, danh mục chọn từ dropdown quản lý tập trung, g
 
 Khoảng thời gian linh hoạt không còn xuất hiện trên giao diện quản trị. Khi sửa một dịch vụ cũ đang có khoảng thời gian, form thông báo trước và lần lưu tiếp theo sẽ quy về thời lượng cố định đang hiển thị. Snapshot của lịch đã đặt không bị thay đổi. API vẫn chấp nhận `durationMinutes.min/max` từ client cũ để giữ tương thích.
 
+Dịch vụ đang hiển thị vẫn được chỉnh sửa. Form sửa luôn thông báo giá/thời lượng mới chỉ áp dụng cho lịch đặt mới và hiển thị số lịch `confirmed` trong tương lai đang giữ snapshot cũ. Lịch hủy, đã hoàn tất hoặc đã qua thời điểm hẹn không được tính. Admin không phải ẩn dịch vụ trước khi sửa, tránh quên bật lại.
+
 ## API dùng chung
 
 `POST /api/services` vẫn chỉ dành cho owner. Các client đang gửi đầy đủ payload tiếp tục hoạt động. Bổ sung khả năng bỏ qua:

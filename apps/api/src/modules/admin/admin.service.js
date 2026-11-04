@@ -16,6 +16,22 @@ export function getSalonTodayDate() {
   return `${parts.year}-${parts.month}-${parts.day}`
 }
 
+export async function getFutureBookingCountsByServiceIds(serviceIds, now = new Date()) {
+  const ids = [...new Set(serviceIds.filter(id => typeof id === 'string' && id.trim()).map(id => id.trim()))]
+  if (ids.length === 0) return {}
+  if (!(now instanceof Date) || !Number.isFinite(now.getTime())) throw new TypeError('now must be a valid Date')
+
+  const groups = await AppointmentModel.aggregate([
+    { $match: { status: 'confirmed', startAt: { $gt: now }, 'items.serviceId': { $in: ids } } },
+    { $unwind: '$items' },
+    { $match: { 'items.serviceId': { $in: ids } } },
+    { $group: { _id: { appointmentId: '$_id', serviceId: '$items.serviceId' } } },
+    { $group: { _id: '$_id.serviceId', count: { $sum: 1 } } },
+  ])
+
+  return Object.fromEntries(groups.map(item => [item._id, item.count]))
+}
+
 export async function getDashboardData() {
   const todayStr = getSalonTodayDate()
 

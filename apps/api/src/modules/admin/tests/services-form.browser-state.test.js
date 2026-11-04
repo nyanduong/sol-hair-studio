@@ -5,7 +5,7 @@ import { Window } from 'happy-dom'
 import { describe, expect, it, vi } from 'vitest'
 
 const template = fileURLToPath(new URL('../../../views/admin/services.ejs', import.meta.url))
-const service = { id: 'cut', categoryId: '507f1f77bcf86cd799439022', name: "Cắt tóc O'Brien <đẹp>", category: 'Tóc', priceVnd: 150000, durationMinutes: { min: 30, max: 60 }, bookingDurationMinutes: 45, description: 'Mô tả', displayOrder: 9, imageUrl: 'https://res.cloudinary.com/demo/image/upload/cut.jpg', isActive: false }
+const service = { id: 'cut', categoryId: '507f1f77bcf86cd799439022', name: "Cắt tóc O'Brien <đẹp>", category: 'Tóc', priceVnd: 150000, durationMinutes: { min: 30, max: 60 }, bookingDurationMinutes: 45, description: 'Mô tả', displayOrder: 9, imageUrl: 'https://res.cloudinary.com/demo/image/upload/cut.jpg', isActive: true, futureBookingCount: 2 }
 async function setup() {
   const html = await ejs.renderFile(template, { title: 'Dịch vụ', identity: { roles: ['owner'] }, services: [service], serviceCategories: [{ id: service.categoryId, name: service.category, isActive: true }], categories: ['Tóc'], stats: { total: 1, activeCount: 0, inactiveCount: 1 }, currentCategory: '', currentStatus: '', currentSearch: '', success: null, error: null })
   const window = new Window()
@@ -45,6 +45,9 @@ describe('service form drafts', () => {
     expect(document.querySelector('#edit_durationMin')).toBeNull()
     expect(document.querySelector('#edit_durationMax')).toBeNull()
     expect(document.querySelector('#edit_bookingDurationMinutes').value).toBe('45')
+    expect(document.querySelector('#edit_draftNotice').textContent).toContain('Dịch vụ đang hiển thị')
+    expect(document.querySelector('#edit_draftNotice').textContent).toContain('2 lịch tương lai')
+    expect(document.querySelector('#edit_draftNotice').textContent).toContain('chỉ áp dụng cho lịch đặt mới')
     expect(document.querySelector('#edit_draftNotice').textContent).toContain('chuyển về một thời lượng')
     document.querySelector('#edit_bookingDurationMinutes').value = '90'
     expect(context.validateServiceForm(document.querySelector('#editForm'))).toBe(true)

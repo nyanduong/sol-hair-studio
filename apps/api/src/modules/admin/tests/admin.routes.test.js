@@ -33,6 +33,7 @@ vi.mock('../../auth/auth.service.js', async (importOriginal) => {
 vi.mock('../admin.service.js', () => ({
   getDashboardData: vi.fn(),
   getSalonTodayDate: vi.fn(),
+  getFutureBookingCountsByServiceIds: vi.fn().mockResolvedValue({}),
 }))
 
 import { getDatabaseStatus } from '../../../config/database.js'
@@ -47,6 +48,7 @@ describe('Admin EJS Portal Routes', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     listCategories.mockResolvedValue([])
+    adminService.getFutureBookingCountsByServiceIds.mockResolvedValue({})
     getDatabaseStatus.mockReturnValue('connected')
   })
 
@@ -225,6 +227,7 @@ describe('Admin EJS Portal Routes', () => {
 
     it('đã đăng nhập với owner thì render danh sách dịch vụ và thống kê KPI', async () => {
       authenticate.mockResolvedValue(ownerIdentity)
+      adminService.getFutureBookingCountsByServiceIds.mockResolvedValue({ 'service-cut-style': 2 })
       servicesRepo.findAllServices.mockResolvedValue([
         {
           id: 'service-cut-style',
@@ -262,6 +265,8 @@ describe('Admin EJS Portal Routes', () => {
       expect(response.text).toContain('Cắt &amp; tạo kiểu')
       expect(response.text).toContain('Dịch vụ tạm ẩn')
       expect(response.text).toContain('450.000')
+      expect(response.text).toContain('&#34;futureBookingCount&#34;:2')
+      expect(adminService.getFutureBookingCountsByServiceIds).toHaveBeenCalledWith(['service-cut-style', 'service-hidden'])
     })
   })
 

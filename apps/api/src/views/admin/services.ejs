@@ -382,9 +382,15 @@
       }
 
       const hasLegacyRange = Boolean(data.durationMinutes && data.durationMinutes.min !== data.durationMinutes.max);
-      document.getElementById('edit_draftNotice').querySelector('p').textContent = hasLegacyRange
-        ? 'Dịch vụ này đang dùng khoảng thời gian cũ. Khi lưu, hệ thống sẽ chuyển về một thời lượng; lịch đã đặt không thay đổi.'
-        : 'Thay đổi chỉ áp dụng cho dịch vụ; lịch đã đặt giữ nguyên thông tin.';
+      const futureBookingCount = Number(data.futureBookingCount) || 0;
+      const impactMessages = [data.isActive
+        ? 'Dịch vụ đang hiển thị. Nếu đổi giá hoặc thời lượng, giá trị mới chỉ áp dụng cho lịch đặt mới.'
+        : 'Dịch vụ đang ẩn. Khi bật lại, giá và thời lượng mới sẽ áp dụng cho lịch đặt mới.'];
+      impactMessages.push(futureBookingCount > 0
+        ? futureBookingCount + ' lịch tương lai đã đặt vẫn giữ giá và thời lượng cũ.'
+        : 'Hiện không có lịch tương lai đã đặt dùng dịch vụ này.');
+      if (hasLegacyRange) impactMessages.push('Khoảng thời gian cũ sẽ được chuyển về một thời lượng khi lưu.');
+      document.getElementById('edit_draftNotice').querySelector('p').textContent = impactMessages.join(' ');
       document.getElementById('editModal').showModal();
     } catch (e) {
       console.error('Không thể mở modal chỉnh sửa:', e);

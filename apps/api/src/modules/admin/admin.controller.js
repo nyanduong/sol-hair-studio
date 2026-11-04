@@ -69,7 +69,14 @@ export async function renderDashboard(req, res) {
 
 export async function renderServices(req, res) {
   try {
-    const allServices = await servicesService.listManageServices(req.identity)
+    const serviceRows = await servicesService.listManageServices(req.identity)
+    const futureBookingCounts = await adminService.getFutureBookingCountsByServiceIds(
+      serviceRows.map(service => service.id),
+    )
+    const allServices = serviceRows.map(service => ({
+      ...service,
+      futureBookingCount: futureBookingCounts[service.id] ?? 0,
+    }))
 
     const search = typeof req.query.search === 'string' ? req.query.search.trim() : ''
     const category = typeof req.query.category === 'string' ? req.query.category.trim() : 'all'
