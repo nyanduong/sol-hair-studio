@@ -93,6 +93,7 @@ export async function getDashboardData() {
   const todayStats = {
     total: todayAppointments.length,
     paidVnd: receipts?.[0]?.paidVnd ?? 0,
+    unpaidCount: todayAppointments.filter(a => a.status === 'completed' && !a.payment).length,
     unpaidVnd: todayAppointments.filter(a => a.status === 'completed' && !a.payment).reduce((sum, a) => sum + a.totalPriceVnd, 0),
     completed: todayAppointments.filter((a) => a.status === 'completed').length,
     confirmed: todayAppointments.filter((a) => a.status === 'confirmed').length,

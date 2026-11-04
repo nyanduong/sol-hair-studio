@@ -110,7 +110,14 @@ describe('Admin EJS Portal Routes', () => {
       expect(response.headers['content-type']).toMatch(/text\/html/)
       expect(response.text).toContain('Tổng quan Hoạt động Salon')
       expect(response.text).toContain('Lịch hẹn hôm nay')
-      expect(response.text).toContain('Giá trị dịch vụ hôm nay')
+      expect(response.text).not.toContain('Giá trị dịch vụ hôm nay')
+      expect((response.text.match(/data-dashboard-card/g) || [])).toHaveLength(4)
+      expect(response.text).toContain('href="/admin/appointments?localDate=2026-10-31"')
+      expect(response.text).toContain('href="/admin/appointments?localDate=2026-10-31&amp;status=in_progress"')
+      expect(response.text).toContain('href="/admin/appointments?localDate=2026-10-31&amp;status=completed&amp;paymentStatus=unpaid"')
+      expect(response.text).toContain('href="/admin/revenue?range=custom&amp;from=2026-10-31&amp;to=2026-10-31&amp;group=day#cash-receipts"')
+      expect(response.text).toContain('Hoàn tất chưa thu')
+      expect(response.text).not.toContain('Chờ &amp; Đang phục vụ')
       expect(response.text).not.toContain('15.850.000 đ')
       expect(response.text).toContain('450.000 đ')
       expect(response.text).toContain('datetime="2026-10-31"')
@@ -350,7 +357,7 @@ describe('Admin EJS Portal Routes', () => {
   })
 
   describe('POST /admin/logout', () => {
-    it('xóa cookie và redirect về /admin/login', async () => {
+    it('xóa cookie và redirect về trang chủ web', async () => {
       authenticate.mockResolvedValue(ownerIdentity)
       logout.mockResolvedValue(true)
 
@@ -359,7 +366,7 @@ describe('Admin EJS Portal Routes', () => {
         .set('Cookie', ['sol_admin_token=mock-owner-token'])
         .expect(303)
 
-      expect(response.headers.location).toBe('http://localhost:5173/login?logout=1')
+      expect(response.headers.location).toBe('http://localhost:5173/?logout=1')
       expect(response.headers['set-cookie']).toBeDefined()
     })
   })
