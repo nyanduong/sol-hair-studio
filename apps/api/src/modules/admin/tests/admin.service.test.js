@@ -22,7 +22,7 @@ vi.mock('../../staff/staff.model.js', () => ({
 import { AppointmentModel } from '../../appointments/appointments.model.js'
 import { ServiceModel } from '../../services/services.model.js'
 import { StaffModel } from '../../staff/staff.model.js'
-import { getDashboardData, getSalonTodayDate } from '../admin.service.js'
+import { getDashboardData, getFutureBookingCountsByServiceIds, getSalonTodayDate } from '../admin.service.js'
 
 describe('Admin Service — getDashboardData', () => {
   beforeEach(() => {
@@ -32,6 +32,28 @@ describe('Admin Service — getDashboardData', () => {
   it('trả về định dạng ngày YYYY-MM-DD theo giờ salon', () => {
     const today = getSalonTodayDate()
     expect(today).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+
+  it('đếm riêng lịch tương lai đã xác nhận theo từng dịch vụ', async () => {
+    const now = new Date('2026-11-04T02:00:00.000Z')
+    AppointmentModel.aggregate.mockResolvedValue([
+      { _id: 'cut', count: 2 },
+      { _id: 'color', count: 1 },
+    ])
+
+    await expect(getFutureBookingCountsByServiceIds(['cut', 'color', 'cut'], now)).resolves.toEqual({ cut: 2, color: 1 })
+    expect(AppointmentModel.aggregate).toHaveBeenCalledWith([
+      { $match: { status: 'confirmed', startAt: { $gt: now }, 'items.serviceId': { $in: ['cut', 'color'] } } },
+      { $unwind: '$items' },
+      { $match: { 'items.serviceId': { $in: ['cut', 'color'] } } },
+      { $group: { _id: { appointmentId: '$_id', serviceId: '$items.serviceId' } } },
+      { $group: { _id: '$_id.serviceId', count: { $sum: 1 } } },
+    ])
+  })
+
+  it('không truy vấn lịch khi danh sách dịch vụ rỗng', async () => {
+    await expect(getFutureBookingCountsByServiceIds([])).resolves.toEqual({})
+    expect(AppointmentModel.aggregate).not.toHaveBeenCalled()
   })
 
   it('tổng hợp dữ liệu dashboard chính xác từ các model Mongoose', async () => {

@@ -2,7 +2,7 @@ import { useAuth } from '../../auth/hooks/useAuth.js'
 import RevealOnScroll from '../components/RevealOnScroll.jsx'
 import EditorialSection from '../components/EditorialSection.jsx'
 import ExperienceSection from '../components/ExperienceSection.jsx'
-import HeroMedia from '../components/HeroMedia.jsx'
+import { customerMedia } from '../../../config/customer-media.js'
 import ServicePreview from '../components/ServicePreview.jsx'
 import SiteFooter from '../components/SiteFooter.jsx'
 import SiteHeader from '../components/SiteHeader.jsx'
@@ -14,11 +14,11 @@ export default function HomePage() {
     <>
       <SiteHeader />
       <main id="main-content" tabIndex={-1}>
-        <section id="home" tabIndex={-1} aria-labelledby="home-title" className="py-8 sm:py-10 lg:py-11">
-          <div className="mx-auto grid max-w-6xl items-center gap-8 px-4 sm:px-6 lg:grid-cols-[1fr_1.08fr_3.5rem] lg:gap-7 lg:px-8">
-            <RevealOnScroll className="min-w-0">
+        <section id="home" tabIndex={-1} aria-labelledby="home-title" className="relative isolate overflow-hidden py-14 lg:py-24">
+          <img src={customerMedia.hero} alt="" fetchPriority="high" className="absolute inset-0 -z-20 h-full w-full object-cover" /><div className="absolute inset-0 -z-10 bg-gradient-to-r from-canvas via-canvas/80 to-transparent lg:via-canvas/30" /><div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+            <RevealOnScroll className="max-w-lg">
               <p className="text-[0.6rem] font-semibold tracking-[0.24em] text-terracotta uppercase">Sol Hair Studio</p>
-              <h1 id="home-title" className="mt-3 max-w-[28rem] font-display text-[2.65rem] font-medium leading-[1.03] tracking-tight sm:text-5xl lg:max-w-none lg:text-[2.75rem]">Một khoảng thời gian dành riêng cho mái tóc.</h1>
+              <h1 id="home-title" className="mt-3 max-w-[28rem] font-display text-[2.65rem] font-medium leading-[1.03] tracking-tight sm:text-5xl lg:max-w-lg lg:text-6xl">Chạm vào phiên bản tự tin hơn.</h1>
               <p className="mt-4 max-w-md text-sm leading-relaxed text-muted">Khám phá những dịch vụ, phong cách và cảm hứng dành cho mái tóc của riêng bạn.</p>
               <div className="mt-5 flex flex-wrap gap-3">
                 <a href="#services" className="inline-flex min-h-11 items-center justify-center gap-3 rounded-full bg-terracotta px-5 text-xs font-semibold text-white shadow-[0_5px_14px_rgba(161,79,61,0.15)] transition-colors hover:bg-terracotta-dark">Khám phá dịch vụ <span aria-hidden="true">→</span></a>
@@ -37,8 +37,6 @@ export default function HomePage() {
               </div>
               <p className="mt-5 flex items-center gap-3 text-[0.65rem] leading-relaxed text-muted"><span aria-hidden="true" className="font-display text-lg italic text-terracotta">01</span>Chăm chút vừa vặn với nhịp sống của bạn.</p>
             </RevealOnScroll>
-            <RevealOnScroll delay={100}><HeroMedia /></RevealOnScroll>
-            <p className="hidden self-center border-y border-terracotta/60 py-5 font-display text-lg leading-snug text-muted lg:block">Vẻ đẹp bắt đầu từ sự chăm sóc tử tế.</p>
           </div>
         </section>
         <ServicePreview />

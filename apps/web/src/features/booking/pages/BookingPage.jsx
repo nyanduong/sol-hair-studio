@@ -1,4 +1,3 @@
-import CustomerProfile from '../../auth/components/CustomerProfile.jsx'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { apiBaseUrl } from '../../../config/env.js'
@@ -8,6 +7,7 @@ import SiteFooter from '../../home/components/SiteFooter.jsx'
 import { formatDuration } from '../../services/format-service.js'
 import { BookingServiceImage } from '../components/BookingServiceCard.jsx'
 import BookingServicePicker from '../components/BookingServicePicker.jsx'
+import BookingCalendar from '../components/BookingCalendar.jsx'
 import { useServices } from '../../services/hooks/useServices.js'
 import { updateBookingProfile } from '../api/booking.api.js'
 import {
@@ -24,9 +24,9 @@ import { useBookingQuery } from '../hooks/useBookingQuery.js'
 import { useBookingSubmission } from '../hooks/useBookingSubmission.js'
 
 const field =
-  'mt-2 min-h-11 w-full rounded-xl border border-border bg-white px-3 py-2 text-base focus:outline-2 focus:outline-terracotta'
+  'mt-2 min-h-11 w-full rounded-xl border border-border bg-white px-3 py-2 text-sm focus:outline-2 focus:outline-terracotta'
 const button =
-  'min-h-11 rounded-full bg-terracotta px-6 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
+  'min-h-12 rounded-xl bg-terracotta px-6 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
 
 export default function BookingPage() {
   const { token, account, isAuthenticated, openLoginModal } = useAuth()
@@ -36,7 +36,7 @@ export default function BookingPage() {
   return (
     <>
       <SiteHeader />
-      <main id="main-content" className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
+      <main id="main-content" className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
         {(!isAuthenticated ||
           !account?.roles?.some((role) => ['customer', 'owner'].includes(role))) && (
           <BookingIntro />
@@ -92,7 +92,6 @@ function BookingForm({ token, initialServiceId }) {
   const stepHeading = useRef(null)
   const catalog = useServices()
   const profile = useBookingQuery('profile', token, {})
-  const profileDialog = useRef(null)
   const owner = profile.value?.roles?.includes('owner') ?? false
   const active =
     profile.kind === 'success' &&
@@ -110,6 +109,7 @@ function BookingForm({ token, initialServiceId }) {
   const [localDate, setLocalDate] = useState(salonDate)
   const [mode, setMode] = useState('scheduled')
   const [staffId, setStaffId] = useState('')
+  const [anyStylist, setAnyStylist] = useState(false)
   const [startAt, setStartAt] = useState('')
   const [phoneSearch, setPhoneSearch] = useState('')
   const [search, setSearch] = useState(null)
@@ -117,10 +117,12 @@ function BookingForm({ token, initialServiceId }) {
   const [guest, setGuest] = useState(false)
   const [name, setName] = useState(null)
   const [phone, setPhone] = useState(null)
+  const [note, setNote] = useState('')
   const [notice, setNotice] = useState('')
   const [savingProfile, setSavingProfile] = useState(false)
   const mounted = useRef(true)
   const profileRequest = useRef(null)
+  const confirming = useRef(false)
   useEffect(() => {
     mounted.current = true
     return () => {
@@ -159,10 +161,12 @@ function BookingForm({ token, initialServiceId }) {
   })
   const data = availability.kind === 'success' ? availability.value : null
   const stylist = data?.stylists.find((item) => item.staffId === staffId)
+  const slotOptions = anyStylist
+    ? [...new Map((data?.stylists ?? []).flatMap(person => person.slots.map(time => ({ ...time, staffId: person.staffId }))).sort((a, b) => a.startAt.localeCompare(b.startAt)).map(time => [time.startAt, time])).values()]
+    : (stylist?.slots ?? []).map(time => ({ ...time, staffId }))
   const slot = stylist?.slots.find((item) => item.startAt === startAt)
   const dateRange = bookingDateRange()
   const contact = profile.value?.customer
-  const profileComplete = Boolean(contact?.displayName && contact?.phone)
   const selectedServices =
     catalog.state.data?.filter((service) => serviceIds.includes(service.id)) ?? []
   function goToStep(next) {
@@ -177,6 +181,7 @@ function BookingForm({ token, initialServiceId }) {
     })
   }
   const resetSlot = () => {
+    setAnyStylist(false)
     setStaffId('')
     setStartAt('')
     setNotice('')
@@ -191,24 +196,6 @@ function BookingForm({ token, initialServiceId }) {
     )
     resetSlot()
   }
-  async function saveProfile() {
-    try {
-      const input = contactInput(name ?? contact?.displayName ?? '', phone ?? contact?.phone ?? '')
-      setSavingProfile(true)
-      setNotice('')
-      profileRequest.current = new AbortController()
-      await updateBookingProfile(apiBaseUrl, token, input, profileRequest.current.signal)
-      if (mounted.current) {
-        profile.retry()
-        availability.retry()
-        // Contact is collected before time selection; stay on the current step.
-      }
-    } catch (error) {
-      if (mounted.current && error.name !== 'AbortError') setNotice(error.message)
-    } finally {
-      if (mounted.current) setSavingProfile(false)
-    }
-  }
   async function submitIntent(payload) {
     const result = await submission.submit(payload)
     if (mounted.current && result?.error?.status === 409) {
@@ -217,15 +204,25 @@ function BookingForm({ token, initialServiceId }) {
       availability.retry()
     }
   }
-  function confirm() {
+  async function confirm() {
+    if (confirming.current || savingProfile || submission.kind === 'loading') return
+    confirming.current = true
     try {
       if (submission.pending) {
-        void submitIntent(submission.pending.payload)
+        await submitIntent(submission.pending.payload)
         return
       }
-      if (!active || !slot || (!owner && !profileComplete))
+      if (!active || !slot)
         throw new Error('Kiểm tra hồ sơ và chọn lại giờ trống trước khi xác nhận.')
+      if (!owner) {
+        const input = contactInput(name ?? contact?.displayName ?? '', phone ?? contact?.phone ?? '')
+        setSavingProfile(true)
+        profileRequest.current = new AbortController()
+        await updateBookingProfile(apiBaseUrl, token, input, profileRequest.current.signal)
+        if (!mounted.current) return
+      }
       const payload = bookingPayload({
+        note,
         serviceIds,
         staffId,
         startAt: slot.startAt,
@@ -235,9 +232,12 @@ function BookingForm({ token, initialServiceId }) {
         guestCustomer: owner && guest ? contactInput(name ?? '', phone ?? '') : undefined,
       })
       setNotice('')
-      void submitIntent(payload)
+      await submitIntent(payload)
     } catch (error) {
-      setNotice(error.message)
+      if (mounted.current && error.name !== 'AbortError') setNotice(error.message)
+    } finally {
+      confirming.current = false
+      if (mounted.current) setSavingProfile(false)
     }
   }
   function viewSummary() {
@@ -249,22 +249,21 @@ function BookingForm({ token, initialServiceId }) {
   }
   const reviewing = !owner && step < 3 && !submission.pending && submission.kind !== 'success'
   const actionDisabled = reviewing
-    ? !active || locked || (step === 1 ? !serviceIds.length || !profileComplete : !slot)
-    : submission.kind === 'loading' ||
+    ? !active || locked || (step === 1 ? !serviceIds.length : !slot)
+    : savingProfile || submission.kind === 'loading' ||
       (!submission.pending &&
         (!active ||
           !slot ||
-          (!owner && !profileComplete) ||
           (owner && !selectedCustomer && !guest)))
   const actionLabel =
-    submission.kind === 'loading'
+    savingProfile || submission.kind === 'loading'
       ? 'Đang xác nhận…'
       : submission.pending
         ? 'Thử lại cùng yêu cầu'
         : reviewing
           ? step === 1
             ? 'Tiếp tục chọn giờ →'
-            : 'Kiểm tra cuộc hẹn →'
+            : 'Tiếp tục xác nhận →'
           : 'Xác nhận đặt lịch'
   const proceed = () => (reviewing ? goToStep(step + 1) : confirm())
   const summaryVisible =
@@ -319,20 +318,19 @@ function BookingForm({ token, initialServiceId }) {
             </p>
           )}
           <BookingStatus query={profile} label="tài khoản" />
-          {!owner && profileComplete && profile.kind === 'success' && <><button type="button" disabled={locked} onClick={() => profileDialog.current.showModal()} className="mb-4 min-h-11 text-sm font-semibold text-terracotta underline">Chỉnh sửa thông tin liên hệ</button><dialog ref={profileDialog} aria-label="Thông tin liên hệ" className="fixed inset-0 m-auto w-[calc(100%_-_2rem)] max-w-2xl rounded-3xl border border-border bg-white p-8 backdrop:bg-black/40"><div className="mb-6 flex items-center justify-between"><h2 className="text-xl font-bold">Thông tin liên hệ</h2><button type="button" aria-label="Đóng thông tin liên hệ" onClick={() => profileDialog.current.close()} className="min-h-11 px-4">✕</button></div><CustomerProfile token={token} onSaved={profile.retry} /></dialog></>}
 
           {profile.kind === 'success' && !active && (
             <p role="alert">Tài khoản chưa hoạt động. Vui lòng kích hoạt hoặc đăng nhập lại.</p>
           )}
           <fieldset disabled={!active || locked} className="min-w-0 space-y-5 disabled:opacity-70">
-            {!owner && active && !profileComplete && (
+            {!owner && active && (
               <section
-                hidden={step !== 1}
+                hidden={step !== 3}
                 className="rounded-2xl border border-border bg-white p-5 sm:p-6"
               >
                 <h2 className="font-display text-2xl">Thông tin liên hệ</h2>
                 <p className="mt-2 text-sm text-muted">
-                  Bổ sung và lưu tên, số điện thoại trước khi chọn giờ hẹn.
+                  Bổ sung thông tin để salon liên hệ về lịch hẹn.
                 </p>
                 <ContactFields
                   {...{
@@ -342,14 +340,8 @@ function BookingForm({ token, initialServiceId }) {
                     setPhone,
                   }}
                 />
-                <button
-                  type="button"
-                  disabled={savingProfile}
-                  onClick={saveProfile}
-                  className={`${button} mt-4`}
-                >
-                  {savingProfile ? 'Đang lưu…' : 'Lưu thông tin'}
-                </button>
+                <label className="mt-4 block text-sm">Ghi chú cho salon (không bắt buộc)<textarea value={note} onChange={event => setNote(event.target.value)} maxLength={500} rows={3} className={field} placeholder="Điều bạn muốn stylist lưu ý…" /></label>
+                <p className="mt-4 text-sm text-muted">Thông tin được lưu khi bạn xác nhận đặt lịch.</p>
               </section>
             )}
             <section
@@ -501,9 +493,29 @@ function BookingForm({ token, initialServiceId }) {
               hidden={!owner && step !== 2}
               className="rounded-2xl border border-border bg-white p-5 sm:p-6"
             >
-              <h2 className="font-display text-2xl sm:text-3xl">Người chăm sóc & giờ hẹn</h2>
+              <h2 className="font-display text-2xl sm:text-3xl">Chọn stylist</h2>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button type="button" aria-pressed={anyStylist} onClick={() => { setAnyStylist(true); setStaffId(''); setStartAt('') }} className={`min-h-20 min-w-36 rounded-xl border px-5 py-4 text-sm font-semibold ${anyStylist ? 'border-terracotta bg-terracotta/10 text-terracotta' : 'border-border bg-white'}`}>Không ưu tiên</button>
+                {data?.stylists.map((item) => (
+                  <button
+                    type="button"
+                    key={item.staffId}
+                    aria-pressed={!anyStylist && staffId === item.staffId}
+                    className={`min-h-20 min-w-36 rounded-xl border px-5 py-4 text-sm font-semibold ${!anyStylist && staffId === item.staffId ? 'border-terracotta bg-terracotta/10 text-terracotta' : 'border-border bg-white'}`}
+                    onClick={() => {
+                      setAnyStylist(false)
+                      setStaffId(item.staffId)
+                      setStartAt('')
+                    }}
+                  >
+                    {item.displayName}
+                  </button>
+                ))}
+              </div>
+              <h3 className="mt-6 border-t border-border pt-5 font-display text-2xl">Chọn ngày & giờ</h3>
+
               {mode !== 'owner_walkin' && (
-                <label className="mt-4 block text-sm">
+                <label className="sr-only">
                   Ngày đến tiệm
                   <input
                     className={field}
@@ -540,22 +552,11 @@ function BookingForm({ token, initialServiceId }) {
               {data && !data.stylists.length && (
                 <p className="mt-4 text-sm">Chưa có stylist phù hợp. Hãy đổi dịch vụ hoặc ngày.</p>
               )}
-              <div className="mt-4 flex flex-wrap gap-2">
-                {data?.stylists.map((item) => (
-                  <button
-                    type="button"
-                    key={item.staffId}
-                    aria-pressed={staffId === item.staffId}
-                    className={`min-h-11 rounded-full border px-4 py-2 text-sm ${staffId === item.staffId ? 'border-terracotta bg-terracotta/10 text-terracotta' : 'border-border'}`}
-                    onClick={() => {
-                      setStaffId(item.staffId)
-                      setStartAt('')
-                    }}
-                  >
-                    {item.displayName}
-                  </button>
-                ))}
-              </div>
+              <div className="mt-4 grid items-start gap-5 xl:grid-cols-[1fr_1fr]"><div>
+              {mode !== 'owner_walkin' && <BookingCalendar value={localDate} min={dateRange.min} max={dateRange.max} onChange={date => { setLocalDate(date); resetSlot() }} />}
+              </div><div>
+              {!stylist && !anyStylist && <p className="py-6 text-sm text-muted">Chọn stylist để xem giờ trống.</p>}
+              {anyStylist && <p className="text-sm text-muted">Sol chọn stylist phù hợp với giờ bạn chọn. Tên stylist sẽ hiển thị trong tóm tắt trước khi xác nhận.</p>}
               {stylist && !stylist.slots.length && (
                 <p className="mt-4 text-sm">
                   Không còn khoảng trống đủ dài cho các dịch vụ bạn chọn. Hãy đổi ngày, đổi stylist
@@ -563,12 +564,13 @@ function BookingForm({ token, initialServiceId }) {
                 </p>
               )}
               {[[0, 12, 'Buổi sáng'], [12, 18, 'Buổi chiều'], [18, 24, 'Buổi tối']].map(([from, to, label]) => {
-                const slots = stylist?.slots.filter(item => { const hour = Number(slotTime(item.startAt).slice(0, 2)); return hour >= from && hour < to }) || []
+                const slots = slotOptions.filter(item => { const hour = Number(slotTime(item.startAt).slice(0, 2)); return hour >= from && hour < to })
                 if (!slots.length) return null
-                return <section key={label} className="mt-5"><h3 className="text-sm font-semibold">{label} <span className="font-normal text-muted">· {slots.length} giờ trống</span></h3><div className="mt-3 grid max-h-64 grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
-                  {slots.map(item => <button type="button" key={item.startAt} aria-pressed={startAt === item.startAt} onClick={() => { setStartAt(item.startAt); setNotice('') }} className={`min-h-11 rounded-xl border text-sm ${startAt === item.startAt ? 'border-terracotta bg-terracotta text-white' : 'border-border'}`}>{mode === 'owner_walkin' ? 'Tới ngay' : slotTime(item.startAt)}</button>)}
+                return <section key={label} className="mt-5"><h3 className="text-sm font-semibold">{label} <span className="font-normal text-muted">· {slots.length} giờ trống</span></h3><div className="mt-3 grid max-h-64 grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-3">
+                  {slots.map(item => <button type="button" key={item.startAt} aria-pressed={startAt === item.startAt} onClick={() => { setStaffId(item.staffId); setStartAt(item.startAt); setNotice('') }} className={`min-h-11 rounded-xl border text-sm ${startAt === item.startAt ? 'border-terracotta bg-terracotta text-white' : 'border-border'}`}>{mode === 'owner_walkin' ? 'Tới ngay' : slotTime(item.startAt)}</button>)}
                 </div></section>
               })}
+              </div></div>
               {data && (
                 <button
                   type="button"
@@ -592,8 +594,8 @@ function BookingForm({ token, initialServiceId }) {
                 <dl className="mt-5 grid gap-5 text-sm sm:grid-cols-2">
                   <div>
                     <dt className="text-muted">Khách hàng</dt>
-                    <dd className="mt-1 font-semibold">{contact?.displayName || 'Chưa bổ sung'}</dd>
-                    <dd className="mt-1">{contact?.phone || 'Chưa có số điện thoại'}</dd>
+                    <dd className="mt-1 font-semibold">{name ?? contact?.displayName ?? 'Chưa bổ sung'}</dd>
+                    <dd className="mt-1">{phone ?? contact?.phone ?? 'Chưa có số điện thoại'}</dd>
                   </div>
                   <div>
                     <dt className="text-muted">Stylist & thời gian</dt>
@@ -601,10 +603,11 @@ function BookingForm({ token, initialServiceId }) {
                       {stylist?.displayName || 'Cần chọn lại stylist'}
                     </dd>
                     <dd className="mt-1">
-                      {slot ? `${localDate} · ${slotTime(slot.startAt)}` : 'Cần chọn lại giờ trống'}
+                      {slot ? `${localDate.split('-').reverse().join('/')} · ${slotTime(slot.startAt)}–${slotTime(slot.endAt)}` : 'Cần chọn lại giờ trống'}
                     </dd>
                   </div>
                 </dl>
+                <div className="mt-4 flex gap-5 text-sm font-semibold text-terracotta"><button type="button" onClick={() => goToStep(1)} className="min-h-11 underline">Sửa dịch vụ</button><button type="button" onClick={() => goToStep(2)} className="min-h-11 underline">Đổi giờ</button></div>
                 {!slot && (
                   <button
                     type="button"
@@ -724,7 +727,7 @@ function BookingForm({ token, initialServiceId }) {
             <p className="mt-4 text-sm">
               {stylist.displayName}
               {slot
-                ? ` · ${mode === 'owner_walkin' ? 'Tới ngay' : localDate + ' · ' + slotTime(slot.startAt)}`
+                ? ` · ${mode === 'owner_walkin' ? 'Tới ngay' : localDate.split('-').reverse().join('/') + ' · ' + slotTime(slot.startAt) + '–' + slotTime(slot.endAt)}`
                 : ''}
             </p>
           )}
@@ -782,7 +785,7 @@ function BookingForm({ token, initialServiceId }) {
               {reviewing && (
                 <p className="mt-3 text-xs leading-5 text-muted">
                   {step === 1
-                    ? 'Chọn stylist và giờ hẹn ở bước tiếp theo.'
+                    ? 'Chọn stylist và giờ ở bước tiếp theo. Tên và số điện thoại được bổ sung ở bước xác nhận.'
                     : 'Xem lại thông tin trước khi xác nhận đặt lịch.'}
                 </p>
               )}
@@ -796,7 +799,7 @@ function BookingForm({ token, initialServiceId }) {
           className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-canvas px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(36,33,31,0.06)] lg:hidden"
         >
           {notice && <p className="mb-2 text-xs leading-5 text-terracotta">{notice}</p>}
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
             <button
               type="button"
               onClick={viewSummary}

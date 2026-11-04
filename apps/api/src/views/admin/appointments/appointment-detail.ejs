@@ -22,6 +22,7 @@
             <div><p class="text-xs tracking-wider text-muted">LỊCH SALON / CHI TIẾT</p><h2 class="mt-2 text-xl font-bold">Lịch hẹn <%= appointment.referenceCode || 'Chưa cấp mã' %></h2></div>
             <%- include('partials/status', { status: appointment.status }) %>
           </header>
+          <% if (appointment.note) { %><p class="border-b border-border bg-canvas px-6 py-4 text-sm"><strong>Ghi chú từ khách:</strong> <%= appointment.note %></p><% } %>
           <div class="grid <%= locals.embeddedAppointment ? '' : 'md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]' %>">
             <div class="min-w-0">
               <%- include('partials/detail-summary', { dateTime, date, time, money }) %>

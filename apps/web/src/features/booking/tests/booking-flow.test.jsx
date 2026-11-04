@@ -5,7 +5,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import BookingPage from '../pages/BookingPage.jsx'
 import { AuthContext } from '../../auth/context/auth-context.js'
-import { readBookingData, updateBookingProfile } from '../api/booking.api.js'
+import { readBookingData, updateBookingProfile, createBooking } from '../api/booking.api.js'
 import { bookingDateRange } from '../booking-date.js'
 
 vi.mock('../api/booking.api.js', () => ({ readBookingData: vi.fn(), updateBookingProfile: vi.fn(), createBooking: vi.fn() }))
@@ -33,20 +33,46 @@ beforeEach(async () => {
   await settle(); await settle()
 })
 afterEach(async () => { await act(async () => root.unmount()); router.dispose(); container.remove() })
-it('collects contact in step one and reaches confirmation without selecting a slot twice', async () => {
+it('lets a new customer choose services and time before collecting contact at confirmation', async () => {
   const phone=container.querySelector('input[type="tel"]')
-  expect(phone.closest('section').hidden).toBe(false)
-  expect(button('Tiếp tục chọn giờ →').disabled).toBe(true)
-  await act(async () => setInput(phone,'0912345678'))
-  await click(button('Lưu thông tin')); await settle(); await settle()
-  expect(updateBookingProfile.mock.calls[0][2]).toEqual({displayName:'QA',phone:'+84912345678'})
+  expect(phone.closest('section').hidden).toBe(true)
+  expect(button('Tiếp tục chọn giờ →').disabled).toBe(false)
+  expect(updateBookingProfile).not.toHaveBeenCalled()
   expect(container.querySelector('[aria-current="step"]').textContent).toContain('Dịch vụ')
   await click(button('Tiếp tục chọn giờ →'))
   await click(button('Stylist An'))
   await click(button('09:00'))
-  await click(button('Kiểm tra cuộc hẹn →'))
+  await click(button('Tiếp tục xác nhận →'))
+  expect(phone.closest('section').hidden).toBe(false)
+  await act(async () => setInput(phone,'0912345678'))
   expect(button('Xác nhận đặt lịch').disabled).toBe(false)
-  expect(container.textContent).toContain('+84912345678')
+  expect(container.textContent).toContain('0912345678')
+})
+it('saves valid contact before booking and recovers from a profile save failure', async () => {
+  await click(button('Tiếp tục chọn giờ →'))
+  await click(button('Stylist An'))
+  await click(button('09:00'))
+  await click(button('Tiếp tục xác nhận →'))
+  await act(async () => setInput(container.querySelector('input[type="tel"]'), '0912345678'))
+  updateBookingProfile.mockRejectedValueOnce(new Error('Không lưu được liên hệ'))
+  await click(button('Xác nhận đặt lịch'))
+  expect(createBooking).not.toHaveBeenCalled()
+  expect(button('Xác nhận đặt lịch').disabled).toBe(false)
+  createBooking.mockResolvedValueOnce({ id: 'booking-qa', referenceCode: 'SOL-23456789', status: 'confirmed', startAt: '2026-11-02T02:00:00Z', endAt: '2026-11-02T03:00:00Z', totalDurationMinutes: 60, totalPriceVnd: 100000, items: [{ serviceId: 'cut', name: 'Cắt', priceVnd: 100000, durationMinutes: 60 }] })
+  await click(button('Xác nhận đặt lịch'))
+  await settle()
+  expect(updateBookingProfile.mock.calls.at(-1)[2]).toEqual({ displayName: 'QA', phone: '+84912345678' })
+  expect(createBooking).toHaveBeenCalledTimes(1)
+  expect(container.textContent).toContain('Đặt lịch thành công')
+})
+it('assigns an available stylist only after the customer explicitly chooses no preference', async () => {
+  await click(button('Tiếp tục chọn giờ →'))
+  await click(button('Không ưu tiên'))
+  expect(button('Tiếp tục xác nhận →').disabled).toBe(true)
+  await click(button('09:00'))
+  expect(button('Tiếp tục xác nhận →').disabled).toBe(false)
+  await click(button('Tiếp tục xác nhận →'))
+  expect(container.textContent).toContain('Stylist An')
 })
 it('bounds the date picker and does not send an out-of-range date to availability', async () => {
   const date=container.querySelector('input[type="date"]')

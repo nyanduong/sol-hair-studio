@@ -27,16 +27,21 @@ export function findServiceBySlug(slug) {
     .lean()
 }
 
-export async function createService(data) {
+export async function createService(data, session) {
   const service = new ServiceModel(data)
-  return await service.save()
+  return await service.save({ session })
 }
 
-export function updateService(id, updates) {
+export async function getNextDisplayOrder() {
+  const last = await ServiceModel.findOne({}).sort({ displayOrder: -1 }).select('displayOrder').lean()
+  return (last?.displayOrder ?? -1) + 1
+}
+
+export function updateService(id, updates, session) {
   return ServiceModel.findOneAndUpdate(
     { id },
     { $set: updates },
-    { new: true, runValidators: true },
+    { new: true, runValidators: true, session },
   )
     .populate('coverImageId', 'url publicId originalName width height format')
     .lean()

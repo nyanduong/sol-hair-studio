@@ -2,7 +2,8 @@
 
 Web `/booking`: customer và owner. Native `Booking`: chỉ customer, không có quản lý/đặt hộ.
 Dùng session M1, danh mục M2 và [availability SOL-030](availability-api.md). Giao diện không tính lại slot,
-giá/thời lượng từ khoảng min–max hoặc tự chọn stylist. Không có mock/fixture trong code chạy sản phẩm.
+giá/thời lượng từ khoảng min–max. Chỉ khi khách chọn rõ “Không ưu tiên”, web gộp các giờ server trả về
+và chọn một stylist có giờ đó, hiển thị tên trước khi xác nhận. Không có mock/fixture trong code chạy sản phẩm.
 
 Web customer SOL-041: bấm trực tiếp thẻ dịch vụ trên homepage mở `/booking?serviceId=<id>`.
 Trang đặt lịch chọn sẵn dịch vụ khi mã còn trong danh mục công khai; mã không tồn tại/đã ẩn được bỏ qua.
@@ -10,6 +11,22 @@ URL giữ lựa chọn khi tải lại hoặc đăng nhập tại trang; khách 
 Đi thẳng `/booking` vẫn bắt đầu với lựa chọn trống. Không đổi hợp đồng API hoặc mobile.
 
 ## Endpoint đang có
+
+Refine customer desktop: homepage, ba bước đặt lịch và receipt dùng chung SiteHeader/SiteFooter,
+khung max-w-6xl, font Plus Jakarta Sans cho nội dung và Cormorant Garamond cho tiêu đề.
+Giữ ExperienceSection, EditorialSection và banner cuối homepage. Thông tin liên hệ nằm ở bước 3;
+khách thiếu hồ sơ vẫn được chọn dịch vụ/giờ. Khi xác nhận, web kiểm tra và PATCH contact trước,
+sau đó POST booking với idempotency key. Nếu PATCH lỗi, không gửi booking và cho phép thử lại.
+PATCH và POST không phải một transaction: contact có thể đã lưu dù slot sau đó bị người khác đặt.
+Ghi chú tùy chọn tối đa 500 ký tự đi cùng booking, hiện trên receipt và chi tiết admin.
+Lịch tháng chỉ bật ngày trong giới hạn 7 ngày; giờ khả dụng luôn lấy từ API.
+
+Ảnh mới tạo bằng imagegen được lưu trong `docs/assets/customer-refine` và phục vụ qua Cloudinary.
+Prompt set: hero salon Việt Nam tông kem, chủ thể bên phải và vùng trống bên trái; ảnh dịch vụ
+cắt tóc layer, gội thư giãn tại bồn và tóc nhuộm nâu đỏ; tất cả ảnh editorial tự nhiên, không chữ/logo.
+`apps/api/scripts/setup-customer-demo.js` chỉ chạy với MongoDB localhost: thêm 3 dịch vụ demo,
+Minh Anh/Thu Hà và ca 09:00–12:00, 13:00–18:00 từ hôm nay đến 7 ngày tới. Không thay dữ liệu cũ.
+Tài khoản stylist demo có mật khẩu ngẫu nhiên không được in/lưu vào source, chỉ phục vụ availability.
 
 - `GET /api/services`: DTO 8 field hiện có, danh sách công khai.
 - `GET /api/auth/me`: profile active và customer (nếu đã có).

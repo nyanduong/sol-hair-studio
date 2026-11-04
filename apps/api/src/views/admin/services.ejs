@@ -80,8 +80,13 @@
   <!-- Filter & Search Toolbar -->
   <div class="bg-white rounded-2xl p-4 border border-[#e7e2da] shadow-sm">
     <form action="/admin/services" method="GET" class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-      <div class="md:col-span-5">
-        <label for="search" class="block text-xs font-semibold text-[#7a7269] mb-1">Tìm kiếm dịch vụ</label>
+      <div class="md:col-span-4">
+        <div class="mb-1 flex items-center justify-between gap-3">
+          <label for="search" class="block text-xs font-semibold text-[#7a7269]">Tìm kiếm dịch vụ</label>
+          <% if (currentSearch || currentCategory !== 'all' || currentStatus !== 'all') { %>
+            <a href="/admin/services" class="text-xs font-semibold text-terracotta underline">Đặt lại</a>
+          <% } %>
+        </div>
         <div class="relative">
           <input
             id="search"
@@ -100,6 +105,7 @@
         <select
           id="category"
           name="category"
+          onchange="this.form.requestSubmit()"
           class="w-full rounded-xl border border-[#e7e2da] px-3 py-2 text-sm text-ink bg-white focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
         >
           <option value="all" <%= currentCategory === 'all' ? 'selected' : '' %>>Tất cả danh mục</option>
@@ -109,11 +115,12 @@
         </select>
       </div>
 
-      <div class="md:col-span-2">
+      <div class="md:col-span-3">
         <label for="status" class="block text-xs font-semibold text-[#7a7269] mb-1">Trạng thái</label>
         <select
           id="status"
           name="status"
+          onchange="this.form.requestSubmit()"
           class="w-full rounded-xl border border-[#e7e2da] px-3 py-2 text-sm text-ink bg-white focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
         >
           <option value="all" <%= currentStatus === 'all' ? 'selected' : '' %>>Tất cả</option>
@@ -122,21 +129,11 @@
         </select>
       </div>
 
-      <div class="md:col-span-2 flex items-center space-x-2">
-        <button
-          type="submit"
-          class="flex-1 rounded-xl bg-ink text-white py-2 px-3 text-sm font-semibold hover:bg-black transition text-center"
-        >
-          Lọc
-        </button>
-        <% if (currentSearch || currentCategory !== 'all' || currentStatus !== 'all') { %>
-          <a
-            href="/admin/services"
-            class="min-h-11 rounded-xl border border-[#e7e2da] py-2 px-3 text-xs font-semibold text-[#7a7269] hover:text-ink hover:bg-[#f4f0ea] transition text-center"
-          >
-            Đặt lại
-          </a>
-        <% } %>
+      <div class="md:col-span-2">
+        <label for="service-page-size" class="mb-1 block text-xs font-semibold text-muted">Mục/trang</label>
+        <select id="service-page-size" name="pageSize" onchange="this.form.requestSubmit()" class="w-full rounded-xl border border-border bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:ring-1 focus:ring-terracotta">
+          <% for (const size of [5, 10, 20]) { %><option value="<%= size %>" <%= pagination.pageSize === size ? 'selected' : '' %>><%= size %></option><% } %>
+        </select>
       </div>
     </form>
   </div>
@@ -249,7 +246,7 @@
               <td class="whitespace-nowrap py-4 pl-3 pr-4 sm:pr-6 text-right">
                 <button
                   type="button"
-                  data-service='<%- JSON.stringify(service).replace(/'/g, "&#39;") %>'
+                  data-service='<%= JSON.stringify(service) %>'
                   onclick="openEditModal(this)"
                   class="inline-flex items-center space-x-1 text-xs font-semibold text-[#b55338] hover:text-[#96422b] bg-[#b55338]/10 hover:bg-[#b55338]/20 px-3 py-1.5 rounded-lg transition"
                 >
@@ -262,377 +259,51 @@
         </tbody>
       </table>
     </div>
+      <footer class="flex flex-wrap items-center justify-between gap-4 border-t border-border px-5 py-4">
+        <p class="text-sm text-muted">Hiển thị <%= pagination.start %>–<%= pagination.end %> / <%= pagination.total %> dịch vụ · <%= pagination.pageSize %> mục/trang</p>
+        <nav aria-label="Phân trang dịch vụ" class="flex items-center gap-2 text-sm font-semibold">
+          <% if (pagination.page > 1) { %><a href="<%= pageUrl(pagination.page - 1) %>" class="rounded-lg border border-border px-4 py-3">Trước</a><% } else { %><span aria-disabled="true" class="rounded-lg border border-border px-4 py-3 text-muted opacity-50">Trước</span><% } %>
+          <% for (const number of pagination.pages) { %>
+            <% if (number === '…') { %><span class="px-2">…</span>
+            <% } else { %><a href="<%= pageUrl(number) %>" aria-label="Trang <%= number %>" aria-current="<%= number === pagination.page ? 'page' : 'false' %>" class="min-w-11 rounded-lg border px-3 py-3 text-center <%= number === pagination.page ? 'border-terracotta bg-terracotta text-white' : 'border-border' %>"><%= number %></a><% } %>
+          <% } %>
+          <% if (pagination.page < pagination.totalPages) { %><a href="<%= pageUrl(pagination.page + 1) %>" class="rounded-lg border border-border px-4 py-3">Sau</a><% } else { %><span aria-disabled="true" class="rounded-lg border border-border px-4 py-3 text-muted opacity-50">Sau</span><% } %>
+        </nav>
+      </footer>
   </div>
 </div>
 
 <!-- ==================== MODAL: THÊM DỊCH VỤ ==================== -->
-<dialog id="addModal" aria-label="Thêm dịch vụ" class="fixed inset-0 m-auto w-[min(760px,calc(100%_-_2rem))] max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-0 backdrop:bg-black/40">
+<dialog id="addModal" aria-label="Thêm dịch vụ" class="fixed inset-0 m-auto w-[min(920px,calc(100%_-_2rem))] max-h-[calc(100vh_-_0.5rem)] overflow-y-auto rounded-2xl bg-white p-0 backdrop:bg-black/40">
   <div class="relative w-full max-w-none bg-white rounded-2xl shadow-2xl border border-[#e7e2da]">
-    <div class="sticky top-0 z-10 px-6 py-4 border-b border-[#e7e2da] flex items-center justify-between bg-[#fcfbf9]">
-      <h3 class="text-lg font-bold text-ink">Thêm Dịch vụ Mới</h3>
+    <div class="sticky top-0 z-10 px-5 py-3 border-b border-[#e7e2da] flex items-center justify-between bg-[#fcfbf9]">
+      <h3 class="text-lg font-bold text-ink">Thêm dịch vụ mới</h3>
       <button type="button" onclick="closeAddModal()" aria-label="Đóng form dịch vụ" class="text-[#7a7269] hover:text-ink text-lg font-bold min-h-11 min-w-11">&times;</button>
     </div>
 
-    <form action="/admin/services" method="POST" class="p-6 space-y-4" onsubmit="return validateServiceForm(this) &amp;&amp; validateAddForm()">
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label for="add_id" class="block text-xs font-semibold text-ink mb-1">Mã dịch vụ <span class="text-red-500">*</span></label>
-          <input
-            id="add_id"
-            name="id"
-            type="text"
-            required
-            pattern="^[a-z0-9-]+$"
-            placeholder="dv-cat-toc-nam"
-            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
-          />
-          <p class="mt-1 text-[11px] text-[#7a7269]">Mã viết thường, không dấu, ví dụ: dv-cat-toc, dv-hair-spa</p>
-        </div>
-
-        <div>
-          <label for="add_category" class="block text-xs font-semibold text-ink mb-1">Danh mục <span class="text-red-500">*</span></label>
-          <input
-            id="add_category"
-            name="category"
-            type="text"
-            required
-            placeholder="Tạo kiểu, Nhuộm, Chăm sóc..."
-            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
-          />
-        </div>
-      </div>
-
-      <div>
-        <label for="add_name" class="block text-xs font-semibold text-ink mb-1">Tên dịch vụ <span class="text-red-500">*</span></label>
-        <input
-          id="add_name"
-          name="name"
-          type="text"
-          required
-          placeholder="Cắt & tạo kiểu chuyên nghiệp"
-          class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
-        />
-      </div>
-
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div>
-          <label for="add_priceVnd" class="block text-xs font-semibold text-ink mb-1">Giá niêm yết (VNĐ) <span class="text-red-500">*</span></label>
-          <input
-            id="add_priceVnd"
-            name="priceVnd"
-            type="number"
-            min="0"
-            max="100000000"
-            step="1000"
-            required
-            placeholder="450000"
-            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
-          />
-        </div>
-
-        <div>
-          <label for="add_durationMin" class="block text-xs font-semibold text-ink mb-1">Thời gian tham khảo từ (phút) <span class="text-red-500">*</span></label>
-          <input
-            id="add_durationMin"
-            name="durationMin"
-            type="number"
-            min="1"
-            max="480"
-            required
-            placeholder="45"
-            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
-          />
-        </div>
-
-        <div>
-          <label for="add_durationMax" class="block text-xs font-semibold text-ink mb-1">Thời gian tham khảo đến (phút) <span class="text-red-500">*</span></label>
-          <input
-            id="add_durationMax"
-            name="durationMax"
-            type="number"
-            min="1"
-            max="480"
-            required
-            placeholder="60"
-            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
-          />
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label for="add_bookingDurationMinutes" class="block text-xs font-semibold text-ink mb-1">Thời lượng giữ chỗ cố định (phút) *</label><p class="mb-2 text-xs text-muted">Số phút giữ lịch cho dịch vụ, phải nằm trong khoảng thời gian tham khảo ở trên.</p>
-          <input
-            id="add_bookingDurationMinutes"
-            name="bookingDurationMinutes"
-            type="number"
-            min="1"
-            max="480"
-            placeholder="Ví dụ: 60" required
-            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
-          />
-        </div>
-
-        <div>
-          <label for="add_displayOrder" class="block text-xs font-semibold text-ink mb-1">Thứ tự hiển thị</label>
-          <input
-            id="add_displayOrder"
-            name="displayOrder"
-            type="number"
-            min="0"
-            value="0"
-            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
-          />
-        </div>
-      </div>
-
-      <div>
-        <label class="block text-xs font-semibold text-ink mb-1.5">Hình ảnh dịch vụ <span class="text-red-500">*</span></label>
-        <div class="space-y-3 p-3.5 rounded-xl border border-[#e7e2da] bg-[#fcfbf9]/60">
-          <div class="flex flex-wrap items-center gap-3">
-            <label for="add_imageFileInput" class="cursor-pointer inline-flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-[#b55338] hover:bg-[#96422b] text-white text-xs font-semibold shadow-xs transition active:scale-[0.98]">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-              <span>Chọn ảnh từ thiết bị</span>
-            </label>
-            <input
-              type="file"
-              id="add_imageFileInput"
-              accept="image/*"
-              class="hidden"
-              onchange="handleImageFileSelect(this, 'add_imageDataUrl', 'add_previewImg', 'add_fileLabel')"
-            />
-            <span id="add_fileLabel" class="text-xs text-[#7a7269]">Chưa chọn ảnh</span>
-            <input type="hidden" id="add_imageDataUrl" name="imageDataUrl" />
-            <input type="hidden" id="add_imageUrl" name="imageUrl" />
-          </div>
-
-          <div>
-            <img id="add_previewImg" class="h-20 w-20 rounded-xl object-cover hidden border border-[#e7e2da] shadow-xs" alt="Xem trước ảnh" />
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <label for="add_description" class="block text-xs font-semibold text-ink mb-1">Mô tả dịch vụ</label>
-        <textarea
-          id="add_description"
-          name="description"
-          rows="2"
-          placeholder="Mô tả kỹ thuật, tác dụng và quy trình chăm sóc của dịch vụ..."
-          class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
-        ></textarea>
-      </div>
-
-      <div class="flex items-center space-x-2 pt-2">
-        <input
-          id="add_isActive"
-          name="isActive"
-          type="checkbox"
-          value="true"
-          checked
-          class="h-4 w-4 rounded border-[#e7e2da] text-[#b55338] focus:ring-[#b55338]"
-        />
-        <label for="add_isActive" class="text-xs font-semibold text-ink cursor-pointer">
-          Hiển thị ngay cho khách hàng đặt lịch trực tuyến
-        </label>
-      </div>
-
-      <div class="sticky bottom-0 z-10 -mx-6 -mb-6 border-t border-[#e7e2da] bg-white px-6 py-4 flex items-center justify-end space-x-3">
-        <button
-          type="button"
-          onclick="closeAddModal()"
-          class="min-h-11 rounded-xl border border-[#e7e2da] py-2 px-4 text-xs font-semibold text-[#7a7269] hover:bg-[#f4f0ea] transition"
-        >
-          Hủy bỏ
-        </button>
-        <button
-          type="submit"
-          class="min-h-11 rounded-xl bg-[#b55338] py-2 px-5 text-xs font-semibold text-white shadow-sm hover:bg-[#96422b] transition"
-        >
-          Lưu dịch vụ
-        </button>
-      </div>
-    </form>
+    <%- include('service-form', { prefix: 'add' }) %>
   </div>
 </dialog>
 
 <!-- ==================== MODAL: CHỈNH SỬA DỊCH VỤ ==================== -->
-<dialog id="editModal" aria-label="Chỉnh sửa dịch vụ" class="fixed inset-0 m-auto w-[min(760px,calc(100%_-_2rem))] max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-0 backdrop:bg-black/40">
+<dialog id="editModal" aria-label="Chỉnh sửa dịch vụ" class="fixed inset-0 m-auto w-[min(920px,calc(100%_-_2rem))] max-h-[calc(100vh_-_0.5rem)] overflow-y-auto rounded-2xl bg-white p-0 backdrop:bg-black/40">
   <div class="relative w-full max-w-none bg-white rounded-2xl shadow-2xl border border-[#e7e2da]">
-    <div class="sticky top-0 z-10 px-6 py-4 border-b border-[#e7e2da] flex items-center justify-between bg-[#fcfbf9]">
+    <div class="sticky top-0 z-10 px-5 py-3 border-b border-[#e7e2da] flex items-center justify-between bg-[#fcfbf9]">
       <div>
-        <h3 class="text-lg font-bold text-ink">Chỉnh sửa Dịch vụ</h3>
+        <h3 class="text-lg font-bold text-ink">Chỉnh sửa dịch vụ</h3>
         <span id="edit_id_badge" class="text-xs font-mono text-[#7a7269]"></span>
       </div>
       <button type="button" onclick="closeEditModal()" aria-label="Đóng form dịch vụ" class="text-[#7a7269] hover:text-ink text-lg font-bold min-h-11 min-w-11">&times;</button>
     </div>
 
-    <form id="editForm" action="" method="POST" onsubmit="return validateServiceForm(this)" class="p-6 space-y-4">
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label for="edit_name" class="block text-xs font-semibold text-ink mb-1">Tên dịch vụ <span class="text-red-500">*</span></label>
-          <input
-            id="edit_name"
-            name="name"
-            type="text"
-            required
-            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
-          />
-        </div>
-
-        <div>
-          <label for="edit_category" class="block text-xs font-semibold text-ink mb-1">Danh mục <span class="text-red-500">*</span></label>
-          <input
-            id="edit_category"
-            name="category"
-            type="text"
-            required
-            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
-          />
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div>
-          <label for="edit_priceVnd" class="block text-xs font-semibold text-ink mb-1">Giá niêm yết (VNĐ) <span class="text-red-500">*</span></label>
-          <input
-            id="edit_priceVnd"
-            name="priceVnd"
-            type="number"
-            min="0"
-            max="100000000"
-            step="1000"
-            required
-            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
-          />
-        </div>
-
-        <div>
-          <label for="edit_durationMin" class="block text-xs font-semibold text-ink mb-1">Thời gian tham khảo từ (phút) <span class="text-red-500">*</span></label>
-          <input
-            id="edit_durationMin"
-            name="durationMin"
-            type="number"
-            min="1"
-            max="480"
-            required
-            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
-          />
-        </div>
-
-        <div>
-          <label for="edit_durationMax" class="block text-xs font-semibold text-ink mb-1">Thời gian tham khảo đến (phút) <span class="text-red-500">*</span></label>
-          <input
-            id="edit_durationMax"
-            name="durationMax"
-            type="number"
-            min="1"
-            max="480"
-            required
-            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
-          />
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label for="edit_bookingDurationMinutes" class="block text-xs font-semibold text-ink mb-1">Thời lượng giữ chỗ cố định (phút) *</label><p class="mb-2 text-xs text-muted">Số phút giữ lịch cho dịch vụ, phải nằm trong khoảng thời gian tham khảo ở trên.</p>
-          <input
-            id="edit_bookingDurationMinutes" required
-            name="bookingDurationMinutes"
-            type="number"
-            min="1"
-            max="480"
-            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
-          />
-        </div>
-
-        <div>
-          <label for="edit_displayOrder" class="block text-xs font-semibold text-ink mb-1">Thứ tự hiển thị</label>
-          <input
-            id="edit_displayOrder"
-            name="displayOrder"
-            type="number"
-            min="0"
-            class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
-          />
-        </div>
-      </div>
-
-      <div>
-        <label class="block text-xs font-semibold text-ink mb-1.5">Hình ảnh dịch vụ</label>
-        <div class="space-y-3 p-3.5 rounded-xl border border-[#e7e2da] bg-[#fcfbf9]/60">
-          <div class="flex flex-wrap items-center gap-3">
-            <label for="edit_imageFileInput" class="cursor-pointer inline-flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-[#b55338] hover:bg-[#96422b] text-white text-xs font-semibold shadow-xs transition active:scale-[0.98]">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-              <span>Thay ảnh từ thiết bị</span>
-            </label>
-            <input
-              type="file"
-              id="edit_imageFileInput"
-              accept="image/*"
-              class="hidden"
-              onchange="handleImageFileSelect(this, 'edit_imageDataUrl', 'edit_previewImg', 'edit_fileLabel')"
-            />
-            <span id="edit_fileLabel" class="text-xs text-[#7a7269]">Đang dùng ảnh hiện tại</span>
-            <input type="hidden" id="edit_imageDataUrl" name="imageDataUrl" />
-            <input type="hidden" id="edit_imageUrl" name="imageUrl" />
-          </div>
-
-          <div>
-            <img id="edit_previewImg" class="h-20 w-20 rounded-xl object-cover hidden border border-[#e7e2da] shadow-xs" alt="Xem trước ảnh" />
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <label for="edit_description" class="block text-xs font-semibold text-ink mb-1">Mô tả dịch vụ</label>
-        <textarea
-          id="edit_description"
-          name="description"
-          rows="2"
-          class="w-full rounded-xl border border-[#e7e2da] px-3.5 py-2 text-sm text-ink focus:border-[#b55338] focus:ring-1 focus:ring-[#b55338]"
-        ></textarea>
-      </div>
-
-      <div class="flex items-center space-x-2 pt-2">
-        <input
-          id="edit_isActive"
-          name="isActive"
-          type="checkbox"
-          value="true"
-          class="h-4 w-4 rounded border-[#e7e2da] text-[#b55338] focus:ring-[#b55338]"
-        />
-        <label for="edit_isActive" class="text-xs font-semibold text-ink cursor-pointer">
-          Hiển thị cho khách hàng đặt lịch trực tuyến
-        </label>
-      </div>
-
-      <div class="sticky bottom-0 z-10 -mx-6 -mb-6 border-t border-[#e7e2da] bg-white px-6 py-4 flex items-center justify-end space-x-3">
-        <button
-          type="button"
-          onclick="closeEditModal()"
-          class="min-h-11 rounded-xl border border-[#e7e2da] py-2 px-4 text-xs font-semibold text-[#7a7269] hover:bg-[#f4f0ea] transition"
-        >
-          Hủy bỏ
-        </button>
-        <button
-          type="submit"
-          class="min-h-11 rounded-xl bg-[#b55338] py-2 px-5 text-xs font-semibold text-white shadow-sm hover:bg-[#96422b] transition"
-        >
-          Lưu thay đổi
-        </button>
-      </div>
-    </form>
+    <%- include('service-form', { prefix: 'edit' }) %>
   </div>
 </dialog>
 
 <script>
   function validateServiceForm(form) {
     const duration = form.elements.bookingDurationMinutes;
-    const min = Number(form.elements.durationMin.value);
-    const max = Number(form.elements.durationMax.value);
-    duration.setCustomValidity(Number(duration.value) < min || Number(duration.value) > max ? 'Thời lượng giữ chỗ phải nằm trong khoảng thời gian tham khảo.' : '');
+    duration.setCustomValidity('');
     return form.reportValidity();
   }
   document.addEventListener('input', function(event) {
@@ -640,6 +311,10 @@
     if (form) form.elements.bookingDurationMinutes.setCustomValidity('');
   });
   function openAddModal() {
+    document.getElementById('addForm').reset();
+    document.getElementById('add_bookingDurationMinutes').setCustomValidity('');
+    document.getElementById('add_imageUrl').value = '';
+    document.getElementById('add_draftNotice').querySelector('p').textContent = 'Mã dịch vụ và thứ tự hiển thị sẽ được tạo tự động.';
     const fileInput = document.getElementById('add_imageFileInput');
     if (fileInput) fileInput.value = '';
     const dataUrlInput = document.getElementById('add_imageDataUrl');
@@ -654,6 +329,32 @@
     document.getElementById('addModal').showModal();
   }
 
+
+  async function refreshCategories(prefix) {
+    const notice = document.getElementById(prefix + '_categoryNotice'); notice.textContent = 'Đang cập nhật…';
+    try {
+      const response = await fetch('/admin/service-categories/options', { cache: 'no-store', headers: { Accept: 'application/json' } });
+      if (!response.ok) throw new Error('Không tải được danh mục');
+      const body = await response.json();
+      const select = document.getElementById(prefix + '_category'); const value = select.value;
+      const existing = select.querySelector('[data-existing-category]');
+      select.replaceChildren(); const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = 'Chọn danh mục'; select.append(placeholder);
+      for (const item of body.data.filter(item => item.isActive)) { const option = document.createElement('option'); option.value = item.id; option.textContent = item.name; select.append(option); }
+      if (prefix === 'edit' && existing && ![...select.options].some(option => option.value === existing.value)) select.append(existing);
+      select.value = value;
+      notice.textContent = 'Đã cập nhật danh mục. Dữ liệu đang nhập được giữ nguyên.';
+    } catch { notice.textContent = 'Chưa tải được danh mục. Kiểm tra đăng nhập/kết nối và thử lại.'; }
+  }
+  function chooseCategory(prefix, data) {
+    const select = document.getElementById(prefix + '_category');
+    select.querySelectorAll('[data-existing-category]').forEach(option => option.remove());
+    const option = [...select.options].find(item => (data.categoryId && item.value === String(data.categoryId)) || item.textContent === data.category);
+    if (option) select.value = option.value;
+    else if (prefix === 'edit' && data.categoryId) {
+      const existing = document.createElement('option'); existing.value = String(data.categoryId); existing.textContent = data.category + ' (ngừng dùng)'; existing.dataset.existingCategory = 'true'; select.append(existing); select.value = existing.value;
+    } else select.value = '';
+  }
+
   function closeAddModal() {
     document.getElementById('addModal').close();
   }
@@ -662,16 +363,14 @@
     try {
       const data = JSON.parse(button.getAttribute('data-service'));
       const form = document.getElementById('editForm');
+      form.elements.bookingDurationMinutes.setCustomValidity('');
       form.action = '/admin/services/' + encodeURIComponent(data.id) + '/update';
 
       document.getElementById('edit_id_badge').textContent = 'Mã ID: ' + data.id;
       document.getElementById('edit_name').value = data.name || '';
-      document.getElementById('edit_category').value = data.category || '';
+      chooseCategory('edit', data);
       document.getElementById('edit_priceVnd').value = data.priceVnd !== undefined ? data.priceVnd : '';
-      document.getElementById('edit_durationMin').value = data.durationMinutes ? data.durationMinutes.min : '';
-      document.getElementById('edit_durationMax').value = data.durationMinutes ? data.durationMinutes.max : '';
-      document.getElementById('edit_bookingDurationMinutes').value = data.bookingDurationMinutes || '';
-      document.getElementById('edit_displayOrder').value = data.displayOrder !== undefined ? data.displayOrder : 0;
+      document.getElementById('edit_bookingDurationMinutes').value = data.bookingDurationMinutes || data.durationMinutes?.max || '';
       document.getElementById('edit_imageUrl').value = data.imageUrl || '';
       const editFileInput = document.getElementById('edit_imageFileInput');
       if (editFileInput) editFileInput.value = '';
@@ -690,6 +389,16 @@
         preview.classList.add('hidden');
       }
 
+      const hasLegacyRange = Boolean(data.durationMinutes && data.durationMinutes.min !== data.durationMinutes.max);
+      const futureBookingCount = Number(data.futureBookingCount) || 0;
+      const impactMessages = [data.isActive
+        ? 'Dịch vụ đang hiển thị. Nếu đổi giá hoặc thời lượng, giá trị mới chỉ áp dụng cho lịch đặt mới.'
+        : 'Dịch vụ đang ẩn. Khi bật lại, giá và thời lượng mới sẽ áp dụng cho lịch đặt mới.'];
+      impactMessages.push(futureBookingCount > 0
+        ? futureBookingCount + ' lịch tương lai đã đặt vẫn giữ giá và thời lượng cũ.'
+        : 'Hiện không có lịch tương lai đã đặt dùng dịch vụ này.');
+      if (hasLegacyRange) impactMessages.push('Khoảng thời gian cũ sẽ được chuyển về một thời lượng khi lưu.');
+      document.getElementById('edit_draftNotice').querySelector('p').textContent = impactMessages.join(' ');
       document.getElementById('editModal').showModal();
     } catch (e) {
       console.error('Không thể mở modal chỉnh sửa:', e);
