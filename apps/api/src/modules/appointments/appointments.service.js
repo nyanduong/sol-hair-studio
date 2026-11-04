@@ -167,6 +167,7 @@ function toAppointmentListItem(appointment, role) {
         ...(appointment.referenceCode ? { referenceCode: appointment.referenceCode } : {}),
         staffId: String(appointment.staffId),
         staffNameSnapshot: appointment.staffNameSnapshot,
+        ...(appointment.note ? { note: appointment.note } : {}),
         items: appointment.items.map(service => ({
         serviceId: service.serviceId, name: service.name,
         priceVnd: service.priceVnd, durationMinutes: service.durationMinutes,

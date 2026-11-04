@@ -45,6 +45,7 @@ export function parseBookingInput(body, key) {
           'bookingMode',
           'customerId',
           'guestCustomer',
+          'note',
         ].includes(k),
     )
   )
@@ -66,6 +67,10 @@ export function parseBookingInput(body, key) {
     bookingMode: body.bookingMode,
     serviceIds: [...body.serviceIds],
     staffId: body.staffId.toLowerCase(),
+  }
+  if (body.note !== undefined) {
+    if (typeof body.note !== 'string' || body.note.trim().length > 500) fail('INVALID_NOTE', 'Ghi chú tối đa 500 ký tự.')
+    if (body.note.trim()) input.note = body.note.trim()
   }
   if (body.bookingMode === 'owner_walkin') {
     if (body.startAt !== undefined)
@@ -115,6 +120,8 @@ function result(appointment) {
     ...(appointment.referenceCode ? { referenceCode: appointment.referenceCode } : {}),
     staffDisplayName: appointment.staffNameSnapshot,
     customerDisplayName: appointment.customerSnapshot.displayName,
+    customerPhone: appointment.customerSnapshot.phone,
+    ...(appointment.note ? { note: appointment.note } : {}),
     status: appointment.status,
     startAt: appointment.startAt.toISOString(),
     endAt: appointment.endAt.toISOString(),
@@ -223,6 +230,7 @@ async function execute(session, identity, input, key, hash, operation) {
         customerId,
         staffId: input.staffId,
         bookingMode: input.bookingMode,
+        note: input.note,
         customerSnapshot: { displayName: customer.displayName, phone: customer.phone },
         staffNameSnapshot: staff.displayName,
         items: availability.items,
