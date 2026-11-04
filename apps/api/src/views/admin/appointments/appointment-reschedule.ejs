@@ -10,6 +10,7 @@
 <%- include('partials/action-page-start', { hideCommandReference: true }) %>
 <hr aria-hidden="true" class="mt-3 shrink-0 border-0 border-b border-border">
 <% if (error) { %>
+  <% if (appointment) { %><p class="mt-3 text-xs text-muted">Lịch đang đổi: <span data-command-reference class="font-mono"><%= appointment.referenceCode || 'Chưa cấp mã' %></span></p><% } %>
   <p role="alert" class="mt-4 rounded-xl border border-terracotta/20 bg-terracotta/5 p-4 text-sm"><%= error %></p>
   <%- include('partials/reschedule-dates', { today, lastDate, pickerDate }) %>
   <a href="<%= ownerUrl('/admin/appointments/' + appointmentId) %>" class="mt-4 inline-flex min-h-11 items-center rounded-xl border border-border px-4 text-sm font-semibold">Tải lại chi tiết lịch này</a>

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import mongoose from 'mongoose'
 import request from 'supertest'
 import { MongoMemoryReplSet } from 'mongodb-memory-server'
+import { Window } from 'happy-dom'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.hoisted(() => {
@@ -284,17 +285,50 @@ describe('SOL-037 EJS with real Login, Services and isolated MongoDB transaction
     expect(choices.text).toContain(`data-appointment-response="${id}"`)
     expect(choices.text).toContain('data-command-state="form"')
     expect(choices.text).toContain('Lịch đang đổi')
-    expect(choices.text.match(/<form method="post"/g)).toHaveLength(1)
+    const window = new Window()
+    window.document.body.innerHTML = choices.text
+    const forms = window.document.querySelectorAll('form[method="post"]')
+    expect(forms).toHaveLength(1)
+    const form = forms[0]
+    expect(form.matches('[data-reschedule-form]')).toBe(true)
+    expect(form.id).toBe('appointment-reschedule-' + id)
+    expect(new URL(form.getAttribute('action'), 'http://localhost').pathname).toBe(`/admin/appointments/${id}/reschedule`)
+    const reason = form.elements.namedItem('reason')
+    const agreement = form.elements.namedItem('customerAgreementConfirmed')
+    const confirm = form.elements.namedItem('rescheduleSubmit')
+    expect(reason.form).toBe(form)
+    expect(agreement.form).toBe(form)
+    expect(confirm.form).toBe(form)
+    expect(form.contains(reason)).toBe(false)
+    expect(form.contains(agreement)).toBe(false)
+    expect(reason.value).toBe('')
+    expect(reason.required).toBe(true)
+    expect(agreement.required).toBe(true)
     expect(choices.text).toContain(`/${id}/reschedule?view=mine`)
     expect(choices.text).toContain('data-unchanged="true"')
     expect(choices.text).not.toContain('Trang Quản Trị Salon')
     expect(choices.text).not.toContain('Lịch toàn salon')
     expect(choices.text).not.toContain(other)
-    const key = choices.text.match(/name="commandKey" value="([^"]+)"/)[1]
-    const response = await submit(id, 'reschedule', {
-      startAt: '2026-10-31T06:00:00.000Z', staffId: String(otherStaff._id),
+    form.elements.namedItem('staffId').value = String(otherStaff._id)
+    form.querySelector('[name="stylistMode"][value="other"]').checked = true
+    for (const group of form.querySelectorAll('[data-slot-staff]')) {
+      group.disabled = group.dataset.slotStaff !== String(otherStaff._id)
+    }
+    const slot = form.querySelector(`[data-slot-staff="${otherStaff._id}"] [name="startAt"][value="2026-10-31T06:00:00.000Z"]`)
+    expect(slot).not.toBeNull()
+    slot.checked = true
+    reason.value = 'Only this appointment'
+    agreement.checked = true
+    const fields = Object.fromEntries(new window.FormData(form))
+    expect(fields).toMatchObject({
+      expectedRevision: '0', staffId: String(otherStaff._id), startAt: slot.value,
       reason: 'Only this appointment', customerAgreementConfirmed: 'true',
-    }, key).set('X-Appointment-Dialog', 'true').expect(200)
+    })
+    const key = fields.commandKey
+    expect(key).toBeTruthy()
+    await window.happyDOM.abort()
+    const response = await submit(id, 'reschedule', fields, key)
+      .set('X-Appointment-Dialog', 'true').expect(200)
     expect(response.text).toContain(`data-appointment-response="${id}"`)
     expect(response.text).toContain('data-command-state="success"')
     expect(response.text).toContain(`data-result-staff-id="${otherStaff._id}"`)
