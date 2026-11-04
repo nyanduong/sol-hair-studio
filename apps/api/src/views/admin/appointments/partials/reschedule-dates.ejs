@@ -1,5 +1,8 @@
       <section aria-labelledby="reschedule-date-title" class="shrink-0">
-        <h3 id="reschedule-date-title" class="text-sm font-bold uppercase tracking-wider">1. Chọn ngày mới</h3>
+        <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <h3 id="reschedule-date-title" class="text-sm font-bold uppercase tracking-wider">1. Chọn ngày mới</h3>
+          <p class="text-xs text-muted">Tối đa 7 ngày tới (168 giờ tính từ hiện tại).</p>
+        </div>
         <div class="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-8">
           <% for (let day = 0; day < 8; day++) {
             const date = new Date(today + 'T12:00:00.000Z')
@@ -12,7 +15,6 @@
             </a>
           <% } %>
         </div>
-        <p class="mt-2 text-xs text-muted">Đổi lịch từ hôm nay đến tối đa 7 ngày tới (168 giờ tính từ hiện tại).</p>
         <form method="get" data-reschedule-date-form action="/admin/appointments/<%= appointmentId %>/reschedule" class="mt-2 flex flex-wrap items-center gap-3">
           <% for (const key of ['view', 'staffId', 'status', 'q']) {
             if (ownerContext[key]) { %><input type="hidden" name="<%= key %>" value="<%= ownerContext[key] %>" /><% }

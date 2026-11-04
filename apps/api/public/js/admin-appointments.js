@@ -25,20 +25,20 @@ function closeDialog(dialog) {
 function openDialog(dialog) {
   const waiting = [...dialogs].find(([, state]) => locked(state))?.[0]
   if (waiting && waiting !== dialog) {
-    if (!waiting.open) waiting.show()
+    if (!waiting.open) waiting.showModal()
     return false
   }
   for (const [other] of dialogs) {
     if (other !== dialog && other.open) other.close()
   }
-  if (!dialog.open) dialog.show()
+  if (!dialog.open) dialog.showModal()
   dialog.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   return true
 }
 
 function createActionDialog(label, trigger, appointmentId, wide = false) {
   const dialog = document.createElement('dialog')
-  dialog.className = 'fixed inset-0 m-auto max-h-[96svh] w-[calc(100%_-_2rem)] overflow-y-auto rounded-3xl border border-border bg-[#fcfbf9] p-4 text-ink shadow-2xl backdrop:bg-ink/40 sm:p-5 ' + (wide ? 'max-w-6xl lg:h-[96svh] lg:overflow-hidden [@media(max-height:819px)]:h-auto [@media(max-height:819px)]:overflow-y-auto' : 'max-w-2xl')
+  dialog.className = 'fixed inset-0 m-auto max-h-[96svh] w-[calc(100%_-_2rem)] overflow-y-auto rounded-3xl border border-border bg-[#fcfbf9] text-ink shadow-2xl backdrop:bg-ink/40 ' + (wide ? 'max-w-6xl p-3 sm:p-4 lg:h-[96svh] lg:overflow-hidden [@media(max-height:639px)]:h-auto [@media(max-height:639px)]:overflow-y-auto' : 'max-w-2xl p-4 sm:p-5')
   dialog.setAttribute('aria-label', label)
   dialog.dataset.appointmentActionDialog = appointmentId
   const close = document.createElement('button')
@@ -48,10 +48,11 @@ function createActionDialog(label, trigger, appointmentId, wide = false) {
   close.className = 'absolute right-3 top-3 flex size-9 items-center justify-center rounded-xl text-xl text-muted hover:bg-soft-surface disabled:opacity-40'
   close.addEventListener('click', () => closeDialog(dialog))
   const content = document.createElement('div')
-  if (wide) content.className = 'flex min-w-0 flex-col'
+  if (wide) content.className = 'flex min-w-0 flex-col lg:h-full lg:min-h-0 [@media(max-height:639px)]:h-auto'
   content.dataset.dialogContent = ''
   dialog.append(close, content)
-  detail.append(dialog)
+  const host = detail || document.body
+  host.append(dialog)
   dialogs.set(dialog, { referenceCode: detail?.dataset.appointmentReference || '', appointmentId, content, close, trigger, pending: false, busy: false, command: null, reader: null })
   dialog.addEventListener('cancel', event => {
     if (locked(dialogs.get(dialog))) event.preventDefault()
@@ -94,7 +95,7 @@ async function requestAction(dialog, href, method = 'GET', body = null) {
   const previousForm = state.content.querySelector('[data-reschedule-form]')
   const draft = !writing && previousForm ? {
     staffId: previousForm.querySelector('[name="staffId"]').value,
-    reason: previousForm.querySelector('[name="reason"]').value,
+    reason: previousForm.elements.namedItem('reason').value,
   } : null
   let url
   try {
@@ -137,7 +138,8 @@ async function requestAction(dialog, href, method = 'GET', body = null) {
     if (!writing && !response.ok && previousForm) {
       state.content.querySelectorAll('[name="startAt"]').forEach(input => { input.checked = false; input.disabled = true })
       state.content.querySelector('[name="customerAgreementConfirmed"]').checked = false
-      previousForm.querySelector('[type="submit"]').disabled = true
+      const confirm = previousForm.elements.namedItem('rescheduleSubmit') || previousForm.querySelector('[type="submit"]')
+      confirm.disabled = true
       state.content.querySelector('[data-selection-summary]').textContent = 'Hãy tải lại giờ trống hợp lệ trước khi xác nhận.'
       message(state.content, result.querySelector('[role="alert"]')?.textContent || 'Không tải được giờ trống. Hãy chọn ngày và thử lại.')
       return
@@ -149,12 +151,17 @@ async function requestAction(dialog, href, method = 'GET', body = null) {
     if (draft && nextForm) {
       const staff = nextForm.querySelector('[name="staffId"]')
       if ([...staff.options].some(option => option.value === draft.staffId)) staff.value = draft.staffId
-      nextForm.querySelector('[name="reason"]').value = draft.reason
+      nextForm.elements.namedItem('reason').value = draft.reason
     }
     state.pending = result.dataset.commandState === 'pending'
     state.close.disabled = state.pending
     if (!state.pending) state.command = null
     if (result.dataset.commandState === 'success' && response.ok) {
+      if (!detail) {
+        dialog.close()
+        document.dispatchEvent(new CustomEvent('owner-action-dialog-saved'))
+        return
+      }
       const current = new URL(window.location.href)
       // A URL ending in #start/#correct-start can navigate only the fragment.
       // Force a fresh GET so both detail and its parent list reconcile the write.
@@ -208,13 +215,13 @@ function initializeReschedule(root) {
     if (form.dataset.initialized) return
     form.dataset.initialized = 'true'
     const staff = form.querySelector('[name="staffId"]')
-    const agreement = form.querySelector('[name="customerAgreementConfirmed"]')
-    const reason = form.querySelector('[name="reason"]')
-    const confirm = form.querySelector('[type="submit"]')
+    const agreement = form.elements.namedItem('customerAgreementConfirmed')
+    const reason = form.elements.namedItem('reason')
+    const confirm = form.elements.namedItem('rescheduleSubmit') || form.querySelector('[type="submit"]')
     function ready() {
       const slot = form.querySelector('[name="startAt"]:checked:not(:disabled)')
       confirm.disabled = !slot || !reason.value.trim() || !agreement.checked
-      const summary = form.querySelector('[data-selection-summary]')
+      const summary = form.closest('[data-appointment-response]').querySelector('[data-selection-summary]')
       summary.textContent = slot
         ? 'Lịch mới: ' + new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' }).format(new Date(slot.value)) + ' · ' + staff.selectedOptions[0].textContent
         : 'Chưa chọn giờ mới cho lịch này.'
@@ -262,6 +269,84 @@ function initializeReschedule(root) {
   })
 }
 
+function fillOwnerPanel(dialog, panel, label) {
+  const heading = document.createElement('h2')
+  heading.className = 'pr-8 text-2xl font-bold'
+  heading.textContent = label
+  dialogs.get(dialog).content.replaceChildren(heading, panel.querySelector('[data-panel-content]'))
+  dialog.querySelector('[data-close-panel]').hidden = false
+}
+
+// Tải form đã được server kiểm tra quyền, không mở trang chi tiết bên dưới.
+async function openStandaloneAction(href, trigger, operation) {
+  const labels = { start: 'Bắt đầu phục vụ', cancel: 'Hủy lịch', reschedule: 'Đổi lịch hẹn' }
+  if (!Object.hasOwn(labels, operation)) return
+  const url = new URL(href, window.location.href)
+  if (url.origin !== window.location.origin || !/^\/admin\/appointments\/[a-f0-9]{24}$/.test(url.pathname)) return
+  const appointmentId = url.pathname.split('/').pop()
+  url.hash = ''
+  url.searchParams.set('embedded', '1')
+  const dialog = createActionDialog(labels[operation], trigger, appointmentId, operation === 'reschedule')
+  if (!openDialog(dialog)) {
+    dialogs.delete(dialog)
+    dialog.remove()
+    return
+  }
+  const state = dialogs.get(dialog)
+  state.content.textContent = 'Đang tải thông tin…'
+  dialog.addEventListener('close', () => { dialogs.delete(dialog); dialog.remove() }, { once: true })
+  if (operation === 'reschedule') {
+    url.pathname += '/reschedule'
+    await requestAction(dialog, url.href)
+    return
+  }
+  const controller = new AbortController()
+  state.reader = controller
+  state.busy = true
+  const timeout = window.setTimeout(() => controller.abort(), 15000)
+  try {
+    const response = await fetch(url, {
+      credentials: 'same-origin', cache: 'no-store', signal: controller.signal,
+    })
+    if (!dialog.open) return
+    if (response.redirected && new URL(response.url).pathname === '/admin/login') {
+      window.location.assign(response.url)
+      return
+    }
+    const page = new DOMParser().parseFromString(await response.text(), 'text/html')
+    if (!dialog.open) return
+    const appointment = page.querySelector('[data-appointment-detail]')
+    const panel = [...page.querySelectorAll('[data-owner-panel]')].find(item =>
+      new URL(item.querySelector('form').getAttribute('action'), url).pathname === url.pathname + '/' + operation)
+    if (!response.ok || appointment?.dataset.appointmentDetail !== appointmentId || !panel) {
+      throw new Error(page.querySelector('[role="alert"]')?.textContent.trim() || 'Lịch không còn đủ điều kiện thực hiện thao tác này. Hãy tải lại danh sách.')
+    }
+    state.referenceCode = appointment.dataset.appointmentReference || ''
+    fillOwnerPanel(dialog, document.importNode(panel, true), labels[operation])
+    updateTimeConditions()
+  } catch (error) {
+    if (!dialog.open) return
+    state.content.textContent = ''
+    message(state.content, error.name === 'AbortError' ? 'Tải thông tin quá lâu. Hãy đóng và thử lại.' : error.message)
+  } finally {
+    window.clearTimeout(timeout)
+    state.busy = false
+  }
+}
+
+if (dialogSupported && !detail) {
+  document.addEventListener('owner-action-dialog-request', event => {
+    void openStandaloneAction(event.detail.href, event.detail.trigger, event.detail.operation)
+  })
+}
+
+function delegateOwnerAction(operation) {
+  if (!['start', 'cancel', 'reschedule'].includes(operation) || window.parent === window ||
+      new URL(window.location.href).searchParams.get('embedded') !== '1') return false
+  window.parent.postMessage({ type: 'sol-owner-action', href: window.location.href, operation }, window.location.origin)
+  return true
+}
+
 if (dialogSupported && detail) {
   document.querySelectorAll('[data-owner-panel]').forEach(panel => {
     const summary = panel.querySelector('summary')
@@ -278,14 +363,11 @@ if (dialogSupported && detail) {
       trigger.className = 'min-h-10 rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted hover:bg-soft-surface disabled:opacity-50'
     }
     const dialog = createActionDialog(summary.textContent, trigger, detail.dataset.appointmentDetail)
-    const heading = document.createElement('h2')
-    heading.className = 'text-2xl font-bold'
-    heading.textContent = summary.textContent
-    dialogs.get(dialog).content.append(heading, panel.querySelector('[data-panel-content]'))
+    fillOwnerPanel(dialog, panel, summary.textContent)
     panel.replaceWith(trigger)
-    dialog.querySelector('[data-close-panel]').hidden = false
     const initial = dialogs.get(dialog).content.cloneNode(true)
     trigger.addEventListener('click', () => {
+      if (delegateOwnerAction(operation)) return
       const state = dialogs.get(dialog)
       if (!state.pending && !state.busy && state.content.querySelector('[data-appointment-response]')) {
         state.content.replaceChildren(...initial.cloneNode(true).childNodes)
@@ -298,6 +380,7 @@ if (dialogSupported && detail) {
     const dialog = createActionDialog('Đổi lịch hẹn', trigger, detail.dataset.appointmentDetail, true)
     trigger.addEventListener('click', event => {
       event.preventDefault()
+      if (delegateOwnerAction('reschedule')) return
       if (!openDialog(dialog)) return
       const state = dialogs.get(dialog)
       if (locked(state)) return
@@ -401,7 +484,7 @@ function updateTimeConditions() {
   })
 }
 updateTimeConditions()
-if (detail) window.setInterval(updateTimeConditions, 1000)
+if (detail || document.querySelector('[data-owner-appointments-list]')) window.setInterval(updateTimeConditions, 1000)
 const appointmentNav = document.querySelector('header nav a[href="/owner/appointments"]')
 if (appointmentNav) {
   appointmentNav.setAttribute('aria-current', 'page')

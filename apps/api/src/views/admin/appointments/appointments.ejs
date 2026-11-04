@@ -70,7 +70,7 @@
             <td class="px-4 py-4"><%= appointment.staffNameSnapshot %><% if (assigned) { %><p class="mt-1 text-xs text-muted">Bạn</p><% } %></td>
             <td class="px-4 py-4"><%- include('partials/status', { status: appointment.status }) %><% if (appointment.status === 'in_progress' && appointment.estimatedEndAt) { %><p class="mt-2 text-xs text-muted">Dự kiến xong <%= time.format(new Date(appointment.estimatedEndAt)) %></p><% } %></td>
             <td class="px-4 py-4"><% if (appointment.paymentStatus === 'paid') { %><span class="whitespace-nowrap rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">Đã thu tiền</span><% } else if (appointment.status === 'completed') { %><span class="whitespace-nowrap rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">Chờ thu tiền</span><% } else { %><span class="text-xs text-muted"><%= ['cancelled', 'no_show'].includes(appointment.status) ? 'Không yêu cầu thu' : 'Chờ hoàn tất' %></span><% } %></td>
-            <td class="px-5 py-4 text-right"><div class="flex justify-end gap-2"><% if (action) { %><a data-schedule-detail href="<%= detailUrl + '#' + action %>" class="inline-flex min-h-10 items-center whitespace-nowrap rounded-xl bg-terracotta px-3 text-xs font-semibold text-white hover:bg-terracotta-hover"><%= { payment: 'Chi tiết & thu tiền', start: 'Bắt đầu', complete: 'Hoàn tất' }[action] %></a><% } %><% if (action !== 'payment') { %><a data-schedule-detail href="<%= detailUrl %>" aria-label="Chi tiết lịch của <%= appointment.customerSnapshot.displayName %>" class="inline-flex min-h-10 items-center whitespace-nowrap rounded-xl border border-border px-3 text-xs font-semibold text-muted hover:bg-soft-surface">Chi tiết</a><% } %></div></td>
+            <td class="px-5 py-4 text-right"><div class="flex justify-end gap-2"><% if (action) { %><a <%- action === 'start' ? 'data-schedule-action="start"' : 'data-schedule-detail' %> href="<%= detailUrl + '#' + action %>" class="inline-flex min-h-10 items-center whitespace-nowrap rounded-xl bg-terracotta px-3 text-xs font-semibold text-white hover:bg-terracotta-hover"><%= { payment: 'Chi tiết & thu tiền', start: 'Bắt đầu', complete: 'Hoàn tất' }[action] %></a><% } %><% if (action !== 'payment') { %><a data-schedule-detail href="<%= detailUrl %>" aria-label="Chi tiết lịch của <%= appointment.customerSnapshot.displayName %>" class="inline-flex min-h-10 items-center whitespace-nowrap rounded-xl border border-border px-3 text-xs font-semibold text-muted hover:bg-soft-surface">Chi tiết</a><% } %></div></td>
           </tr><% } %>
         </tbody></table></div>
       <% } } %>
@@ -78,8 +78,13 @@
   <% } %>
 </section>
 <dialog data-schedule-dialog aria-labelledby="schedule-dialog-title" class="fixed inset-0 m-auto h-[90svh] max-h-[90svh] w-[calc(100%_-_2rem)] max-w-4xl overflow-hidden rounded-2xl border border-border bg-canvas p-0 text-ink shadow-2xl backdrop:bg-ink/40">
-  <div class="flex items-center justify-between gap-3 border-b border-border bg-white px-5 py-3"><h2 id="schedule-dialog-title" class="font-bold">Chi tiết lịch hẹn</h2><button type="button" data-schedule-close class="min-h-11 rounded-xl border border-border px-4 text-sm font-semibold">Đóng</button></div>
-  <p data-schedule-dialog-message role="status" class="px-5 text-sm text-terracotta"></p>
-  <iframe data-schedule-frame title="Chi tiết và thao tác lịch hẹn" class="h-[calc(100%_-_5rem)] w-full border-0"></iframe>
+  <div class="flex h-full flex-col">
+    <header class="flex shrink-0 items-center gap-3 border-b border-border bg-white px-5 py-4 sm:px-6">
+      <div data-schedule-heading class="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3"><h2 id="schedule-dialog-title" class="font-bold">Chi tiết lịch hẹn</h2></div>
+      <button type="button" data-schedule-close class="min-h-11 shrink-0 rounded-xl border border-border px-4 text-sm font-semibold">Đóng</button>
+    </header>
+    <p data-schedule-dialog-message role="status" class="shrink-0 px-5 text-sm text-terracotta"></p>
+    <iframe data-schedule-frame title="Chi tiết và thao tác lịch hẹn" class="min-h-0 w-full flex-1 border-0"></iframe>
+  </div>
 </dialog>
 <%- include('../layout-footer') %>

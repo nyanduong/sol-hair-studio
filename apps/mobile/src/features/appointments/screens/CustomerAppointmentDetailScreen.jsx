@@ -62,7 +62,7 @@ function DetailContent({ state }) {
   const shift = getShiftLabel(item.startAt)
 
   return (
-    <ScrollView style={styles.viewport} contentContainerStyle={styles.list}>
+    <View style={styles.list}>
       {/* ── Main Detail Card ── */}
       <View style={styles.detailCard}>
         {/* Header: Mã hẹn & Status badge */}
@@ -156,14 +156,14 @@ function DetailContent({ state }) {
           )}
         </View>
       )}
-    </ScrollView>
+    </View>
   )
 }
 
 function Detail({ token, accountId, appointmentId, navigation }) {
   const state = useCustomerAppointmentDetail(token, accountId, appointmentId)
   return (
-    <>
+    <ScrollView style={styles.viewport} contentContainerStyle={{ flexGrow: 1 }}>
       <DetailContent state={state} />
       <CustomerAppointmentRescheduleAction appointment={state.kind === 'success' ? state.appointment : null} navigation={navigation} />
       <CustomerAppointmentCancellation
@@ -173,7 +173,7 @@ function Detail({ token, accountId, appointmentId, navigation }) {
         appointment={state.kind === 'success' ? state.appointment : null}
         onChanged={state.refresh}
       />
-    </>
+    </ScrollView>
   )
 }
 
