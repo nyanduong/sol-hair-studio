@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest'
 const template = fileURLToPath(new URL('../../../views/admin/services.ejs', import.meta.url))
 const service = { id: 'cut', categoryId: '507f1f77bcf86cd799439022', name: "Cắt tóc O'Brien <đẹp>", category: 'Tóc', priceVnd: 150000, durationMinutes: { min: 30, max: 60 }, bookingDurationMinutes: 45, description: 'Mô tả', displayOrder: 9, imageUrl: 'https://res.cloudinary.com/demo/image/upload/cut.jpg', isActive: true, futureBookingCount: 2 }
 async function setup() {
-  const html = await ejs.renderFile(template, { title: 'Dịch vụ', identity: { roles: ['owner'] }, services: [service], serviceCategories: [{ id: service.categoryId, name: service.category, isActive: true }], categories: ['Tóc'], stats: { total: 1, activeCount: 0, inactiveCount: 1 }, currentCategory: '', currentStatus: '', currentSearch: '', success: null, error: null })
+  const html = await ejs.renderFile(template, { title: 'Dịch vụ', pagination: { pageSize: 5, start: 1, end: 1, total: 1, page: 1, totalPages: 1, pages: [1] }, pageUrl: page => '/admin/services?page=' + page, identity: { roles: ['owner'] }, services: [service], serviceCategories: [{ id: service.categoryId, name: service.category, isActive: true }], categories: ['Tóc'], stats: { total: 1, activeCount: 0, inactiveCount: 1 }, currentCategory: '', currentStatus: '', currentSearch: '', success: null, error: null })
   const window = new Window()
   window.document.body.innerHTML = html
   const document = window.document

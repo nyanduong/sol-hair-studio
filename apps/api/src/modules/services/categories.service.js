@@ -19,6 +19,30 @@ async function write(operation) {
   }
 }
 export async function listCategories(identity) { owner(identity); return (await CategoryModel.find({}).sort({ name: 1 }).lean()).map(dto) }
+export async function listCategoryManagement(identity) {
+  owner(identity)
+  const [categories, services] = await Promise.all([
+    CategoryModel.find({}).sort({ name: 1 }).lean(),
+    ServiceModel.find({}).select('categoryId category').lean(),
+  ])
+  const countById = new Map()
+  const legacyCountByName = new Map()
+  for (const service of services) {
+    if (service.categoryId) {
+      const id = String(service.categoryId)
+      countById.set(id, (countById.get(id) || 0) + 1)
+    } else if (service.category) {
+      const name = normalized(service.category.trim().replace(/\s+/g, ' '))
+      legacyCountByName.set(name, (legacyCountByName.get(name) || 0) + 1)
+    }
+  }
+  return categories.map(category => ({
+    ...dto(category),
+    serviceCount: (countById.get(String(category._id)) || 0) + (legacyCountByName.get(category.normalizedName) || 0),
+    createdAt: category.createdAt,
+    updatedAt: category.updatedAt,
+  }))
+}
 export async function createCategory(identity, input) {
   owner(identity); const name = nameInput(input.name)
   return write(async () => dto(await CategoryModel.create({ name, normalizedName: normalized(name) })))
@@ -38,15 +62,6 @@ export async function updateCategory(identity, id, input) {
     if (oldName !== category.name) await ServiceModel.updateMany({ $or: [{ categoryId: category._id }, { categoryId: { $exists: false }, category: oldName }] }, { $set: { category: category.name, categoryId: category._id } }, { session })
     return dto(category)
   }))
-}
-// Import is an explicit admin command; GET never changes the catalog.
-export async function importLegacyCategories(identity) {
-  owner(identity)
-  const names = await ServiceModel.distinct('category')
-  for (const raw of names) {
-    const name = nameInput(raw)
-    await CategoryModel.updateOne({ normalizedName: normalized(name) }, { $setOnInsert: { name, isActive: true, revision: 0 } }, { upsert: true })
-  }
 }
 export async function withManagedCategory(identity, input, operation, existing = null) {
   owner(identity); idInput(input.categoryId)

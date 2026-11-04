@@ -42,7 +42,6 @@ adminRouter.get('/admin/revenue', requireAdminAuth, renderRevenue)
 adminRouter.get('/admin/service-categories/options', requireAdminAuth, async (req, res, next) => { try { res.json({ data: await listCategories(req.identity) }) } catch (error) { next(error) } })
 adminRouter.get('/admin/service-categories', requireAdminAuth, renderCategories)
 adminRouter.post('/admin/service-categories', requireAdminAuth, categoryAction)
-adminRouter.post('/admin/service-categories/import', requireAdminAuth, categoryAction)
 adminRouter.post('/admin/service-categories/:id', requireAdminAuth, categoryAction)
 
 // Owner Services management routes (EJS)

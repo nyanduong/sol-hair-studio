@@ -1,5 +1,5 @@
-import { listCategories } from '../../services/categories.service.js'
-vi.mock('../../services/categories.service.js', () => ({ listCategories: vi.fn().mockResolvedValue([]), createCategory: vi.fn(), updateCategory: vi.fn(), importLegacyCategories: vi.fn(), withManagedCategory: vi.fn(), resolveCategoryName: vi.fn() }))
+import { listCategories, listCategoryManagement } from '../../services/categories.service.js'
+vi.mock('../../services/categories.service.js', () => ({ listCategories: vi.fn().mockResolvedValue([]), listCategoryManagement: vi.fn().mockResolvedValue([]), createCategory: vi.fn(), updateCategory: vi.fn(), withManagedCategory: vi.fn(), resolveCategoryName: vi.fn() }))
 import request from 'supertest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -48,6 +48,7 @@ describe('Admin EJS Portal Routes', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     listCategories.mockResolvedValue([])
+    listCategoryManagement.mockResolvedValue([])
     adminService.getFutureBookingCountsByServiceIds.mockResolvedValue({})
     getDatabaseStatus.mockReturnValue('connected')
   })
@@ -204,6 +205,49 @@ describe('Admin EJS Portal Routes', () => {
       const response = await request(app).post('/admin/session').type('form').send({}).expect(303)
       expect(response.headers.location).toBe('http://localhost:5173/login')
       expect(authenticate).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('GET /admin/service-categories', () => {
+    it('paginates filtered categories by five and clamps out-of-range pages', async () => {
+      authenticate.mockResolvedValue(ownerIdentity)
+      listCategoryManagement.mockResolvedValue(Array.from({ length: 12 }, (_, index) => ({
+        id: String(index), name: `Nhóm ${String(index + 1).padStart(2, '0')}`, isActive: index < 11, serviceCount: 0,
+      })))
+      const response = await request(app).get('/admin/service-categories?status=active&search=Nh%C3%B3m&page=2')
+        .set('Cookie', 'sol_admin_token=owner-token').expect(200)
+      expect(response.text).toContain('Hiển thị 6–10 / 11')
+      expect(response.text).toContain('Nhóm 06')
+      expect(response.text).not.toContain('Nhóm 01')
+      expect(response.text).not.toContain('Nhóm 11')
+      expect(response.text).toContain('status=active&amp;page=3')
+      const lastPage = await request(app).get('/admin/service-categories?status=active&page=999')
+        .set('Cookie', 'sol_admin_token=owner-token').expect(200)
+      expect(lastPage.text).toContain('Hiển thị 11–11 / 11')
+      expect(lastPage.text).toContain('Nhóm 11')
+      expect(lastPage.text).not.toContain('Nhóm 12')
+    })
+
+    it('renders the management table, filters locally, and removes the legacy import tool', async () => {
+      authenticate.mockResolvedValue(ownerIdentity)
+      listCategoryManagement.mockResolvedValue([
+        { id: '507f1f77bcf86cd799439011', name: 'Cắt & tạo kiểu', isActive: true, serviceCount: 3, updatedAt: new Date('2026-11-03T00:00:00.000Z') },
+        { id: '507f1f77bcf86cd799439012', name: 'Chăm sóc tóc', isActive: false, serviceCount: 1, updatedAt: new Date('2026-11-02T00:00:00.000Z') },
+      ])
+
+      const response = await request(app)
+        .get('/admin/service-categories?status=active&search=C%E1%BA%AFt')
+        .set('Cookie', 'sol_admin_token=owner-token')
+        .expect(200)
+
+      expect(response.text).toContain('Danh sách danh mục')
+      expect(response.text).toContain('Cắt &amp; tạo kiểu')
+      expect(response.text).toContain('3</span> <span class="text-sm text-muted">dịch vụ')
+      expect(response.text).not.toContain('Chăm sóc tóc')
+      expect(response.text).toContain('id="add-category-dialog"')
+      expect(response.text).toContain('id="rename-category-dialog"')
+      expect(response.text).not.toContain('Nhập danh mục từ dịch vụ cũ')
+      expect(response.text).not.toContain('/admin/service-categories/import')
     })
   })
 

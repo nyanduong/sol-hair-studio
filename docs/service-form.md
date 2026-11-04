@@ -19,13 +19,13 @@ Mã dịch vụ cũ không thay đổi. Mobile không cần đổi request hoặ
 
 ## Quản lý danh mục
 
-Trang `/admin/service-categories` có tạo, đổi tên, ngừng dùng và mở lại danh mục; có liên kết trong sidebar và trong form dịch vụ. Không xóa cứng danh mục đang tham chiếu. Nút cập nhật dropdown tải các danh mục đang dùng qua route admin có xác thực, giữ nguyên phần form khác.
+Trang `/admin/service-categories` có tìm kiếm, lọc trạng thái, xem số dịch vụ tham chiếu, tạo, đổi tên, ngừng dùng và mở lại danh mục; có liên kết trong sidebar và trong form dịch vụ. Thao tác tạo và đổi tên dùng hộp thoại tập trung, menu từng dòng chỉ hiện các hành động phù hợp. Không xóa cứng danh mục đang tham chiếu. Nút cập nhật dropdown tải các danh mục đang dùng qua route admin có xác thực, giữ nguyên phần form khác.
 
 Collection `service_categories` gồm name, normalizedName (unique, chuẩn hóa NFC/chữ thường/khoảng trắng), isActive, revision và timestamps. Dịch vụ mới từ form lưu categoryId tham chiếu danh mục và category là tên tương thích DTO hiện có. Tạo/sửa dịch vụ theo categoryId khóa revision danh mục trong transaction cùng ghi dịch vụ; đổi tên danh mục và cập nhật tên trên dịch vụ liên quan cũng dùng transaction, không đổi snapshot lịch hẹn. Danh mục ngừng dùng không được chọn khi tạo mới; dịch vụ đang tham chiếu vẫn sửa được với danh mục đó.
 
 API owner: `GET/POST /api/service-categories`, `PATCH /api/service-categories/:id` (name/isActive). POST/PATCH dịch vụ thêm categoryId tùy chọn; khi có ID, server lấy tên từ danh mục, không tin tên client gửi và từ chối ID thiếu/không hợp lệ/ngừng dùng. Payload legacy chỉ gửi category dạng chuỗi tiếp tục được hỗ trợ để không phá client cũ; form web mới chỉ gửi categoryId. Public DTO category vẫn là chuỗi, không đổi reader mobile.
 
-Dữ liệu cũ có nút **Nhập danh mục từ dịch vụ cũ**: lệnh POST chủ động bổ sung các tên hiện có vào danh sách chung, không tự tạo dữ liệu khi GET trang và không bật lại danh mục đã ngừng dùng. Không tự chạy lệnh này trên database local của người dùng.
+Không có công cụ nhập danh mục từ dữ liệu cũ trong trang quản trị. Số dịch vụ trên bảng vẫn tính được dịch vụ legacy chưa có `categoryId` theo tên danh mục để admin nhìn đúng mức sử dụng, nhưng GET trang không ghi hoặc chuyển đổi dữ liệu.
 
 ## Kiểm chứng
 

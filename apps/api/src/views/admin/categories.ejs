@@ -1,16 +1,129 @@
 <%- include('layout-header', { title, identity, activeTab }) %>
-<div class="space-y-6">
-  <div><h1 class="text-3xl font-bold">Danh mục dịch vụ</h1><p class="mt-2 text-sm text-muted">Tạo danh mục tại đây, sau đó chọn trong form dịch vụ.</p><a href="/admin/services" class="mt-3 inline-flex min-h-11 items-center font-semibold text-terracotta underline">← Quản lý dịch vụ</a></div>
-  <% if (error) { %><p role="alert" class="rounded-xl bg-red-50 p-4 text-red-800"><%= error %></p><% } %>
-  <% if (success) { %><p role="status" class="rounded-xl bg-emerald-50 p-4 text-emerald-800">Đã lưu danh mục.</p><% } %>
-  <form action="/admin/service-categories" method="POST" class="flex flex-wrap items-end gap-4 rounded-2xl border border-border bg-white p-5"><label class="grow text-sm font-semibold">Tên danh mục mới<input name="name" required maxlength="80" placeholder="Ví dụ: Cắt & tạo kiểu" class="mt-2 block min-h-11 w-full rounded-xl border border-border px-3"></label><button class="min-h-11 rounded-xl bg-terracotta px-5 text-sm font-semibold text-white">Thêm danh mục</button></form>
-  <section class="rounded-2xl border border-border bg-white p-5"><h2 class="text-xl font-bold">Danh mục hiện có</h2><p class="mt-2 text-sm text-muted">Đổi tên sẽ cập nhật danh mục trên dịch vụ hiện có. Ngừng dùng chỉ ngăn chọn cho dịch vụ mới; không tự ẩn dịch vụ hoặc thay đổi lịch đã đặt.</p>
-    <% if (!categories.length) { %><p class="py-8 text-sm text-muted">Chưa có danh mục. Thêm danh mục đầu tiên ở trên.</p><% } %>
-    <ul class="mt-4 divide-y divide-border"><% for (const category of categories) { %><li class="flex flex-wrap items-end gap-4 py-5">
-      <form action="/admin/service-categories/<%= category.id %>" method="POST" class="flex grow flex-wrap items-end gap-3"><label class="grow text-sm">Tên danh mục<input aria-label="Tên danh mục <%= category.name %>" name="name" value="<%= category.name %>" required maxlength="80" class="mt-2 block min-h-11 w-full rounded-xl border border-border px-3"></label><button class="min-h-11 rounded-xl border border-border px-4 text-sm font-semibold">Lưu tên</button></form>
-      <span class="py-3 text-sm text-muted"><%= category.isActive ? 'Đang dùng' : 'Ngừng dùng' %></span><form action="/admin/service-categories/<%= category.id %>" method="POST"><input type="hidden" name="isActive" value="<%= !category.isActive %>"><button class="min-h-11 rounded-xl border border-border px-4 text-sm font-semibold"><%= category.isActive ? 'Ngừng dùng' : 'Mở lại' %></button></form>
-    </li><% } %></ul>
+<div class="space-y-6 text-sm">
+  <header class="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-6">
+    <div><h1 class="text-2xl font-bold tracking-tight text-ink">Danh mục dịch vụ</h1><p class="mt-1 text-sm text-muted">Sắp xếp dịch vụ thành nhóm để form tạo dịch vụ gọn và nhất quán hơn.</p></div>
+    <button type="button" data-open-add class="inline-flex min-h-11 items-center gap-2 rounded-xl bg-terracotta px-5 text-sm font-semibold text-white shadow-sm hover:bg-terracotta-hover transition active:scale-[0.98]"><span aria-hidden="true" class="text-lg leading-none">+</span> Thêm danh mục</button>
+  </header>
+  <% if (error) { %><p role="alert" class="rounded-xl bg-red-50 p-4 text-sm text-red-800"><%= error %></p><% } %>
+  <% if (success) { %><p role="status" class="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">Đã lưu thay đổi danh mục.</p><% } %>
+
+  <section aria-label="Tìm kiếm và lọc danh mục" class="flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-border bg-white p-4 shadow-sm">
+    <form action="/admin/service-categories" method="GET" class="min-w-72 grow">
+      <input type="hidden" name="status" value="<%= currentStatus %>">
+      <input type="hidden" name="pageSize" value="<%= pagination.pageSize %>">
+      <label for="category-search" class="mb-1 block text-xs font-semibold text-muted">Tìm kiếm danh mục</label>
+      <div class="relative max-w-xl"><svg aria-hidden="true" class="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg><input id="category-search" name="search" value="<%= currentSearch %>" placeholder="Nhập tên danh mục..." class="w-full rounded-xl border border-border bg-white py-2 pl-9 pr-3 text-sm text-ink placeholder:text-muted/60 outline-none focus:border-terracotta focus:ring-1 focus:ring-terracotta"></div>
+    </form>
+    <form action="/admin/service-categories" method="GET">
+      <input type="hidden" name="search" value="<%= currentSearch %>">
+      <input type="hidden" name="status" value="<%= currentStatus %>">
+      <label for="category-page-size" class="mb-1 block text-xs font-semibold text-muted">Số mục mỗi trang</label>
+      <select id="category-page-size" name="pageSize" onchange="this.form.requestSubmit()" class="rounded-xl border border-border bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:ring-1 focus:ring-terracotta">
+        <% for (const size of [5, 10, 20]) { %><option value="<%= size %>" <%= pagination.pageSize === size ? 'selected' : '' %>><%= size %> mục/trang</option><% } %>
+      </select>
+    </form>
+    <nav aria-label="Lọc trạng thái danh mục" class="flex flex-wrap gap-2">
+      <% const tabItems = [{ key: 'all', label: 'Tất cả', count: stats.all }, { key: 'active', label: 'Đang dùng', count: stats.active }, { key: 'inactive', label: 'Ngừng dùng', count: stats.inactive }]; %>
+      <% for (const tab of tabItems) { %><a href="/admin/service-categories?status=<%= tab.key %>&amp;pageSize=<%= pagination.pageSize %><%= currentSearch ? '&search=' + encodeURIComponent(currentSearch) : '' %>" aria-current="<%= currentStatus === tab.key ? 'page' : 'false' %>" class="inline-flex min-h-11 items-center rounded-xl border px-4 text-sm font-semibold <%= currentStatus === tab.key ? 'border-terracotta bg-terracotta text-white' : 'border-border bg-white text-ink hover:border-terracotta' %>"><%= tab.label %> <span class="ml-2 opacity-75"><%= tab.count %></span></a><% } %>
+    </nav>
   </section>
-  <details class="rounded-2xl border border-border p-5"><summary class="cursor-pointer font-semibold">Chuyển danh mục từ dữ liệu dịch vụ cũ</summary><p class="my-3 text-sm text-muted">Nếu có dịch vụ tạo trước trang quản lý này, nhập các tên danh mục cũ vào danh sách chung. Không tạo dịch vụ hoặc bật lại danh mục đã ngừng dùng.</p><form action="/admin/service-categories/import" method="POST"><button class="min-h-11 rounded-xl border border-border bg-white px-4 text-sm font-semibold">Nhập danh mục từ dịch vụ cũ</button></form></details>
+
+  <section class="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
+    <div class="border-b border-border px-5 py-4"><h2 class="text-xl font-bold">Danh sách danh mục</h2><p class="mt-1 text-sm text-muted"><%= pagination.total %> kết quả. Ngừng dùng chỉ ngăn chọn cho dịch vụ mới, không ảnh hưởng lịch đã đặt.</p></div>
+    <% if (!categories.length) { %>
+      <div class="px-6 py-14 text-center"><div aria-hidden="true" class="mx-auto flex size-12 items-center justify-center rounded-full bg-canvas text-xl text-terracotta">▦</div><h3 class="mt-4 font-bold"><%= currentSearch || currentStatus !== 'all' ? 'Không tìm thấy danh mục phù hợp' : 'Chưa có danh mục' %></h3><p class="mt-2 text-sm text-muted"><%= currentSearch || currentStatus !== 'all' ? 'Thử đổi từ khóa hoặc trạng thái đang lọc.' : 'Tạo danh mục đầu tiên để sử dụng trong form dịch vụ.' %></p><% if (!currentSearch && currentStatus === 'all') { %><button type="button" data-open-add class="mt-5 min-h-11 rounded-xl bg-terracotta px-5 text-sm font-semibold text-white">Thêm danh mục</button><% } %></div>
+    <% } else { %>
+      <div class="overflow-x-auto"><table class="w-full min-w-[760px] text-left text-sm text-ink">
+        <thead class="bg-canvas text-xs font-semibold uppercase tracking-wider text-muted"><tr><th class="px-5 py-3.5 font-semibold">Danh mục</th><th class="px-5 py-3.5 font-semibold">Số dịch vụ</th><th class="px-5 py-3.5 font-semibold">Trạng thái</th><th class="px-5 py-3.5 font-semibold">Cập nhật</th><th class="px-5 py-4 text-right font-semibold">Thao tác</th></tr></thead>
+        <tbody class="divide-y divide-border"><% for (const category of categories) { %><tr class="hover:bg-canvas/60">
+          <td class="px-5 py-4"><p class="font-semibold"><%= category.name %></p><p class="mt-1 text-xs text-muted">Dùng để phân nhóm khi tạo dịch vụ</p></td>
+          <td class="px-5 py-4"><span class="font-semibold"><%= category.serviceCount %></span> <span class="text-sm text-muted">dịch vụ</span></td>
+          <td class="px-5 py-4"><span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold <%= category.isActive ? 'bg-emerald-50 text-emerald-800' : 'bg-stone-100 text-stone-600' %>"><span aria-hidden="true" class="size-1.5 rounded-full <%= category.isActive ? 'bg-emerald-600' : 'bg-stone-400' %>"></span><%= category.isActive ? 'Đang dùng' : 'Ngừng dùng' %></span></td>
+          <td class="px-5 py-4 text-sm text-muted"><%= category.updatedLabel %></td>
+          <td class="px-5 py-4 text-right"><details class="relative inline-block text-left" data-row-menu><summary aria-label="Mở thao tác cho <%= category.name %>" class="flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-xl border border-border text-lg font-bold hover:border-terracotta [&::-webkit-details-marker]:hidden">•••</summary><div class="absolute right-0 z-20 mt-2 w-48 rounded-xl border border-border bg-white p-2 text-left shadow-xl"><button type="button" data-open-rename data-category-id="<%= category.id %>" data-category-name="<%= category.name %>" class="flex min-h-10 w-full items-center rounded-lg px-3 text-sm font-semibold hover:bg-canvas">Đổi tên</button><form action="/admin/service-categories/<%= category.id %>" method="POST"><input type="hidden" name="isActive" value="<%= !category.isActive %>"><button class="flex min-h-10 w-full items-center rounded-lg px-3 text-sm font-semibold <%= category.isActive ? 'text-terracotta' : 'text-emerald-700' %> hover:bg-canvas"><%= category.isActive ? 'Ngừng dùng' : 'Mở lại' %></button></form></div></details></td>
+        </tr><% } %></tbody>
+      </table></div>
+      <footer class="flex flex-wrap items-center justify-between gap-4 border-t border-border px-5 py-4">
+        <p class="text-sm text-muted">Hiển thị <%= pagination.start %>–<%= pagination.end %> / <%= pagination.total %> danh mục · <%= pagination.pageSize %> mục/trang</p>
+        <nav aria-label="Phân trang danh mục" class="flex items-center gap-2 text-sm font-semibold">
+          <% if (pagination.page > 1) { %><a href="<%= pageUrl(pagination.page - 1) %>" class="rounded-lg border border-border px-4 py-3">Trước</a><% } else { %><span aria-disabled="true" class="rounded-lg border border-border px-4 py-3 text-muted opacity-50">Trước</span><% } %>
+          <% for (const number of pagination.pages) { %>
+            <% if (number === '…') { %><span class="px-2">…</span>
+            <% } else { %><a href="<%= pageUrl(number) %>" aria-label="Trang <%= number %>" aria-current="<%= number === pagination.page ? 'page' : 'false' %>" class="min-w-11 rounded-lg border px-3 py-3 text-center <%= number === pagination.page ? 'border-terracotta bg-terracotta text-white' : 'border-border' %>"><%= number %></a><% } %>
+          <% } %>
+          <% if (pagination.page < pagination.totalPages) { %><a href="<%= pageUrl(pagination.page + 1) %>" class="rounded-lg border border-border px-4 py-3">Sau</a><% } else { %><span aria-disabled="true" class="rounded-lg border border-border px-4 py-3 text-muted opacity-50">Sau</span><% } %>
+        </nav>
+      </footer>
+    <% } %>
+  </section>
 </div>
+
+<dialog id="add-category-dialog" aria-labelledby="add-category-title" class="fixed inset-0 m-auto w-[min(560px,calc(100%_-_2rem))] rounded-2xl border border-border bg-white p-0 text-ink shadow-2xl backdrop:bg-ink/40">
+  <form action="/admin/service-categories" method="POST"><div class="flex items-center justify-between border-b border-border px-6 py-5"><div><p class="text-xs font-semibold uppercase tracking-wide text-terracotta">Danh mục dịch vụ</p><h2 id="add-category-title" class="mt-1 text-lg font-bold text-ink">Thêm danh mục mới</h2></div><button type="button" data-close-dialog aria-label="Đóng" class="flex size-11 items-center justify-center rounded-xl border border-border text-xl">×</button></div><div class="space-y-5 px-6 py-6"><label class="block text-sm font-semibold">Tên danh mục <span class="text-terracotta">*</span><input name="name" required maxlength="80" autocomplete="off" placeholder="Ví dụ: Cắt & tạo kiểu" class="mt-2 min-h-12 w-full rounded-xl border border-border px-4 text-sm text-ink placeholder:text-muted/60 outline-none focus:border-terracotta focus:ring-1 focus:ring-terracotta"><span class="mt-2 block font-normal text-muted">Tên ngắn, dễ nhận biết và không trùng với danh mục hiện có.</span></label><div class="rounded-xl bg-orange-50 p-4 text-sm text-orange-900"><strong>Sau khi tạo:</strong> danh mục sẽ tự động xuất hiện trong dropdown của form dịch vụ và được xếp theo tên.</div></div><div class="flex justify-end gap-3 border-t border-border px-6 py-5"><button type="button" data-close-dialog class="min-h-11 rounded-xl border border-border px-5 text-sm font-semibold">Hủy</button><button class="min-h-11 rounded-xl bg-terracotta px-5 text-sm font-semibold text-white">Lưu danh mục</button></div></form>
+</dialog>
+<dialog id="rename-category-dialog" aria-labelledby="rename-category-title" class="fixed inset-0 m-auto w-[min(560px,calc(100%_-_2rem))] rounded-2xl border border-border bg-white p-0 text-ink shadow-2xl backdrop:bg-ink/40">
+  <form method="POST" data-rename-form><div class="flex items-center justify-between border-b border-border px-6 py-5"><div><p class="text-xs font-semibold uppercase tracking-wide text-terracotta">Danh mục dịch vụ</p><h2 id="rename-category-title" class="mt-1 text-lg font-bold text-ink">Đổi tên danh mục</h2></div><button type="button" data-close-dialog aria-label="Đóng" class="flex size-11 items-center justify-center rounded-xl border border-border text-xl">×</button></div><div class="space-y-5 px-6 py-6"><label class="block text-sm font-semibold">Tên danh mục <span class="text-terracotta">*</span><input name="name" required maxlength="80" autocomplete="off" class="mt-2 min-h-12 w-full rounded-xl border border-border px-4 text-sm text-ink placeholder:text-muted/60 outline-none focus:border-terracotta focus:ring-1 focus:ring-terracotta"></label><div class="rounded-xl bg-orange-50 p-4 text-sm text-orange-900"><strong>Lưu ý:</strong> tên mới sẽ cập nhật trên các dịch vụ đang dùng danh mục này. Thông tin đã lưu trong lịch hẹn cũ không thay đổi.</div></div><div class="flex justify-end gap-3 border-t border-border px-6 py-5"><button type="button" data-close-dialog class="min-h-11 rounded-xl border border-border px-5 text-sm font-semibold">Hủy</button><button class="min-h-11 rounded-xl bg-terracotta px-5 text-sm font-semibold text-white">Lưu thay đổi</button></div></form>
+</dialog>
+<script>
+  (() => {
+    const addDialog = document.getElementById('add-category-dialog')
+    const renameDialog = document.getElementById('rename-category-dialog')
+    const renameForm = renameDialog.querySelector('[data-rename-form]')
+    const renameInput = renameForm.querySelector('input[name="name"]')
+    const searchInput = document.getElementById('category-search')
+    let searchTimer
+    searchInput.addEventListener('input', () => {
+      window.clearTimeout(searchTimer)
+      searchTimer = window.setTimeout(() => searchInput.form.requestSubmit(), 400)
+    })
+    let activeMenu = null
+    function closeMenu(restoreFocus = false) {
+      if (!activeMenu) return
+      const { panel, trigger } = activeMenu
+      panel.hidden = true
+      trigger.setAttribute('aria-expanded', 'false')
+      activeMenu = null
+      if (restoreFocus) trigger.focus()
+    }
+    document.querySelectorAll('[data-row-menu]').forEach(row => {
+      const trigger = row.querySelector('summary')
+      const panel = row.querySelector('div')
+      // Mount outside the table's scroll container so it cannot clip the menu.
+      panel.classList.remove('absolute', 'right-0', 'mt-2')
+      panel.classList.add('fixed', 'overflow-y-auto')
+      panel.hidden = true
+      document.body.appendChild(panel)
+      trigger.setAttribute('aria-expanded', 'false')
+      trigger.addEventListener('click', event => {
+        event.preventDefault()
+        const wasOpen = activeMenu?.trigger === trigger
+        closeMenu()
+        if (wasOpen) return
+        panel.hidden = false
+        const rect = trigger.getBoundingClientRect()
+        const margin = 8
+        panel.style.maxHeight = `${window.innerHeight - margin * 2}px`
+        const width = panel.offsetWidth
+        const height = panel.offsetHeight
+        const top = rect.bottom + margin + height <= window.innerHeight - margin
+          ? rect.bottom + margin : rect.top - height - margin
+        panel.style.left = `${Math.max(margin, Math.min(rect.right - width, window.innerWidth - width - margin))}px`
+        panel.style.top = `${Math.max(margin, Math.min(top, window.innerHeight - height - margin))}px`
+        trigger.setAttribute('aria-expanded', 'true')
+        activeMenu = { panel, trigger }
+      })
+      panel.addEventListener('click', event => { if (event.target.closest('button')) closeMenu() })
+    })
+    document.addEventListener('click', event => {
+      if (activeMenu && !activeMenu.panel.contains(event.target) && !activeMenu.trigger.contains(event.target)) closeMenu()
+    })
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && activeMenu) { event.preventDefault(); closeMenu(true) } })
+    window.addEventListener('resize', () => closeMenu())
+    document.addEventListener('scroll', event => { if (activeMenu && !activeMenu.panel.contains(event.target)) closeMenu() }, true)
+    document.querySelectorAll('[data-open-add]').forEach(button => button.addEventListener('click', () => { addDialog.showModal(); addDialog.querySelector('input[name="name"]').focus() }))
+    document.querySelectorAll('[data-open-rename]').forEach(button => button.addEventListener('click', () => { renameForm.action = '/admin/service-categories/' + encodeURIComponent(button.dataset.categoryId); renameInput.value = button.dataset.categoryName; button.closest('[data-row-menu]')?.removeAttribute('open'); renameDialog.showModal(); renameInput.focus(); renameInput.select() }))
+    document.querySelectorAll('[data-close-dialog]').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()))
+    ;[addDialog, renameDialog].forEach(dialog => dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close() }))
+  })()
+</script>
 <%- include('layout-footer') %>

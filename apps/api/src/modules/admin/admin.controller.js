@@ -103,6 +103,19 @@ export async function renderServices(req, res) {
       filtered = filtered.filter((s) => !s.isActive)
     }
 
+    const pageSize = [5, 10, 20].includes(Number(req.query.pageSize)) ? Number(req.query.pageSize) : 5
+    const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+    const requestedPage = Number(req.query.page)
+    const page = Math.min(totalPages, Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1)
+    const pages = []
+    for (let number = 1; number <= totalPages; number++) {
+      if (number === 1 || number === totalPages || Math.abs(number - page) <= 1) {
+        if (pages.length && number - pages.at(-1) > 1) pages.push('…')
+        pages.push(number)
+      }
+    }
+    const pagination = { page, pageSize, totalPages, pages, total: filtered.length, start: filtered.length ? (page - 1) * pageSize + 1 : 0, end: Math.min(page * pageSize, filtered.length) }
+    const pageUrl = number => '/admin/services?' + new URLSearchParams({ search, category, status, page: String(number), pageSize: String(pageSize) })
     const categories = Array.from(new Set(allServices.map((s) => s.category).filter(Boolean)))
 
     const stats = {
@@ -114,7 +127,9 @@ export async function renderServices(req, res) {
     return res.render('admin/services', {
       title: 'Quản lý Dịch vụ — Sol Hair Studio Admin',
       activeTab: 'services',
-      services: filtered,
+      services: filtered.slice((page - 1) * pageSize, page * pageSize),
+      pagination,
+      pageUrl,
       allServices,
       serviceCategories: await listCategories(req.identity),
       stats,
