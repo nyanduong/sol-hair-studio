@@ -11,7 +11,7 @@ let listSequence = 0
 
 function canRefreshAppointmentList() {
   return document.visibilityState !== 'hidden' &&
-    !document.querySelector('[data-schedule-dialog][open]') &&
+    !document.querySelector('[data-schedule-dialog][open], [data-appointment-action-dialog][open]') &&
     !listFilters?.contains(document.activeElement) &&
     !appointmentListRegion?.contains(document.activeElement)
 }
@@ -79,6 +79,24 @@ const scheduleFrame = document.querySelector('[data-schedule-frame]')
 let scheduleTrigger = null
 if (scheduleDialog && typeof scheduleDialog.showModal === 'function') {
   const dialogMessage = document.querySelector('[data-schedule-dialog-message]')
+  const dialogHeading = document.querySelector('[data-schedule-heading]')
+  const requestOwnerAction = (href, trigger, operation) => {
+    document.dispatchEvent(new CustomEvent('owner-action-dialog-request', { detail: { href, trigger, operation } }))
+  }
+  const openSchedule = link => {
+    scheduleTrigger = link
+    const url = new URL(link.href, window.location.href)
+    url.searchParams.set('embedded', '1')
+    dialogHeading.textContent = ''
+    const heading = document.createElement('h2')
+    heading.id = 'schedule-dialog-title'
+    heading.className = 'font-bold'
+    heading.textContent = 'Chi tiết lịch hẹn'
+    dialogHeading.append(heading)
+    dialogMessage.textContent = 'Đang tải chi tiết…'
+    scheduleFrame.src = url.href
+    scheduleDialog.showModal()
+  }
   const canCloseSchedule = () => {
     try {
       if (scheduleFrame.contentDocument?.querySelector('dialog[open], [data-payment-busy="true"]')) {
@@ -89,17 +107,37 @@ if (scheduleDialog && typeof scheduleDialog.showModal === 'function') {
     return true
   }
   document.addEventListener('click', event => {
-    const link = event.target.closest('[data-schedule-detail]')
+    const link = event.target.closest('[data-schedule-detail], [data-schedule-action]')
     if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button) return
     event.preventDefault()
-    scheduleTrigger = link
-    const url = new URL(link.href, window.location.href)
-    url.searchParams.set('embedded', '1')
-    dialogMessage.textContent = 'Đang tải chi tiết…'
-    scheduleFrame.src = url.href
-    scheduleDialog.showModal()
+    if (link.matches('[data-schedule-action]')) requestOwnerAction(link.href, link, link.dataset.scheduleAction)
+    else openSchedule(link)
   })
-  scheduleFrame.addEventListener('load', () => { dialogMessage.textContent = ''; if (scheduleDialog.open) void refreshOwnerAppointmentList(true) })
+  scheduleFrame.addEventListener('load', () => {
+    if (!scheduleDialog.open) return
+    dialogMessage.textContent = ''
+    try {
+      const header = scheduleFrame.contentDocument?.querySelector('[data-appointment-heading]')
+      if (header) {
+        dialogHeading.replaceChildren(...document.importNode(header, true).childNodes)
+        dialogHeading.querySelector('h2').id = 'schedule-dialog-title'
+      }
+    } catch { /* A redirected sign-in page has no appointment heading. */ }
+    void refreshOwnerAppointmentList(true)
+  })
+  // Nhận yêu cầu từ đúng iframe chi tiết, đóng nó trước khi mở thao tác riêng.
+  window.addEventListener('message', event => {
+    if (event.origin !== window.location.origin || event.source !== scheduleFrame.contentWindow ||
+        event.data?.type !== 'sol-owner-action' || !['start', 'cancel', 'reschedule'].includes(event.data.operation) ||
+        !scheduleDialog.open || !canCloseSchedule()) return
+    const current = new URL(scheduleFrame.src, window.location.href)
+    const target = new URL(event.data.href, window.location.href)
+    if (target.origin !== current.origin || target.pathname !== current.pathname) return
+    const trigger = scheduleTrigger
+    scheduleDialog.close()
+    requestOwnerAction(target.href, trigger, event.data.operation)
+  })
+  document.addEventListener('owner-action-dialog-saved', () => { void refreshOwnerAppointmentList(true) })
   document.querySelector('[data-schedule-close]').addEventListener('click', () => {
     if (canCloseSchedule()) scheduleDialog.close()
   })

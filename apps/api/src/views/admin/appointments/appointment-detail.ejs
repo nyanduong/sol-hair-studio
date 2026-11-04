@@ -17,8 +17,8 @@
           <p class="mt-2 text-sm text-muted"><%= error %></p>
         </section>
       <% } else if (appointment) { %>
-        <article data-appointment-detail="<%= appointment.id %>" data-appointment-reference="<%= appointment.referenceCode || '' %>" data-personal-staff-id="<%= personalStaff?.staffId ?? '' %>" class="<%= locals.embeddedAppointment ? '' : 'mt-6' %> overflow-hidden rounded-2xl border border-border bg-white">
-          <header class="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4 sm:px-6">
+        <article data-appointment-detail="<%= appointment.id %>" data-appointment-reference="<%= appointment.referenceCode || '' %>" data-personal-staff-id="<%= personalStaff?.staffId ?? '' %>" class="<%= locals.embeddedAppointment ? '' : 'mt-6 rounded-2xl border border-border' %> overflow-hidden bg-white">
+          <header data-appointment-heading <%= locals.embeddedAppointment ? 'hidden' : '' %> class="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4 sm:px-6">
             <div><p class="text-xs tracking-wider text-muted">LỊCH SALON / CHI TIẾT</p><h2 class="mt-2 text-xl font-bold">Lịch hẹn <%= appointment.referenceCode || 'Chưa cấp mã' %></h2></div>
             <%- include('partials/status', { status: appointment.status }) %>
           </header>

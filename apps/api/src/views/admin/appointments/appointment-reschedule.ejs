@@ -5,29 +5,30 @@
   const today = new Date(Date.now() + 25_200_000).toISOString().slice(0, 10)
   const lastDate = new Date(Date.now() + 7 * 86_400_000 + 25_200_000).toISOString().slice(0, 10)
   const pickerDate = localDate >= today && localDate <= lastDate ? localDate : today
-  const field = 'mt-2 block min-h-11 w-full rounded-xl border border-border bg-white px-3 py-2 text-sm focus:border-terracotta focus:outline-none'
+  const field = 'mt-1 block min-h-10 w-full rounded-xl border border-border bg-white px-3 py-2 text-sm focus:border-terracotta focus:outline-none'
 %>
-<%- include('partials/action-page-start') %>
+<%- include('partials/action-page-start', { hideCommandReference: true }) %>
+<hr aria-hidden="true" class="mt-3 shrink-0 border-0 border-b border-border">
 <% if (error) { %>
+  <% if (appointment) { %><p class="mt-3 text-xs text-muted">Lịch đang đổi: <span data-command-reference class="font-mono"><%= appointment.referenceCode || 'Chưa cấp mã' %></span></p><% } %>
   <p role="alert" class="mt-4 rounded-xl border border-terracotta/20 bg-terracotta/5 p-4 text-sm"><%= error %></p>
   <%- include('partials/reschedule-dates', { today, lastDate, pickerDate }) %>
   <a href="<%= ownerUrl('/admin/appointments/' + appointmentId) %>" class="mt-4 inline-flex min-h-11 items-center rounded-xl border border-border px-4 text-sm font-semibold">Tải lại chi tiết lịch này</a>
 <% } else if (appointment && options) { %>
-  <p class="mt-2 text-sm text-muted">Khách: <span class="font-semibold text-ink"><%= appointment.customerSnapshot.displayName %></span>. Chỉ đổi giờ hoặc Stylist của lịch này; dịch vụ, giá và thời lượng giữ nguyên.</p>
-  <div class="mt-4 grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-12">
-    <div class="flex min-h-0 flex-col gap-3 lg:col-span-8">
+  <div class="mt-3 grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-12 p-3">
+    <div class="flex min-h-0 flex-col gap-2 lg:col-span-8">
       <%- include('partials/reschedule-dates', { today, lastDate, pickerDate }) %>
-      <form method="post" data-reschedule-form data-current-staff="<%= appointment.staffId %>" data-current-start="<%= appointment.startAt %>" action="<%= ownerUrl('/admin/appointments/' + appointmentId + '/reschedule') %>" class="flex min-h-0 flex-1 flex-col gap-3">
+      <form id="appointment-reschedule-<%= appointmentId %>" method="post" data-reschedule-form data-current-staff="<%= appointment.staffId %>" data-current-start="<%= appointment.startAt %>" action="<%= ownerUrl('/admin/appointments/' + appointmentId + '/reschedule') %>" class="flex min-h-0 flex-1 flex-col gap-2">
         <input type="hidden" name="expectedRevision" value="<%= options.revision %>" />
         <input type="hidden" name="commandKey" value="<%= rescheduleKey %>" />
         <section aria-labelledby="reschedule-staff-title" class="shrink-0">
           <h3 id="reschedule-staff-title" class="text-sm font-bold uppercase tracking-wider">2. Chọn chuyên viên</h3>
           <div class="mt-2 grid gap-2 sm:grid-cols-2">
-            <label class="cursor-pointer rounded-2xl border border-border bg-white p-3 has-[:checked]:border-terracotta has-[:checked]:bg-soft-surface">
+            <label class="cursor-pointer rounded-2xl border border-border bg-white p-2.5 has-[:checked]:border-terracotta has-[:checked]:bg-soft-surface">
               <span class="flex items-center gap-2 text-sm font-semibold"><input type="radio" name="stylistMode" value="current" checked />Giữ chuyên viên hiện tại</span>
               <span class="mt-1 block text-xs text-muted"><%= appointment.staffNameSnapshot %></span>
             </label>
-            <label class="cursor-pointer rounded-2xl border border-border bg-white p-4 has-[:checked]:border-terracotta has-[:checked]:bg-soft-surface">
+            <label class="cursor-pointer rounded-2xl border border-border bg-white p-2.5 has-[:checked]:border-terracotta has-[:checked]:bg-soft-surface">
               <span class="flex items-center gap-2 text-sm font-semibold"><input type="radio" name="stylistMode" value="other" <%= options.stylists.some(person => person.staffId !== appointment.staffId) ? '' : 'disabled' %> />Chọn chuyên viên khác</span>
               <span class="mt-1 block text-xs text-muted">Đủ năng lực phục vụ dịch vụ đã đặt.</span>
             </label>
@@ -39,10 +40,10 @@
             </select>
           </label>
         </section>
-        <section aria-labelledby="reschedule-slots-title" class="flex min-h-[9rem] flex-1 flex-col">
+        <section aria-labelledby="reschedule-slots-title" class="flex min-h-16 flex-1 flex-col">
           <h3 id="reschedule-slots-title" class="text-sm font-bold uppercase tracking-wider">3. Chọn giờ trống</h3>
           <p class="mt-1 text-xs text-muted">Giờ Việt Nam · chọn một khung giờ cho lịch đang mở.</p>
-          <div data-slot-scroll tabindex="0" role="region" aria-label="Danh sách giờ trống" class="mt-2 min-h-24 max-h-64 overflow-y-auto overscroll-contain pr-2 lg:max-h-none lg:flex-1 [@media(max-height:819px)]:max-h-64">
+          <div data-slot-scroll tabindex="0" role="region" aria-label="Danh sách giờ trống" class="mt-1 min-h-6 max-h-64 overflow-y-auto overscroll-contain pr-2 lg:max-h-none lg:flex-1 [@media(max-height:639px)]:max-h-64">
           <% if (!options.stylists.some(person => person.staffId === appointment.staffId)) { %><p data-no-current-slots class="mt-3 rounded-xl bg-soft-surface p-4 text-sm text-muted">Chuyên viên hiện tại không có giờ trống hợp lệ. Hãy chọn chuyên viên khác hoặc ngày khác.</p><% } %>
           <% for (const person of options.stylists) { %>
             <fieldset data-slot-staff="<%= person.staffId %>" class="mt-3">
@@ -62,30 +63,34 @@
           <% } %>
           </div>
         </section>
-        <div class="shrink-0 space-y-2 border-t border-border pt-2">
-          <label class="block text-sm font-medium sm:flex sm:items-center sm:gap-3"><span class="shrink-0">Lý do đổi lịch (bắt buộc)</span><textarea name="reason" rows="1" maxlength="500" required class="<%= field %> min-w-0 resize-none sm:mt-0 sm:flex-1"></textarea></label>
-          <label class="flex items-start gap-2 text-sm"><input type="checkbox" name="customerAgreementConfirmed" value="true" required class="mt-1" />Tôi đã trao đổi và thống nhất ngày, giờ, Stylist mới với khách.</label>
-          <p data-selection-summary class="rounded-xl bg-soft-surface px-3 py-1.5 text-xs text-muted">Chưa chọn giờ mới cho lịch này.</p>
-          <p data-reschedule-error role="alert" class="text-sm text-terracotta" hidden></p>
-          <div class="flex flex-wrap justify-end gap-3">
-            <a data-close-action href="<%= ownerUrl('/admin/appointments/' + appointmentId) %>" class="inline-flex min-h-11 items-center rounded-xl border border-border bg-white px-5 py-2 text-sm font-semibold">Quay lại</a>
-            <button type="submit" class="min-h-11 rounded-xl bg-terracotta px-5 py-2 text-sm font-semibold text-white hover:bg-terracotta-hover disabled:cursor-not-allowed disabled:opacity-50">Xác nhận đổi lịch này</button>
-          </div>
-        </div>
       </form>
     </div>
-    <aside class="h-fit rounded-2xl border border-border bg-soft-surface p-5 lg:col-span-4">
+    <div class="flex min-h-0 flex-col gap-3 lg:col-span-4">
+    <aside class="rounded-2xl border border-border bg-soft-surface p-4">
       <h3 class="text-sm font-bold uppercase tracking-wider">Lịch đang đổi</h3>
       <p class="mt-3 break-all font-mono text-xs text-muted"><%= appointment.referenceCode || 'Chưa cấp mã' %></p>
-      <dl class="mt-4 space-y-4 text-sm">
+      <dl class="mt-3 space-y-3 text-sm">
         <div><dt class="text-xs text-muted">Khách hàng</dt><dd class="mt-1 font-semibold"><%= appointment.customerSnapshot.displayName %></dd><dd class="mt-1 text-xs text-muted"><%= appointment.customerSnapshot.phone %></dd></div>
         <div><dt class="text-xs text-muted">Giờ hẹn cũ</dt><dd class="mt-1 font-semibold"><%= dateTime.format(new Date(appointment.startAt)) %></dd></div>
         <div><dt class="text-xs text-muted">Stylist hiện tại</dt><dd class="mt-1 font-semibold"><%= appointment.staffNameSnapshot %></dd></div>
         <div><dt class="text-xs text-muted">Dịch vụ giữ nguyên</dt><dd class="mt-1"><%= appointment.items.map(item => item.name).join(' · ') %></dd></div>
         <div class="border-t border-border pt-4"><dt class="text-xs text-muted">Tổng thời lượng / giá dự kiến</dt><dd class="mt-1 font-semibold"><%= appointment.totalDurationMinutes %> phút · <%= money.format(appointment.totalPriceVnd) %></dd></div>
       </dl>
-      <p class="mt-4 text-xs leading-6 text-muted">Không đổi dịch vụ và không tự dời các lịch khác. Backend kiểm tra lại giờ trống khi xác nhận.</p>
     </aside>
+    <div class="shrink-0 space-y-2 border-t border-border pt-2">
+        <label class="flex flex-col text-sm font-medium sm:flex sm:gap-3">
+          <span class="shrink-0">Lý do đổi lịch (bắt buộc)</span>
+          <textarea name="reason" form="appointment-reschedule-<%= appointmentId %>" rows="3" maxlength="500" required class="<%= field %> min-w-0 resize-none sm:mt-0 sm:flex-1"></textarea>
+        </label>
+        <label class="flex items-start gap-2 text-sm"><input type="checkbox" name="customerAgreementConfirmed" form="appointment-reschedule-<%= appointmentId %>" value="true" required class="mt-1" />Tôi đã trao đổi và thống nhất ngày, giờ, Stylist mới với khách.</label>
+        <p data-selection-summary class="rounded-xl bg-soft-surface px-3 py-1.5 text-xs text-muted">Chưa chọn giờ mới cho lịch này.</p>
+        <p data-reschedule-error role="alert" class="text-sm text-terracotta" hidden></p>
+      </div>
+    <div data-reschedule-actions class="flex flex-col gap-2">
+      <a data-close-action href="<%= ownerUrl('/admin/appointments/' + appointmentId) %>" class="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-border bg-white px-5 py-2 text-sm font-semibold hover:bg-soft-surface">Quay lại</a>
+      <button type="submit" name="rescheduleSubmit" data-reschedule-submit form="appointment-reschedule-<%= appointmentId %>" class="min-h-11 w-full rounded-2xl bg-terracotta px-5 py-2 text-sm font-semibold text-white hover:bg-terracotta-hover disabled:cursor-not-allowed disabled:opacity-50">Xác nhận đổi lịch này</button>
+    </div>
+    </div>
   </div>
 <% } %>
 <%- include('partials/action-page-end') %>

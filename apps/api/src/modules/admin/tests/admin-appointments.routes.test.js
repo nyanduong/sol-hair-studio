@@ -148,7 +148,23 @@ describe('Owner EJS uses the shared Admin session', () => {
     expect(response.text).toContain('bg-emerald-50')
     expect(response.text).toContain('data-schedule-row=')
     expect(response.text).toContain('data-schedule-detail')
+    expect(response.text).toContain('data-schedule-action="start"')
+    expect(response.text).not.toContain('data-schedule-detail href="/admin/appointments/' + id + '#start"')
     expect(response.text).toContain('Chờ hoàn tất')
+  })
+
+  it('keeps a transferable heading for embedded detail and a visible heading for the standalone page', async () => {
+    getAppointmentDetail.mockResolvedValue({ ...appointment, referenceCode: 'SOL-TEST1234' })
+    const embedded = await request(app).get(`/admin/appointments/${id}?embedded=1`)
+      .set('Cookie', `sol_admin_token=${token}`).expect(200)
+    expect(embedded.text).toContain('data-appointment-heading hidden')
+    expect(embedded.text).toContain('LỊCH SALON / CHI TIẾT')
+    expect(embedded.text).toContain('Lịch hẹn SOL-TEST1234')
+    expect(embedded.text).toContain('Đã xác nhận')
+    const standalone = await request(app).get(`/admin/appointments/${id}`)
+      .set('Cookie', `sol_admin_token=${token}`).expect(200)
+    expect(standalone.text).toContain('data-appointment-heading ')
+    expect(standalone.text).not.toContain('data-appointment-heading hidden')
   })
 
   it('filters personal appointments by the authenticated account, ignoring a supplied Staff', async () => {
@@ -206,8 +222,12 @@ describe('Owner EJS uses the shared Admin session', () => {
     getAppointmentRescheduleOptions.mockResolvedValue({ revision: 0, stylists: [] })
     getAppointmentAudit.mockResolvedValue({ items: [], pagination: { hasNextPage: false } })
     const context = '?view=mine&localDate=2026-10-31&status=confirmed'
-    await request(app).get(`/admin/appointments/${id}/reschedule${context}`)
+    const optionsPage = await request(app).get(`/admin/appointments/${id}/reschedule${context}`)
       .set('Cookie', `sol_admin_token=${token}`).expect(200)
+    expect(optionsPage.text).not.toContain('Mã lịch đang thao tác:')
+    expect(optionsPage.text).not.toContain('Chỉ đổi giờ hoặc Stylist của lịch này;')
+    expect(optionsPage.text).toContain('Lịch đang đổi')
+    expect(optionsPage.text).toContain('&lt;Customer&gt;')
     expect(getAppointmentRescheduleOptions).toHaveBeenCalledWith(owner, id, { localDate: '2026-10-31' })
     await request(app).get(`/admin/appointments/${id}/audit${context}`)
       .set('Cookie', `sol_admin_token=${token}`).expect(200)

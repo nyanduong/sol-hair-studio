@@ -11,8 +11,8 @@ function setup({ withDialog = false } = {}) {
     <p data-list-message></p><a data-list-login hidden></a>
     <section data-owner-appointments-list><a href="/admin/appointments/first">Original</a></section>`
   if (withDialog) {
-    dom.document.body.insertAdjacentHTML('beforeend', `<a data-schedule-detail href="/admin/appointments/example?view=mine#start">Start</a>
-      <dialog data-schedule-dialog><button data-schedule-close>Close</button><p data-schedule-dialog-message></p><iframe data-schedule-frame></iframe></dialog>`)
+    dom.document.body.insertAdjacentHTML('beforeend', `<a data-schedule-detail href="/admin/appointments/example?view=mine">Detail</a>
+      <dialog data-schedule-dialog><div data-schedule-heading></div><button data-schedule-close>Close</button><p data-schedule-dialog-message></p><iframe data-schedule-frame></iframe></dialog>`)
     dom.HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', '') }
     dom.HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); this.dispatchEvent(new dom.Event('close')) }
     // Keep this unit test offline; the actual iframe GET is covered by integration/browser checks.
@@ -20,7 +20,7 @@ function setup({ withDialog = false } = {}) {
   }
   const window = { location: dom.location, setInterval: vi.fn(), setTimeout: vi.fn(() => 1), clearTimeout: vi.fn(), addEventListener: vi.fn() }
   const fetch = vi.fn()
-  const context = vm.createContext({ document: dom.document, window, fetch, AbortController, URL, DOMParser: dom.DOMParser })
+  const context = vm.createContext({ document: dom.document, window, fetch, AbortController, URL, DOMParser: dom.DOMParser, CustomEvent: dom.CustomEvent })
   vm.runInContext(source, context)
   const refresh = vm.runInContext('refreshOwnerAppointmentList', context)
   const response = text => ({ ok: true, redirected: false, text: async () => `<time data-list-updated datetime="2026-11-01T01:00:00Z">08:00</time><section data-owner-appointments-list>${text}</section>` })
@@ -34,7 +34,7 @@ describe('Admin appointment list refresh', () => {
     trigger.click()
     const dialog = page.document.querySelector('dialog')
     expect(dialog.hasAttribute('open')).toBe(true)
-    expect(page.document.querySelector('iframe').src).toContain('view=mine&embedded=1#start')
+    expect(page.document.querySelector('iframe').src).toContain('view=mine&embedded=1')
     await page.refresh()
     expect(page.fetch).not.toHaveBeenCalled()
     page.fetch.mockResolvedValueOnce(page.response('Updated after closing'))

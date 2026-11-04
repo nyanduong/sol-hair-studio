@@ -138,8 +138,6 @@ export default function CustomerAppointmentDetail({ state, onLogin, actions }) {
         </span>
       </div>
 
-      {actions}
-
       {/* ── Main Grid: Thời gian + Dịch vụ ── */}
       <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-12">
         {/* ── Cột trái (lg:col-span-5): Lịch hẹn & Stylist ── */}
@@ -307,6 +305,7 @@ export default function CustomerAppointmentDetail({ state, onLogin, actions }) {
           </p>
         </section>
       </div>
+      {actions && <div className="sm:pb-8">{actions}</div>}
 
       {/* ── Tại Sol Hair Studio (lấy cảm hứng từ Card_detail.png) ── */}
       <div className="border-t border-[#f3eee6] bg-[#faf6f0] px-6 py-5 sm:px-8">
@@ -345,6 +344,7 @@ export default function CustomerAppointmentDetail({ state, onLogin, actions }) {
           </div>
         </div>
       </div>
+      
     </article>
   )
 }
