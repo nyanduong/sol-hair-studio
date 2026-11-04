@@ -38,7 +38,7 @@ function openDialog(dialog) {
 
 function createActionDialog(label, trigger, appointmentId, wide = false) {
   const dialog = document.createElement('dialog')
-  dialog.className = 'relative m-0 w-full max-w-none rounded-none border-0 border-t border-border bg-canvas p-5 text-ink sm:p-6'
+  dialog.className = 'fixed inset-0 m-auto max-h-[96svh] w-[calc(100%_-_2rem)] overflow-y-auto rounded-3xl border border-border bg-[#fcfbf9] p-4 text-ink shadow-2xl backdrop:bg-ink/40 sm:p-5 ' + (wide ? 'max-w-6xl lg:h-[96svh] lg:overflow-hidden [@media(max-height:819px)]:h-auto [@media(max-height:819px)]:overflow-y-auto' : 'max-w-2xl')
   dialog.setAttribute('aria-label', label)
   dialog.dataset.appointmentActionDialog = appointmentId
   const close = document.createElement('button')

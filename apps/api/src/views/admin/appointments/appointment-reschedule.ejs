@@ -23,7 +23,7 @@
         <section aria-labelledby="reschedule-staff-title" class="shrink-0">
           <h3 id="reschedule-staff-title" class="text-sm font-bold uppercase tracking-wider">2. Chọn chuyên viên</h3>
           <div class="mt-2 grid gap-2 sm:grid-cols-2">
-            <label class="cursor-pointer rounded-2xl border border-border bg-white p-4 has-[:checked]:border-terracotta has-[:checked]:bg-soft-surface">
+            <label class="cursor-pointer rounded-2xl border border-border bg-white p-3 has-[:checked]:border-terracotta has-[:checked]:bg-soft-surface">
               <span class="flex items-center gap-2 text-sm font-semibold"><input type="radio" name="stylistMode" value="current" checked />Giữ chuyên viên hiện tại</span>
               <span class="mt-1 block text-xs text-muted"><%= appointment.staffNameSnapshot %></span>
             </label>
@@ -32,17 +32,17 @@
               <span class="mt-1 block text-xs text-muted">Đủ năng lực phục vụ dịch vụ đã đặt.</span>
             </label>
           </div>
-          <label data-staff-select-label class="mt-3 block text-sm font-medium [&[hidden]]:!hidden">Chuyên viên nhận lịch
-            <select name="staffId" class="<%= field %>">
+          <label data-staff-select-label class="mt-2 flex items-center gap-3 text-sm font-medium"><span class="shrink-0">Chuyên viên nhận lịch</span>
+            <select name="staffId" class="min-h-10 min-w-0 flex-1 rounded-xl border border-border bg-white px-3 py-2 text-sm focus:border-terracotta focus:outline-none">
               <option value="<%= appointment.staffId %>"><%= appointment.staffNameSnapshot %> (hiện tại)</option>
               <% for (const person of options.stylists.filter(person => person.staffId !== appointment.staffId)) { %><option value="<%= person.staffId %>"><%= person.displayName %></option><% } %>
             </select>
           </label>
         </section>
-        <section aria-labelledby="reschedule-slots-title" class="flex min-h-0 flex-1 flex-col">
+        <section aria-labelledby="reschedule-slots-title" class="flex min-h-[9rem] flex-1 flex-col">
           <h3 id="reschedule-slots-title" class="text-sm font-bold uppercase tracking-wider">3. Chọn giờ trống</h3>
           <p class="mt-1 text-xs text-muted">Giờ Việt Nam · chọn một khung giờ cho lịch đang mở.</p>
-          <div data-slot-scroll tabindex="0" role="region" aria-label="Danh sách giờ trống" class="mt-2 min-h-24 max-h-64 overflow-y-auto overscroll-contain pr-2 lg:min-h-0 lg:max-h-none lg:flex-1">
+          <div data-slot-scroll tabindex="0" role="region" aria-label="Danh sách giờ trống" class="mt-2 min-h-24 max-h-64 overflow-y-auto overscroll-contain pr-2 lg:max-h-none lg:flex-1 [@media(max-height:819px)]:max-h-64">
           <% if (!options.stylists.some(person => person.staffId === appointment.staffId)) { %><p data-no-current-slots class="mt-3 rounded-xl bg-soft-surface p-4 text-sm text-muted">Chuyên viên hiện tại không có giờ trống hợp lệ. Hãy chọn chuyên viên khác hoặc ngày khác.</p><% } %>
           <% for (const person of options.stylists) { %>
             <fieldset data-slot-staff="<%= person.staffId %>" class="mt-3">
@@ -62,10 +62,10 @@
           <% } %>
           </div>
         </section>
-        <div class="shrink-0 space-y-2 border-t border-border pt-3">
-          <label class="block text-sm font-medium">Lý do đổi lịch (bắt buộc)<textarea name="reason" rows="1" maxlength="500" required class="<%= field %> resize-none"></textarea></label>
+        <div class="shrink-0 space-y-2 border-t border-border pt-2">
+          <label class="block text-sm font-medium sm:flex sm:items-center sm:gap-3"><span class="shrink-0">Lý do đổi lịch (bắt buộc)</span><textarea name="reason" rows="1" maxlength="500" required class="<%= field %> min-w-0 resize-none sm:mt-0 sm:flex-1"></textarea></label>
           <label class="flex items-start gap-2 text-sm"><input type="checkbox" name="customerAgreementConfirmed" value="true" required class="mt-1" />Tôi đã trao đổi và thống nhất ngày, giờ, Stylist mới với khách.</label>
-          <p data-selection-summary class="rounded-xl bg-soft-surface p-3 text-sm text-muted">Chưa chọn giờ mới cho lịch này.</p>
+          <p data-selection-summary class="rounded-xl bg-soft-surface px-3 py-1.5 text-xs text-muted">Chưa chọn giờ mới cho lịch này.</p>
           <p data-reschedule-error role="alert" class="text-sm text-terracotta" hidden></p>
           <div class="flex flex-wrap justify-end gap-3">
             <a data-close-action href="<%= ownerUrl('/admin/appointments/' + appointmentId) %>" class="inline-flex min-h-11 items-center rounded-xl border border-border bg-white px-5 py-2 text-sm font-semibold">Quay lại</a>
