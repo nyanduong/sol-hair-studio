@@ -44,6 +44,12 @@ describe('tabs and incomplete pagination', () => {
     expect(getAppointmentTabView(value, 'history')).toMatchObject({ counts: {}, empty: false })
     expect(render(value)).not.toContain('Bạn chưa có lịch hẹn')
   })
+  it('keeps completed unpaid appointments visible in attention until payment is confirmed', () => {
+    const unpaid = { ...item, status: 'completed', paymentStatus: 'unpaid' }
+    expect(getAppointmentTabView(state([unpaid]), 'attention').items).toEqual([unpaid])
+    expect(render(state([unpaid]))).toContain('Bạn có lịch đã hoàn tất đang chờ thanh toán')
+    expect(getAppointmentTabView(state([{ ...unpaid, paymentStatus: 'paid' }]), 'attention').items).toEqual([])
+  })
   it('groups overdue confirmed appointments separately without changing their status', () => {
     const old = { ...item, startAt: '2020-01-01T00:00:00.000Z' }
     expect(getAppointmentTabView(state([old]), 'upcoming').items).toEqual([])
@@ -100,7 +106,7 @@ describe('service snapshots and cutoff display', () => {
     vi.setSystemTime(now)
     const html = render(state([item]))
     expect(html.includes('href="/lich-cua-toi/a?action=reschedule"')).toBe(!locked)
-    expect(html.includes('href="tel:19006828"')).toBe(locked && offset < 7200000)
+    expect(html.includes('href="/#contact"')).toBe(locked && offset < 7200000)
     if (offset >= 7200000) expect(getAppointmentTabView(state([item]), 'attention', now).items).toEqual([item])
   })
   it.each(['in_progress', 'completed', 'cancelled', 'no_show'])('never permits reschedule for %s', status => {

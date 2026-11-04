@@ -16,6 +16,22 @@ export function getSalonTodayDate() {
   return `${parts.year}-${parts.month}-${parts.day}`
 }
 
+export async function getFutureBookingCountsByServiceIds(serviceIds, now = new Date()) {
+  const ids = [...new Set(serviceIds.filter(id => typeof id === 'string' && id.trim()).map(id => id.trim()))]
+  if (ids.length === 0) return {}
+  if (!(now instanceof Date) || !Number.isFinite(now.getTime())) throw new TypeError('now must be a valid Date')
+
+  const groups = await AppointmentModel.aggregate([
+    { $match: { status: 'confirmed', startAt: { $gt: now }, 'items.serviceId': { $in: ids } } },
+    { $unwind: '$items' },
+    { $match: { 'items.serviceId': { $in: ids } } },
+    { $group: { _id: { appointmentId: '$_id', serviceId: '$items.serviceId' } } },
+    { $group: { _id: '$_id.serviceId', count: { $sum: 1 } } },
+  ])
+
+  return Object.fromEntries(groups.map(item => [item._id, item.count]))
+}
+
 export async function getDashboardData() {
   const todayStr = getSalonTodayDate()
 
@@ -43,8 +59,9 @@ export async function getDashboardData() {
       { $match: { status: 'completed' } },
       { $group: { _id: null, totalRevenue: { $sum: '$totalPriceVnd' } } },
     ]),
-    // Top 5 dịch vụ được đặt nhiều nhất
+    // Chỉ giá trị dịch vụ đã hoàn tất, không phải tiền đã thu.
     AppointmentModel.aggregate([
+      { $match: { status: 'completed' } },
       { $unwind: '$items' },
       {
         $group: {
@@ -92,6 +109,7 @@ export async function getDashboardData() {
   const todayStats = {
     total: todayAppointments.length,
     paidVnd: receipts?.[0]?.paidVnd ?? 0,
+    unpaidCount: todayAppointments.filter(a => a.status === 'completed' && !a.payment).length,
     unpaidVnd: todayAppointments.filter(a => a.status === 'completed' && !a.payment).reduce((sum, a) => sum + a.totalPriceVnd, 0),
     completed: todayAppointments.filter((a) => a.status === 'completed').length,
     confirmed: todayAppointments.filter((a) => a.status === 'confirmed').length,

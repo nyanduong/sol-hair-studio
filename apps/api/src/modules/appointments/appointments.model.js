@@ -122,6 +122,7 @@ const appointmentSchema = new Schema(
 
         // Snapshot không tự đổi theo hồ sơ hoặc catalog.
         customerSnapshot: { type: customerSnapshotSchema, required: true },
+        note: { type: String, trim: true, maxlength: 500 },
         staffNameSnapshot: { type: String, required: true, trim: true, maxlength: 120 },
         items: {
             type: [appointmentItemSchema],

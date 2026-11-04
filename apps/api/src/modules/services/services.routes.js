@@ -1,3 +1,5 @@
+import { listCategories, createCategory, updateCategory } from './categories.service.js'
+import { serviceHandler } from './services.controller.js'
 import { Router } from 'express'
 import { requireAuth, requireRoles } from '../../middlewares/auth.js'
 import {
@@ -10,6 +12,10 @@ import {
 } from './services.controller.js'
 
 export const servicesRouter = Router()
+
+servicesRouter.get('/service-categories', requireAuth, requireRoles('owner'), serviceHandler(({ identity }) => listCategories(identity)))
+servicesRouter.post('/service-categories', requireAuth, requireRoles('owner'), serviceHandler(({ identity, input }) => createCategory(identity, input), { status: 201, fields: ['name'] }))
+servicesRouter.patch('/service-categories/:id', requireAuth, requireRoles('owner'), serviceHandler(({ identity, params, input }) => updateCategory(identity, params.id, input), { fields: ['name', 'isActive'] }))
 
 // Public danh mục dịch vụ (giữ đúng DTO 8 field { data: [...] })
 servicesRouter.get('/services', listServices)

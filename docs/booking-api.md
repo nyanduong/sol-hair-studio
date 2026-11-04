@@ -18,6 +18,10 @@ ASCII chữ/số/gạch ngang/gạch dưới (UUID của cả hai client tương
 ```
 
 - Customer chỉ đặt cho hồ sơ gắn với account hiện tại; cần tên và phone E.164 qua M1.
+- Trường `note` tùy chọn là chuỗi tối đa 500 ký tự sau trim; không hợp lệ trả 400 `INVALID_NOTE`.
+  Receipt trả thêm `customerPhone` lấy từ snapshot liên hệ của chính lịch được tạo.
+  Ghi chú được lưu cùng lịch và trả trong receipt/DTO lịch khi có nội dung. Client mobile cũ
+  không gửi trường này vẫn hoạt động; không có thay đổi trường bắt buộc hay endpoint.
 - Owner dùng `owner_scheduled` hoặc `owner_walkin`, chọn đúng một `customerId` hoặc
   `guestCustomer:{displayName,phone}`. Guest tạo hồ sơ mới không account, không tự gộp dù trùng số.
 - Scheduled nhận UTC ISO chuẩn, kiểm grid/lead/horizon theo SOL-030. Walk-in không nhận `startAt`,

@@ -59,7 +59,8 @@ describe('EJS appointment dialog request state', () => {
     expect(page.fetch.mock.calls[1][0].pathname).toBe(`/admin/appointments/${id}/reschedule`)
     expect(page.fetch.mock.calls[1][1].body).toBe(body)
     expect(page.state.pending).toBe(false)
-    expect(page.window.location.assign).toHaveBeenCalledWith(page.window.location.href)
+    expect(new URL(page.window.location.assign.mock.calls[0][0]).searchParams.has('updated')).toBe(true)
+    expect(new URL(page.window.location.assign.mock.calls[0][0]).hash).toBe('')
   })
 
   it('opens QR after a successful completion, keeping embedded detail and current filters', async () => {

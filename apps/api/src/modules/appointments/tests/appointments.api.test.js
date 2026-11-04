@@ -136,6 +136,18 @@ describe('appointment lists and details', () => {
     expect(response.body.data.items[0]).not.toHaveProperty('createdByAccountId')
     expect(response.body.data.pagination).toEqual({ limit: 20, hasNextPage: false, nextCursor: null })
   })
+  it('includes only the payment badge on customer lists and updates it after receiving payment', async () => {
+    const mine = await appointment()
+    expect((await get(listPath).expect(200)).body.data.items[0].paymentStatus).toBe('unpaid')
+    await AppointmentModel.updateOne({ _id: mine._id }, { $set: { payment: {
+      amountVnd: mine.totalPriceVnd, receivedAt: NOW, receivedLocalDate: '2026-10-20',
+      receivedByAccountId: owner.account._id, receivedByRole: 'owner', commandKey: 'payment-badge-test-key',
+    } } })
+    const item = (await get(listPath).expect(200)).body.data.items[0]
+    expect(item.paymentStatus).toBe('paid')
+    expect(item).not.toHaveProperty('payment')
+    expect(item).not.toHaveProperty('receivedByAccountId')
+  })
   it('returns empty lists with and without a Customer profile', async () => {
     const missing = await actor('customer', false)
     for (const acting of [client, missing]) expect((await get(listPath, acting).expect(200)).body.data.items).toEqual([])

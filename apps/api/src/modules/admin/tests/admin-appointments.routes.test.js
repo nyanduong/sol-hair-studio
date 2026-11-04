@@ -165,11 +165,11 @@ describe('Owner EJS uses the shared Admin session', () => {
     expect(response.text).toContain('chưa có hồ sơ stylist')
   })
 
-  it('shows start only in the assigned personal workspace, preserving list filters', async () => {
+  it('shows owner start in salon and assigned personal workspaces, preserving list filters', async () => {
     listStaff.mockResolvedValue([personalStaff])
     const salon = await request(app).get(`/admin/appointments/${id}`)
       .set('Cookie', `sol_admin_token=${token}`).expect(200)
-    expect(salon.text).not.toContain(`/${id}/start`)
+    expect(salon.text).toContain(`/${id}/start`)
     const mine = await request(app).get(`/admin/appointments/${id}?view=mine&localDate=2026-10-31&status=confirmed`)
       .set('Cookie', `sol_admin_token=${token}`).expect(200)
     expect(mine.text).toContain(`/${id}/start?view=mine`)

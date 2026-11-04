@@ -13,3 +13,6 @@ Thumbs.db
 
 apps/mobile/android/
 apps/mobile/ios/
+
+# Local audit reports, screenshots and temporary acceptance evidence
+/output/

@@ -1,3 +1,4 @@
+import { CategoryModel } from '../categories.model.js'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MongoMemoryReplSet } from 'mongodb-memory-server'
 import mongoose from 'mongoose'
@@ -44,6 +45,7 @@ beforeAll(async () => {
     binary: { version: '8.0.17' },
   })
   await connectToDatabase(replica.getUri('sol023_service_regression'))
+  await CategoryModel.init()
 
   server = app.listen(0, '127.0.0.1')
   await new Promise((resolve) => server.once('listening', resolve))
@@ -51,6 +53,7 @@ beforeAll(async () => {
 }, 180000)
 
 beforeEach(async () => {
+  await CategoryModel.deleteMany({})
   await ServiceModel.deleteMany({})
   await ImageModel.deleteMany({})
   await AccountModel.deleteMany({})
@@ -81,6 +84,72 @@ afterAll(async () => {
 })
 
 describe('SOL-023: Tích hợp dịch vụ và hồi quy danh mục (M2 Integration & Regression)', () => {
+  it('manages categories separately, validates dropdown selection and preserves existing services on archive', async () => {
+    const headers = { Authorization: `Bearer ${ownerToken}`, 'Content-Type': 'application/json' }
+    const command = async (path, method, payload) => {
+      const response = await fetch(`${baseUrl}/api${path}`, { method, headers, body: JSON.stringify(payload) })
+      return { status: response.status, body: await response.json() }
+    }
+    expect((await fetch(`${baseUrl}/api/service-categories`)).status).toBe(401)
+    const created = await command('/service-categories', 'POST', { name: '  Chăm sóc  ' })
+    expect(created.status).toBe(201)
+    const category = created.body.data
+    expect(category.name).toBe('Chăm sóc')
+    expect((await command('/service-categories', 'POST', { name: 'CHĂM SÓC' })).status).toBe(409)
+    const payload = { name: 'Gội tóc', categoryId: category.id, category: 'Tên giả', priceVnd: 100000, bookingDurationMinutes: 30, imageUrl: 'https://res.cloudinary.com/demo/image/upload/wash.jpg' }
+    const service = await command('/services', 'POST', payload)
+    expect(service.status).toBe(201)
+    expect(service.body.data.category).toBe('Chăm sóc')
+    expect((await command('/services', 'POST', { ...payload, categoryId: 'bad' })).status).toBe(400)
+    expect((await command('/services', 'POST', { ...payload, categoryId: null })).status).toBe(400)
+    expect((await command(`/service-categories/${category.id}`, 'PATCH', { name: 'Chăm sóc tóc' })).status).toBe(200)
+    expect((await ServiceModel.findOne({ id: service.body.data.id }).lean()).category).toBe('Chăm sóc tóc')
+    const page = await fetch(`${baseUrl}/admin/services`, { headers: { Cookie: `sol_admin_token=${ownerToken}` } })
+    const html = await page.text()
+    expect(page.status).toBe(200)
+    expect(html).toContain('name="categoryId"')
+    expect(html).toContain(`value="${category.id}"`)
+    expect(html).not.toContain('list="service-categories"')
+    expect((await command(`/service-categories/${category.id}`, 'PATCH', { isActive: false })).status).toBe(200)
+    expect((await command('/services', 'POST', payload)).status).toBe(400)
+    expect((await command(`/services/${service.body.data.id}`, 'PATCH', { categoryId: category.id, name: 'Gội tóc mới' })).status).toBe(200)
+    const categoryPage = await fetch(`${baseUrl}/admin/service-categories`, { headers: { Cookie: `sol_admin_token=${ownerToken}` } })
+    expect(categoryPage.status).toBe(200)
+    expect(await categoryPage.text()).toContain('Mở lại')
+    expect(await ServiceModel.countDocuments()).toBe(1)
+  })
+
+  it('creates short-form services with unique codes, appends order and accepts optional description', async () => {
+    const payload = { name: 'Cắt tóc', category: 'Tóc', priceVnd: 150000, bookingDurationMinutes: 45, imageUrl: 'https://res.cloudinary.com/demo/image/upload/cut.jpg', isActive: true }
+    await ServiceModel.create({ ...payload, id: 'old', slug: 'old', durationMinutes: { min: 45, max: 45 }, displayOrder: 20 })
+    const first = await webServicesApi.createService(baseUrl, ownerToken, payload)
+    const second = await webServicesApi.createService(baseUrl, ownerToken, payload)
+    expect(first.id).toMatch(/^cat-toc-[a-f0-9]{8}$/)
+    expect(second.id).not.toBe(first.id)
+    expect(first.slug).not.toBe(second.slug)
+    expect(first.description).toBe('')
+    expect(first.durationMinutes).toEqual({ min: 45, max: 45 })
+    expect(first.displayOrder).toBe(21)
+    expect(second.displayOrder).toBe(22)
+    expect(await ServiceModel.countDocuments()).toBe(3)
+  })
+
+  it('saves the short EJS form and updates duration and inactive state without advanced inputs', async () => {
+    const headers = { Cookie: `sol_admin_token=${ownerToken}`, 'Content-Type': 'application/x-www-form-urlencoded' }
+    const create = await fetch(`${baseUrl}/admin/services`, { method: 'POST', headers, redirect: 'manual', body: new URLSearchParams({ name: 'Gội đầu', category: 'Chăm sóc', priceVnd: '100000', bookingDurationMinutes: '30', imageUrl: 'https://res.cloudinary.com/demo/image/upload/wash.jpg', isActive: 'true', isActivePresent: 'true' }) })
+    expect(create.headers.get('location')).toBe('/admin/services?success=created')
+    const service = await ServiceModel.findOne({ name: 'Gội đầu' }).lean()
+    expect(service.durationMinutes).toEqual({ min: 30, max: 30 })
+    expect(service.displayOrder).toBe(0)
+    const update = await fetch(`${baseUrl}/admin/services/${service.id}/update`, { method: 'POST', headers, redirect: 'manual', body: new URLSearchParams({ name: 'Gội đầu mới', bookingDurationMinutes: '45', isActivePresent: 'true' }) })
+    expect(update.headers.get('location')).toBe('/admin/services?success=updated')
+    const changed = await ServiceModel.findOne({ id: service.id }).lean()
+    expect(changed.durationMinutes).toEqual({ min: 45, max: 45 })
+    expect(changed.bookingDurationMinutes).toBe(45)
+    expect(changed.isActive).toBe(false)
+    expect(changed.id).toBe(service.id)
+  })
+
   it('Quản lý dịch vụ phía chủ tiệm: thêm, sửa, ẩn dịch vụ và bảo toàn dữ liệu MongoDB', async () => {
     // 1. Chủ tiệm tạo dịch vụ mới qua API
     const newServicePayload = {
