@@ -1,0 +1,823 @@
+{
+  "scope": "actual temporary API/Mongo; fixture data only",
+  "generatedAt": "2026-11-06T04:11:24.446Z",
+  "appointments": {
+    "noShow": {
+      "id": "6aed4e05098b795937bb0232",
+      "staffId": "6aed4e05098b795937bb0226",
+      "items": [
+        {
+          "serviceId": "accept-cut",
+          "name": "SOL034 Cut",
+          "priceVnd": 100000,
+          "durationMinutes": 30
+        }
+      ],
+      "totalPriceVnd": 100000,
+      "totalDurationMinutes": 30,
+      "status": "no_show",
+      "revision": 1,
+      "startAt": "2026-11-06T03:28:21.815Z",
+      "endAt": "2026-11-06T03:58:21.815Z",
+      "audit": [
+        {
+          "id": "6aed50cf098b795937bb0256",
+          "appointmentId": "6aed4e05098b795937bb0232",
+          "actorId": "6aed4e05098b795937bb0219",
+          "revision": 1,
+          "kind": "no_show",
+          "occurredAt": "2026-11-06T04:00:15.126Z",
+          "before": {
+            "status": "confirmed",
+            "staffId": "6aed4e05098b795937bb0226",
+            "startAt": "2026-11-06T03:28:21.815Z",
+            "endAt": "2026-11-06T03:58:21.815Z",
+            "occupiedFrom": "2026-11-06T03:28:21.815Z",
+            "occupiedUntil": "2026-11-06T04:08:21.815Z"
+          },
+          "after": {
+            "status": "no_show",
+            "staffId": "6aed4e05098b795937bb0226",
+            "startAt": "2026-11-06T03:28:21.815Z",
+            "endAt": "2026-11-06T03:58:21.815Z",
+            "occupiedFrom": "2026-11-06T03:28:21.815Z",
+            "occupiedUntil": "2026-11-06T04:08:21.815Z"
+          }
+        },
+        {
+          "id": "6aed4e05098b795937bb0233",
+          "appointmentId": "6aed4e05098b795937bb0232",
+          "actorId": "6aed4e05098b795937bb0219",
+          "revision": 0,
+          "kind": "created",
+          "occurredAt": "2026-11-06T02:28:21.815Z",
+          "before": {},
+          "after": {
+            "status": "confirmed",
+            "staffId": "6aed4e05098b795937bb0226",
+            "startAt": "2026-11-06T03:28:21.815Z",
+            "endAt": "2026-11-06T03:58:21.815Z",
+            "occupiedFrom": "2026-11-06T03:28:21.815Z",
+            "occupiedUntil": "2026-11-06T04:08:21.815Z"
+          }
+        }
+      ]
+    },
+    "customerChange": {
+      "id": "6aed4e4e098b795937bb0234",
+      "staffId": "6aed4e05098b795937bb021c",
+      "items": [
+        {
+          "serviceId": "accept-cut",
+          "name": "SOL034 Cut",
+          "priceVnd": 100000,
+          "durationMinutes": 30
+        }
+      ],
+      "totalPriceVnd": 100000,
+      "totalDurationMinutes": 30,
+      "status": "confirmed",
+      "revision": 2,
+      "startAt": "2026-11-07T07:00:00.000Z",
+      "endAt": "2026-11-07T07:30:00.000Z",
+      "audit": [
+        {
+          "id": "6aed5266098b795937bb0265",
+          "appointmentId": "6aed4e4e098b795937bb0234",
+          "actorId": "6aed4e05098b795937bb0217",
+          "revision": 2,
+          "kind": "rescheduled",
+          "occurredAt": "2026-11-06T04:07:02.183Z",
+          "before": {
+            "status": "confirmed",
+            "staffId": "6aed4e05098b795937bb0226",
+            "startAt": "2026-11-06T18:00:00.000Z",
+            "endAt": "2026-11-06T18:30:00.000Z",
+            "occupiedFrom": "2026-11-06T18:00:00.000Z",
+            "occupiedUntil": "2026-11-06T18:40:00.000Z"
+          },
+          "after": {
+            "status": "confirmed",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-07T07:00:00.000Z",
+            "endAt": "2026-11-07T07:30:00.000Z",
+            "occupiedFrom": "2026-11-07T07:00:00.000Z",
+            "occupiedUntil": "2026-11-07T07:40:00.000Z"
+          }
+        },
+        {
+          "id": "6aed4eca098b795937bb0244",
+          "appointmentId": "6aed4e4e098b795937bb0234",
+          "actorId": "6aed4e05098b795937bb0217",
+          "revision": 1,
+          "kind": "rescheduled",
+          "occurredAt": "2026-11-06T03:51:38.171Z",
+          "before": {
+            "status": "confirmed",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-07T06:00:00.000Z",
+            "endAt": "2026-11-07T06:30:00.000Z",
+            "occupiedFrom": "2026-11-07T06:00:00.000Z",
+            "occupiedUntil": "2026-11-07T06:40:00.000Z"
+          },
+          "after": {
+            "status": "confirmed",
+            "staffId": "6aed4e05098b795937bb0226",
+            "startAt": "2026-11-06T18:00:00.000Z",
+            "endAt": "2026-11-06T18:30:00.000Z",
+            "occupiedFrom": "2026-11-06T18:00:00.000Z",
+            "occupiedUntil": "2026-11-06T18:40:00.000Z"
+          }
+        },
+        {
+          "id": "6aed4e4e098b795937bb0238",
+          "appointmentId": "6aed4e4e098b795937bb0234",
+          "actorId": "6aed4e05098b795937bb0217",
+          "revision": 0,
+          "kind": "created",
+          "occurredAt": "2026-11-06T03:49:34.077Z",
+          "before": {},
+          "after": {
+            "status": "confirmed",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-07T06:00:00.000Z",
+            "endAt": "2026-11-07T06:30:00.000Z",
+            "occupiedFrom": "2026-11-07T06:00:00.000Z",
+            "occupiedUntil": "2026-11-07T06:40:00.000Z"
+          }
+        }
+      ]
+    },
+    "customerCancel": {
+      "id": "6aed4e4e098b795937bb0239",
+      "staffId": "6aed4e05098b795937bb021c",
+      "items": [
+        {
+          "serviceId": "accept-cut",
+          "name": "SOL034 Cut",
+          "priceVnd": 100000,
+          "durationMinutes": 30
+        }
+      ],
+      "totalPriceVnd": 100000,
+      "totalDurationMinutes": 30,
+      "status": "cancelled",
+      "revision": 1,
+      "startAt": "2026-11-07T08:00:00.000Z",
+      "endAt": "2026-11-07T08:30:00.000Z",
+      "audit": [
+        {
+          "id": "6aed4e81098b795937bb0243",
+          "appointmentId": "6aed4e4e098b795937bb0239",
+          "actorId": "6aed4e05098b795937bb0217",
+          "revision": 1,
+          "kind": "cancelled",
+          "occurredAt": "2026-11-06T03:50:25.719Z",
+          "before": {
+            "status": "confirmed",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-07T08:00:00.000Z",
+            "endAt": "2026-11-07T08:30:00.000Z",
+            "occupiedFrom": "2026-11-07T08:00:00.000Z",
+            "occupiedUntil": "2026-11-07T08:40:00.000Z"
+          },
+          "after": {
+            "status": "cancelled",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-07T08:00:00.000Z",
+            "endAt": "2026-11-07T08:30:00.000Z",
+            "occupiedFrom": "2026-11-07T08:00:00.000Z",
+            "occupiedUntil": "2026-11-07T08:40:00.000Z"
+          }
+        },
+        {
+          "id": "6aed4e4e098b795937bb023d",
+          "appointmentId": "6aed4e4e098b795937bb0239",
+          "actorId": "6aed4e05098b795937bb0217",
+          "revision": 0,
+          "kind": "created",
+          "occurredAt": "2026-11-06T03:49:34.115Z",
+          "before": {},
+          "after": {
+            "status": "confirmed",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-07T08:00:00.000Z",
+            "endAt": "2026-11-07T08:30:00.000Z",
+            "occupiedFrom": "2026-11-07T08:00:00.000Z",
+            "occupiedUntil": "2026-11-07T08:40:00.000Z"
+          }
+        }
+      ]
+    },
+    "serving": {
+      "id": "6aed4e4e098b795937bb023e",
+      "staffId": "6aed4e05098b795937bb021c",
+      "items": [
+        {
+          "serviceId": "accept-cut",
+          "name": "SOL034 Cut",
+          "priceVnd": 100000,
+          "durationMinutes": 30
+        },
+        {
+          "serviceId": "accept-spa",
+          "name": "SOL034 Spa",
+          "priceVnd": 150000,
+          "durationMinutes": 45
+        }
+      ],
+      "totalPriceVnd": 250000,
+      "totalDurationMinutes": 75,
+      "status": "completed",
+      "revision": 9,
+      "startAt": "2026-11-06T03:49:34.142Z",
+      "endAt": "2026-11-06T05:04:34.142Z",
+      "startedAt": "2026-11-06T03:53:47.048Z",
+      "completedAt": "2026-11-06T04:07:33.135Z",
+      "audit": [
+        {
+          "id": "6aed5285098b795937bb0266",
+          "appointmentId": "6aed4e4e098b795937bb023e",
+          "actorId": "6aed4e05098b795937bb021a",
+          "revision": 9,
+          "kind": "completed",
+          "occurredAt": "2026-11-06T04:07:33.135Z",
+          "before": {
+            "status": "in_progress",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-06T03:49:34.142Z",
+            "endAt": "2026-11-06T05:04:34.142Z",
+            "occupiedFrom": "2026-11-06T03:49:34.142Z",
+            "occupiedUntil": "2026-11-06T05:14:34.142Z",
+            "startedAt": "2026-11-06T03:53:47.048Z"
+          },
+          "after": {
+            "status": "completed",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-06T03:49:34.142Z",
+            "endAt": "2026-11-06T05:04:34.142Z",
+            "occupiedFrom": "2026-11-06T03:53:47.048Z",
+            "occupiedUntil": "2026-11-06T04:17:33.135Z",
+            "startedAt": "2026-11-06T03:53:47.048Z",
+            "completedAt": "2026-11-06T04:07:33.135Z"
+          }
+        },
+        {
+          "id": "6aed51c8098b795937bb0264",
+          "appointmentId": "6aed4e4e098b795937bb023e",
+          "actorId": "6aed4e05098b795937bb021a",
+          "revision": 8,
+          "kind": "corrected",
+          "occurredAt": "2026-11-06T04:04:24.968Z",
+          "before": {
+            "status": "completed",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-06T03:49:34.142Z",
+            "endAt": "2026-11-06T05:04:34.142Z",
+            "occupiedFrom": "2026-11-06T03:53:47.048Z",
+            "occupiedUntil": "2026-11-06T04:13:21.016Z",
+            "startedAt": "2026-11-06T03:53:47.048Z",
+            "completedAt": "2026-11-06T04:03:21.016Z"
+          },
+          "after": {
+            "status": "in_progress",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-06T03:49:34.142Z",
+            "endAt": "2026-11-06T05:04:34.142Z",
+            "occupiedFrom": "2026-11-06T03:49:34.142Z",
+            "occupiedUntil": "2026-11-06T05:14:34.142Z",
+            "startedAt": "2026-11-06T03:53:47.048Z"
+          },
+          "reason": "SOL039 same intent after lost response"
+        },
+        {
+          "id": "6aed5189098b795937bb0263",
+          "appointmentId": "6aed4e4e098b795937bb023e",
+          "actorId": "6aed4e05098b795937bb021a",
+          "revision": 7,
+          "kind": "completed",
+          "occurredAt": "2026-11-06T04:03:21.016Z",
+          "before": {
+            "status": "in_progress",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-06T03:49:34.142Z",
+            "endAt": "2026-11-06T05:04:34.142Z",
+            "occupiedFrom": "2026-11-06T03:49:34.142Z",
+            "occupiedUntil": "2026-11-06T05:14:34.142Z",
+            "startedAt": "2026-11-06T03:53:47.048Z"
+          },
+          "after": {
+            "status": "completed",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-06T03:49:34.142Z",
+            "endAt": "2026-11-06T05:04:34.142Z",
+            "occupiedFrom": "2026-11-06T03:53:47.048Z",
+            "occupiedUntil": "2026-11-06T04:13:21.016Z",
+            "startedAt": "2026-11-06T03:53:47.048Z",
+            "completedAt": "2026-11-06T04:03:21.016Z"
+          }
+        },
+        {
+          "id": "6aed50c5098b795937bb0255",
+          "appointmentId": "6aed4e4e098b795937bb023e",
+          "actorId": "6aed4e05098b795937bb021a",
+          "revision": 6,
+          "kind": "corrected",
+          "occurredAt": "2026-11-06T04:00:05.566Z",
+          "before": {
+            "status": "completed",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-06T03:49:34.142Z",
+            "endAt": "2026-11-06T05:04:34.142Z",
+            "occupiedFrom": "2026-11-06T03:53:47.048Z",
+            "occupiedUntil": "2026-11-06T04:07:18.651Z",
+            "startedAt": "2026-11-06T03:53:47.048Z",
+            "completedAt": "2026-11-06T03:57:18.651Z"
+          },
+          "after": {
+            "status": "in_progress",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-06T03:49:34.142Z",
+            "endAt": "2026-11-06T05:04:34.142Z",
+            "occupiedFrom": "2026-11-06T03:49:34.142Z",
+            "occupiedUntil": "2026-11-06T05:14:34.142Z",
+            "startedAt": "2026-11-06T03:53:47.048Z"
+          },
+          "reason": "SOL039 correct after Owner resolution"
+        },
+        {
+          "id": "6aed501e098b795937bb024e",
+          "appointmentId": "6aed4e4e098b795937bb023e",
+          "actorId": "6aed4e05098b795937bb021a",
+          "revision": 5,
+          "kind": "completed",
+          "occurredAt": "2026-11-06T03:57:18.651Z",
+          "before": {
+            "status": "in_progress",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-06T03:49:34.142Z",
+            "endAt": "2026-11-06T05:04:34.142Z",
+            "occupiedFrom": "2026-11-06T03:49:34.142Z",
+            "occupiedUntil": "2026-11-06T05:30:00.000Z",
+            "startedAt": "2026-11-06T03:53:47.048Z",
+            "estimatedEndAt": "2026-11-06T05:20:00.000Z"
+          },
+          "after": {
+            "status": "completed",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-06T03:49:34.142Z",
+            "endAt": "2026-11-06T05:04:34.142Z",
+            "occupiedFrom": "2026-11-06T03:53:47.048Z",
+            "occupiedUntil": "2026-11-06T04:07:18.651Z",
+            "startedAt": "2026-11-06T03:53:47.048Z",
+            "completedAt": "2026-11-06T03:57:18.651Z"
+          }
+        },
+        {
+          "id": "6aed4ffb098b795937bb024d",
+          "appointmentId": "6aed4e4e098b795937bb023e",
+          "actorId": "6aed4e05098b795937bb021a",
+          "revision": 4,
+          "kind": "eta_updated",
+          "occurredAt": "2026-11-06T03:56:43.619Z",
+          "before": {
+            "status": "in_progress",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-06T03:49:34.142Z",
+            "endAt": "2026-11-06T05:04:34.142Z",
+            "occupiedFrom": "2026-11-06T03:49:34.142Z",
+            "occupiedUntil": "2026-11-06T05:14:34.142Z",
+            "startedAt": "2026-11-06T03:53:47.048Z"
+          },
+          "after": {
+            "status": "in_progress",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-06T03:49:34.142Z",
+            "endAt": "2026-11-06T05:04:34.142Z",
+            "occupiedFrom": "2026-11-06T03:49:34.142Z",
+            "occupiedUntil": "2026-11-06T05:30:00.000Z",
+            "startedAt": "2026-11-06T03:53:47.048Z",
+            "estimatedEndAt": "2026-11-06T05:20:00.000Z"
+          }
+        },
+        {
+          "id": "6aed4f4b098b795937bb0247",
+          "appointmentId": "6aed4e4e098b795937bb023e",
+          "actorId": "6aed4e05098b795937bb021a",
+          "revision": 3,
+          "kind": "started",
+          "occurredAt": "2026-11-06T03:53:47.048Z",
+          "before": {
+            "status": "confirmed",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-06T03:49:34.142Z",
+            "endAt": "2026-11-06T05:04:34.142Z",
+            "occupiedFrom": "2026-11-06T03:49:34.142Z",
+            "occupiedUntil": "2026-11-06T05:14:34.142Z"
+          },
+          "after": {
+            "status": "in_progress",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-06T03:49:34.142Z",
+            "endAt": "2026-11-06T05:04:34.142Z",
+            "occupiedFrom": "2026-11-06T03:49:34.142Z",
+            "occupiedUntil": "2026-11-06T05:14:34.142Z",
+            "startedAt": "2026-11-06T03:53:47.048Z"
+          }
+        },
+        {
+          "id": "6aed4f44098b795937bb0246",
+          "appointmentId": "6aed4e4e098b795937bb023e",
+          "actorId": "6aed4e05098b795937bb021a",
+          "revision": 2,
+          "kind": "corrected",
+          "occurredAt": "2026-11-06T03:53:40.774Z",
+          "before": {
+            "status": "in_progress",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-06T03:49:34.142Z",
+            "endAt": "2026-11-06T05:04:34.142Z",
+            "occupiedFrom": "2026-11-06T03:49:34.142Z",
+            "occupiedUntil": "2026-11-06T05:14:34.142Z",
+            "startedAt": "2026-11-06T03:53:06.600Z"
+          },
+          "after": {
+            "status": "confirmed",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-06T03:49:34.142Z",
+            "endAt": "2026-11-06T05:04:34.142Z",
+            "occupiedFrom": "2026-11-06T03:49:34.142Z",
+            "occupiedUntil": "2026-11-06T05:14:34.142Z"
+          },
+          "reason": "SOL039 correct accidental start"
+        },
+        {
+          "id": "6aed4f22098b795937bb0245",
+          "appointmentId": "6aed4e4e098b795937bb023e",
+          "actorId": "6aed4e05098b795937bb021a",
+          "revision": 1,
+          "kind": "started",
+          "occurredAt": "2026-11-06T03:53:06.600Z",
+          "before": {
+            "status": "confirmed",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-06T03:49:34.142Z",
+            "endAt": "2026-11-06T05:04:34.142Z",
+            "occupiedFrom": "2026-11-06T03:49:34.142Z",
+            "occupiedUntil": "2026-11-06T05:14:34.142Z"
+          },
+          "after": {
+            "status": "in_progress",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-06T03:49:34.142Z",
+            "endAt": "2026-11-06T05:04:34.142Z",
+            "occupiedFrom": "2026-11-06T03:49:34.142Z",
+            "occupiedUntil": "2026-11-06T05:14:34.142Z",
+            "startedAt": "2026-11-06T03:53:06.600Z"
+          }
+        },
+        {
+          "id": "6aed4e4e098b795937bb0242",
+          "appointmentId": "6aed4e4e098b795937bb023e",
+          "actorId": "6aed4e05098b795937bb0219",
+          "revision": 0,
+          "kind": "created",
+          "occurredAt": "2026-11-06T03:49:34.142Z",
+          "before": {},
+          "after": {
+            "status": "confirmed",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-06T03:49:34.142Z",
+            "endAt": "2026-11-06T05:04:34.142Z",
+            "occupiedFrom": "2026-11-06T03:49:34.142Z",
+            "occupiedUntil": "2026-11-06T05:14:34.142Z"
+          }
+        }
+      ]
+    },
+    "etaFollowing": {
+      "id": "6aed4fee098b795937bb0248",
+      "staffId": "6aed4e05098b795937bb021c",
+      "items": [
+        {
+          "serviceId": "accept-cut",
+          "name": "SOL034 Cut",
+          "priceVnd": 100000,
+          "durationMinutes": 30
+        }
+      ],
+      "totalPriceVnd": 100000,
+      "totalDurationMinutes": 30,
+      "status": "confirmed",
+      "revision": 0,
+      "startAt": "2026-11-06T05:15:00.000Z",
+      "endAt": "2026-11-06T05:45:00.000Z",
+      "audit": [
+        {
+          "id": "6aed4fee098b795937bb024c",
+          "appointmentId": "6aed4fee098b795937bb0248",
+          "actorId": "6aed4e05098b795937bb0219",
+          "revision": 0,
+          "kind": "created",
+          "occurredAt": "2026-11-06T03:56:30.738Z",
+          "before": {},
+          "after": {
+            "status": "confirmed",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-06T05:15:00.000Z",
+            "endAt": "2026-11-06T05:45:00.000Z",
+            "occupiedFrom": "2026-11-06T05:15:00.000Z",
+            "occupiedUntil": "2026-11-06T05:55:00.000Z"
+          }
+        }
+      ]
+    },
+    "conflicting": {
+      "id": "6aed5020098b795937bb024f",
+      "staffId": "6aed4e05098b795937bb021c",
+      "items": [
+        {
+          "serviceId": "accept-cut",
+          "name": "SOL034 Cut",
+          "priceVnd": 100000,
+          "durationMinutes": 30
+        }
+      ],
+      "totalPriceVnd": 100000,
+      "totalDurationMinutes": 30,
+      "status": "cancelled",
+      "revision": 1,
+      "startAt": "2026-11-06T04:15:00.000Z",
+      "endAt": "2026-11-06T04:45:00.000Z",
+      "audit": [
+        {
+          "id": "6aed5093098b795937bb0254",
+          "appointmentId": "6aed5020098b795937bb024f",
+          "actorId": "6aed4e05098b795937bb0219",
+          "revision": 1,
+          "kind": "cancelled",
+          "occurredAt": "2026-11-06T03:59:15.680Z",
+          "before": {
+            "status": "confirmed",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-06T04:15:00.000Z",
+            "endAt": "2026-11-06T04:45:00.000Z",
+            "occupiedFrom": "2026-11-06T04:15:00.000Z",
+            "occupiedUntil": "2026-11-06T04:55:00.000Z"
+          },
+          "after": {
+            "status": "cancelled",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-06T04:15:00.000Z",
+            "endAt": "2026-11-06T04:45:00.000Z",
+            "occupiedFrom": "2026-11-06T04:15:00.000Z",
+            "occupiedUntil": "2026-11-06T04:55:00.000Z"
+          },
+          "reason": "SOL039 Owner verified actual service and resolved schedule"
+        },
+        {
+          "id": "6aed5020098b795937bb0253",
+          "appointmentId": "6aed5020098b795937bb024f",
+          "actorId": "6aed4e05098b795937bb0219",
+          "revision": 0,
+          "kind": "created",
+          "occurredAt": "2026-11-06T03:57:20.513Z",
+          "before": {},
+          "after": {
+            "status": "confirmed",
+            "staffId": "6aed4e05098b795937bb021c",
+            "startAt": "2026-11-06T04:15:00.000Z",
+            "endAt": "2026-11-06T04:45:00.000Z",
+            "occupiedFrom": "2026-11-06T04:15:00.000Z",
+            "occupiedUntil": "2026-11-06T04:55:00.000Z"
+          }
+        }
+      ]
+    },
+    "ownerServing": {
+      "id": "6aed5103098b795937bb0257",
+      "staffId": "6aed4e05098b795937bb0226",
+      "items": [
+        {
+          "serviceId": "accept-cut",
+          "name": "SOL034 Cut",
+          "priceVnd": 100000,
+          "durationMinutes": 30
+        }
+      ],
+      "totalPriceVnd": 100000,
+      "totalDurationMinutes": 30,
+      "status": "completed",
+      "revision": 7,
+      "startAt": "2026-11-06T04:01:07.939Z",
+      "endAt": "2026-11-06T04:31:07.939Z",
+      "startedAt": "2026-11-06T04:01:11.595Z",
+      "completedAt": "2026-11-06T04:01:39.585Z",
+      "audit": [
+        {
+          "id": "6aed5123098b795937bb0262",
+          "appointmentId": "6aed5103098b795937bb0257",
+          "actorId": "6aed4e05098b795937bb0219",
+          "revision": 7,
+          "kind": "completed",
+          "occurredAt": "2026-11-06T04:01:39.585Z",
+          "before": {
+            "status": "in_progress",
+            "staffId": "6aed4e05098b795937bb0226",
+            "startAt": "2026-11-06T04:01:07.939Z",
+            "endAt": "2026-11-06T04:31:07.939Z",
+            "occupiedFrom": "2026-11-06T04:01:07.939Z",
+            "occupiedUntil": "2026-11-06T04:41:07.939Z",
+            "startedAt": "2026-11-06T04:01:11.595Z"
+          },
+          "after": {
+            "status": "completed",
+            "staffId": "6aed4e05098b795937bb0226",
+            "startAt": "2026-11-06T04:01:07.939Z",
+            "endAt": "2026-11-06T04:31:07.939Z",
+            "occupiedFrom": "2026-11-06T04:01:11.595Z",
+            "occupiedUntil": "2026-11-06T04:11:39.585Z",
+            "startedAt": "2026-11-06T04:01:11.595Z",
+            "completedAt": "2026-11-06T04:01:39.585Z"
+          }
+        },
+        {
+          "id": "6aed5122098b795937bb0261",
+          "appointmentId": "6aed5103098b795937bb0257",
+          "actorId": "6aed4e05098b795937bb0219",
+          "revision": 6,
+          "kind": "corrected",
+          "occurredAt": "2026-11-06T04:01:38.129Z",
+          "before": {
+            "status": "completed",
+            "staffId": "6aed4e05098b795937bb0226",
+            "startAt": "2026-11-06T04:01:07.939Z",
+            "endAt": "2026-11-06T04:31:07.939Z",
+            "occupiedFrom": "2026-11-06T04:01:11.595Z",
+            "occupiedUntil": "2026-11-06T04:11:36.646Z",
+            "startedAt": "2026-11-06T04:01:11.595Z",
+            "completedAt": "2026-11-06T04:01:36.646Z"
+          },
+          "after": {
+            "status": "in_progress",
+            "staffId": "6aed4e05098b795937bb0226",
+            "startAt": "2026-11-06T04:01:07.939Z",
+            "endAt": "2026-11-06T04:31:07.939Z",
+            "occupiedFrom": "2026-11-06T04:01:07.939Z",
+            "occupiedUntil": "2026-11-06T04:41:07.939Z",
+            "startedAt": "2026-11-06T04:01:11.595Z"
+          },
+          "reason": "SOL039 Owner verified actual service and resolved schedule"
+        },
+        {
+          "id": "6aed5120098b795937bb0260",
+          "appointmentId": "6aed5103098b795937bb0257",
+          "actorId": "6aed4e05098b795937bb0219",
+          "revision": 5,
+          "kind": "completed",
+          "occurredAt": "2026-11-06T04:01:36.646Z",
+          "before": {
+            "status": "in_progress",
+            "staffId": "6aed4e05098b795937bb0226",
+            "startAt": "2026-11-06T04:01:07.939Z",
+            "endAt": "2026-11-06T04:31:07.939Z",
+            "occupiedFrom": "2026-11-06T04:01:07.939Z",
+            "occupiedUntil": "2026-11-06T05:11:00.000Z",
+            "startedAt": "2026-11-06T04:01:11.595Z",
+            "estimatedEndAt": "2026-11-06T05:01:00.000Z"
+          },
+          "after": {
+            "status": "completed",
+            "staffId": "6aed4e05098b795937bb0226",
+            "startAt": "2026-11-06T04:01:07.939Z",
+            "endAt": "2026-11-06T04:31:07.939Z",
+            "occupiedFrom": "2026-11-06T04:01:11.595Z",
+            "occupiedUntil": "2026-11-06T04:11:36.646Z",
+            "startedAt": "2026-11-06T04:01:11.595Z",
+            "completedAt": "2026-11-06T04:01:36.646Z"
+          }
+        },
+        {
+          "id": "6aed511f098b795937bb025f",
+          "appointmentId": "6aed5103098b795937bb0257",
+          "actorId": "6aed4e05098b795937bb0219",
+          "revision": 4,
+          "kind": "eta_updated",
+          "occurredAt": "2026-11-06T04:01:35.134Z",
+          "before": {
+            "status": "in_progress",
+            "staffId": "6aed4e05098b795937bb0226",
+            "startAt": "2026-11-06T04:01:07.939Z",
+            "endAt": "2026-11-06T04:31:07.939Z",
+            "occupiedFrom": "2026-11-06T04:01:07.939Z",
+            "occupiedUntil": "2026-11-06T04:41:07.939Z",
+            "startedAt": "2026-11-06T04:01:11.595Z"
+          },
+          "after": {
+            "status": "in_progress",
+            "staffId": "6aed4e05098b795937bb0226",
+            "startAt": "2026-11-06T04:01:07.939Z",
+            "endAt": "2026-11-06T04:31:07.939Z",
+            "occupiedFrom": "2026-11-06T04:01:07.939Z",
+            "occupiedUntil": "2026-11-06T05:11:00.000Z",
+            "startedAt": "2026-11-06T04:01:11.595Z",
+            "estimatedEndAt": "2026-11-06T05:01:00.000Z"
+          }
+        },
+        {
+          "id": "6aed5107098b795937bb025e",
+          "appointmentId": "6aed5103098b795937bb0257",
+          "actorId": "6aed4e05098b795937bb0219",
+          "revision": 3,
+          "kind": "started",
+          "occurredAt": "2026-11-06T04:01:11.595Z",
+          "before": {
+            "status": "confirmed",
+            "staffId": "6aed4e05098b795937bb0226",
+            "startAt": "2026-11-06T04:01:07.939Z",
+            "endAt": "2026-11-06T04:31:07.939Z",
+            "occupiedFrom": "2026-11-06T04:01:07.939Z",
+            "occupiedUntil": "2026-11-06T04:41:07.939Z"
+          },
+          "after": {
+            "status": "in_progress",
+            "staffId": "6aed4e05098b795937bb0226",
+            "startAt": "2026-11-06T04:01:07.939Z",
+            "endAt": "2026-11-06T04:31:07.939Z",
+            "occupiedFrom": "2026-11-06T04:01:07.939Z",
+            "occupiedUntil": "2026-11-06T04:41:07.939Z",
+            "startedAt": "2026-11-06T04:01:11.595Z"
+          }
+        },
+        {
+          "id": "6aed5106098b795937bb025d",
+          "appointmentId": "6aed5103098b795937bb0257",
+          "actorId": "6aed4e05098b795937bb0219",
+          "revision": 2,
+          "kind": "corrected",
+          "occurredAt": "2026-11-06T04:01:10.180Z",
+          "before": {
+            "status": "in_progress",
+            "staffId": "6aed4e05098b795937bb0226",
+            "startAt": "2026-11-06T04:01:07.939Z",
+            "endAt": "2026-11-06T04:31:07.939Z",
+            "occupiedFrom": "2026-11-06T04:01:07.939Z",
+            "occupiedUntil": "2026-11-06T04:41:07.939Z",
+            "startedAt": "2026-11-06T04:01:08.832Z"
+          },
+          "after": {
+            "status": "confirmed",
+            "staffId": "6aed4e05098b795937bb0226",
+            "startAt": "2026-11-06T04:01:07.939Z",
+            "endAt": "2026-11-06T04:31:07.939Z",
+            "occupiedFrom": "2026-11-06T04:01:07.939Z",
+            "occupiedUntil": "2026-11-06T04:41:07.939Z"
+          },
+          "reason": "SOL039 Owner verified actual service and resolved schedule"
+        },
+        {
+          "id": "6aed5104098b795937bb025c",
+          "appointmentId": "6aed5103098b795937bb0257",
+          "actorId": "6aed4e05098b795937bb0219",
+          "revision": 1,
+          "kind": "started",
+          "occurredAt": "2026-11-06T04:01:08.832Z",
+          "before": {
+            "status": "confirmed",
+            "staffId": "6aed4e05098b795937bb0226",
+            "startAt": "2026-11-06T04:01:07.939Z",
+            "endAt": "2026-11-06T04:31:07.939Z",
+            "occupiedFrom": "2026-11-06T04:01:07.939Z",
+            "occupiedUntil": "2026-11-06T04:41:07.939Z"
+          },
+          "after": {
+            "status": "in_progress",
+            "staffId": "6aed4e05098b795937bb0226",
+            "startAt": "2026-11-06T04:01:07.939Z",
+            "endAt": "2026-11-06T04:31:07.939Z",
+            "occupiedFrom": "2026-11-06T04:01:07.939Z",
+            "occupiedUntil": "2026-11-06T04:41:07.939Z",
+            "startedAt": "2026-11-06T04:01:08.832Z"
+          }
+        },
+        {
+          "id": "6aed5103098b795937bb025b",
+          "appointmentId": "6aed5103098b795937bb0257",
+          "actorId": "6aed4e05098b795937bb0219",
+          "revision": 0,
+          "kind": "created",
+          "occurredAt": "2026-11-06T04:01:07.939Z",
+          "before": {},
+          "after": {
+            "status": "confirmed",
+            "staffId": "6aed4e05098b795937bb0226",
+            "startAt": "2026-11-06T04:01:07.939Z",
+            "endAt": "2026-11-06T04:31:07.939Z",
+            "occupiedFrom": "2026-11-06T04:01:07.939Z",
+            "occupiedUntil": "2026-11-06T04:41:07.939Z"
+          }
+        }
+      ]
+    }
+  }
+}

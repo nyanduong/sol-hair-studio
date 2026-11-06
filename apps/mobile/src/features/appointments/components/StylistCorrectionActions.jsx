@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, TextInput
 import { usePreventRemove } from '@react-navigation/native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { randomUUID } from 'expo-crypto'
+import { isCurrentAppointmentResult } from '../appointment-presentation.js'
 import { apiBaseUrl } from '../../../config/env.js'
 import { colors } from '../../../theme/tokens.js'
 import { getMe } from '../../auth/api/auth.api.js'
@@ -29,10 +30,11 @@ export default function StylistCorrectionActions({ token, accountId, appointment
   const starting = state.appointment?.status === 'in_progress'
   const title = starting ? 'Sửa bắt đầu nhầm' : 'Sửa hoàn tất nhầm'
   const editable = !locked && state.kind !== 'rejected'
+  const success = state.kind === 'success' && isCurrentAppointmentResult(state.result, appointment)
   const inputStyle = { borderWidth: 1, borderColor: colors.border, borderRadius: 12, minHeight: 48, padding: 12, color: colors.ink, backgroundColor: colors.surface }
   return <>
-    {!state.visible && (stylistCorrectionOperation(appointment) || state.kind === 'success') && <View style={styles.footer}>
-      {state.message ? <Text accessibilityRole="alert" style={styles.message}>{state.message}</Text> : null}
+    {!state.visible && (stylistCorrectionOperation(appointment) || success) && <View style={styles.footer}>
+      {success ? <Text accessibilityRole="alert" style={styles.message}>{state.message}</Text> : null}
       {stylistCorrectionOperation(appointment) && <StylistAction label="Sửa thao tác nhầm" onPress={() => command.open(appointment)} />}
     </View>}
     <Modal visible={state.visible} transparent animationType="fade" onRequestClose={command.close}>

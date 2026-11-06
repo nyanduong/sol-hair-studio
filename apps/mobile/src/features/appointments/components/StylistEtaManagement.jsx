@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressa
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { usePreventRemove } from '@react-navigation/native'
 import { randomUUID } from 'expo-crypto'
+import { isCurrentAppointmentResult } from '../appointment-presentation.js'
 import { apiBaseUrl } from '../../../config/env.js'
 import { colors } from '../../../theme/tokens.js'
 import { getMe } from '../../auth/api/auth.api.js'
@@ -61,7 +62,7 @@ export default function StylistEtaManagement({ token, accountId, appointmentId, 
   const text = state.appointment ? appointmentCardText(state.appointment) : null
   return <>
     {canUpdateStylistEta(appointment) && !state.visible && <View style={styles.footer}>
-      {state.kind === 'success' && <Text accessibilityRole="alert" style={styles.message}>{state.message}</Text>}
+      {state.kind === 'success' && isCurrentAppointmentResult(state.result, appointment) && <Text accessibilityRole="alert" style={styles.message}>{state.message}</Text>}
       {canUpdateStylistEta(appointment) && <StylistAction label="Cập nhật thời gian dự kiến" onPress={() => command.open(appointment)} />}
     </View>}
     <Modal visible={state.visible} transparent animationType="fade" onRequestClose={command.close}>

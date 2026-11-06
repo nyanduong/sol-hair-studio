@@ -54,7 +54,7 @@ export function createStylistEtaCommand({ accountId, appointmentId, readProfile,
     job = manager.run(payload, controller.signal).then(value => {
       if (current !== epoch) return
       busy = false
-      publish({ ...initial, kind: 'success', message: 'Đã cập nhật giờ dự kiến xong. Hãy kiểm tra cảnh báo ảnh hưởng bên dưới.' })
+      publish({ ...initial, kind: 'success', result: value, message: 'Đã cập nhật giờ dự kiến xong. Hãy kiểm tra cảnh báo ảnh hưởng bên dưới.' })
       onChanged(value)
       return value
     }, error => {

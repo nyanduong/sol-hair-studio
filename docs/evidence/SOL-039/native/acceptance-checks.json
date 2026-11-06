@@ -1,0 +1,32 @@
+{
+  "environment": "LDPlayer Android 9, Expo Go 58.0.5; Chrome; temporary API and MongoDB; no API mocks",
+  "nativeServingRevision": 9,
+  "nativeServingEvents": 10,
+  "ownerServingRevision": 7,
+  "ownerServingEvents": 8,
+  "manualRetry": {
+    "requests": 3,
+    "dropped": 2,
+    "sameKey": true,
+    "sameBody": true,
+    "duplicateEvents": 0
+  },
+  "permissionChecks": [
+    {
+      "role": "mobile",
+      "status": 404
+    },
+    {
+      "role": "mobile",
+      "status": 403
+    },
+    {
+      "role": "stylist2",
+      "status": 404
+    }
+  ],
+  "customerListOwnAppointments": 6,
+  "customerListForeignAppointments": 0,
+  "noShowReopened": false,
+  "otherBookingMovedByEta": false
+}
