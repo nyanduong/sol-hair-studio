@@ -88,7 +88,7 @@ export function createStylistServiceCommand({ accountId, appointmentId, readProf
       busy = false
       const message = intent.operation === 'start' ? 'Đã bắt đầu phục vụ theo xác nhận của server.'
         : 'Đã hoàn tất phục vụ. Stylist có 10 phút dọn dẹp; hoàn tất không đồng nghĩa đã thanh toán.'
-      publish({ ...initial, kind: 'success', message })
+      publish({ ...initial, kind: 'success', message, result: value })
       onChanged()
       return value
     }, error => {

@@ -27,7 +27,7 @@ export function createStylistCorrectionCommand({ accountId, appointmentId, readP
     job = manager.run(body, controller.signal).then(value => {
       if (epoch !== current) return
       busy = false
-      publish({ ...initial, kind: 'success', message: 'Đã sửa thao tác nhầm. Lịch sử cũ được giữ nguyên.' })
+      publish({ ...initial, kind: 'success', result: value, message: 'Đã sửa thao tác nhầm. Lịch sử cũ được giữ nguyên.' })
       onChanged()
       return value
     }, error => {

@@ -9,7 +9,7 @@ import { colors } from '../../../theme/tokens.js'
 import { getMe } from '../../auth/api/auth.api.js'
 import { fetchMyStaff } from '../../staff/api/staff.api.js'
 import { getStylistAppointment, sendStylistServiceCommand } from '../api/stylist-appointments.api.js'
-import { appointmentCardText } from '../appointment-presentation.js'
+import { appointmentCardText, isCurrentAppointmentResult } from '../appointment-presentation.js'
 import { createStylistServiceCommand, stylistServiceOperation } from '../hooks/stylist-service-command.js'
 import { StylistAction } from './StylistAppointmentView.jsx'
 import { styles } from '../styles/cancellation.styles.js'
@@ -29,12 +29,13 @@ export default function StylistServiceActions({ token, accountId, appointmentId,
   usePreventRemove(locked, () => Alert.alert('Thao tác phục vụ chưa được xác nhận',
     'Vui lòng chờ hoặc kiểm tra và thử lại cùng yêu cầu trước khi rời màn hình.'))
   const operation = stylistServiceOperation(appointment)
+  const success = state.kind === 'success' && isCurrentAppointmentResult(state.result, appointment)
   const starting = state.operation === 'start'
   const title = starting ? 'Bắt đầu phục vụ' : 'Hoàn tất phục vụ'
   const text = state.appointment ? appointmentCardText(state.appointment) : null
   return <>
-    {(operation || state.kind === 'success') && !state.visible && <View style={styles.footer}>
-      {state.kind === 'success' && <Text accessibilityRole="alert" style={styles.message}>{state.message}</Text>}
+    {(operation || success) && !state.visible && <View style={styles.footer}>
+      {success && <Text accessibilityRole="alert" style={styles.message}>{state.message}</Text>}
       {operation && <StylistAction label={operation === 'start' ? 'Bắt đầu phục vụ' : 'Hoàn tất phục vụ'}
         onPress={() => command.open(appointment, operation)} />}
     </View>}
