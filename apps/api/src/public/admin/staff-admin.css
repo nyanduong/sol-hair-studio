@@ -5,3 +5,9 @@
 .staff-page .days { max-width: 100%; }
 @media (max-width: 1024px) { .staff-page .workspace { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 760px) { .staff-page .intro h1 { font-size: 1.5rem; }.staff-page .days { grid-template-columns: repeat(7, 9rem); } }
+
+/* Keep primary and secondary form actions visually distinct. */
+.staff-page .form-actions { gap: .9rem; margin-top: 1.25rem; }
+
+/* Status is a select control, so match its visual affordance to text inputs. */
+.staff-page .field select { width: 100%; padding: .65rem; border: 1px solid #d7cbc3; border-radius: .7rem; background: #fff; color: inherit; font: inherit; }

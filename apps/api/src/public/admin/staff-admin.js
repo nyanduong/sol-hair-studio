@@ -10,7 +10,18 @@
   function today() { const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()); return `${p.find(x => x.type === 'year').value}-${p.find(x => x.type === 'month').value}-${p.find(x => x.type === 'day').value}` }
   const state = { token: page.dataset.apiToken, people: [], services: [], selected: null, shifts: [], creating: false, editing: false, profileDraft: null, shiftForm: null, working: false, loadingShifts: false, week: monday(today()) }
   const time = value => new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(value))
-  const message = (text, kind = 'error') => { const el = q('#feedback'); el.textContent = text; el.className = kind }
+  let feedbackTimer
+  const message = (text, kind = 'error') => {
+    const el = q('#feedback')
+    clearTimeout(feedbackTimer)
+    el.textContent = text
+    el.className = kind
+    if (kind === 'success') feedbackTimer = setTimeout(() => {
+      el.textContent = ''
+      el.className = ''
+      feedbackTimer = undefined
+    }, 4000)
+  }
   async function api(path, options = {}) { const r = await fetch(path, { ...options, headers: { ...(options.body && { 'Content-Type': 'application/json' }), ...(state.token && { Authorization: `Bearer ${state.token}` }) } }); const body = await r.json().catch(() => ({})); if (!r.ok) throw Object.assign(new Error(body.message || 'Không thể kết nối với hệ thống.'), { conflicts: body.conflicts }); return body.data }
   function renderForms(person) {
     const profile = q('#profile-form'); profile.hidden = !state.creating && !state.editing
