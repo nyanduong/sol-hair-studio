@@ -15,5 +15,6 @@ describe('điều hướng dưới theo vai trò', () => {
     ])
     expect(items[2]).toMatchObject({ route: 'StylistShifts', booking: true })
     expect(items[1]).toMatchObject({ route: 'StylistAppointments' })
+    expect(items[3]).toMatchObject({ route: 'StylistReports', kind: 'stylist-reports' })
   })
 })
