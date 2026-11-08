@@ -10,7 +10,7 @@ const stylistItems = [
   { route: 'Home', icon: 'home', label: 'Trang chủ' },
   { route: 'StylistAppointments', icon: 'calendar', label: 'Lịch hẹn', kind: 'stylist-appointments' },
   { route: 'StylistShifts', icon: 'clock', label: 'Ca làm của tôi', kind: 'stylist-shifts', booking: true },
-  { icon: 'bar-chart-2', label: 'Báo cáo', kind: 'unavailable', requiresAuth: true },
+  { route: 'StylistReports', icon: 'bar-chart-2', label: 'Báo cáo', kind: 'stylist-reports' },
   { route: 'Profile', icon: 'user', label: 'Tài khoản', kind: 'profile' },
 ]
 
