@@ -30,7 +30,7 @@ export default function BottomNav({ navigation, active }) {
       return
     }
 
-    if (item.kind === 'stylist-shifts' || item.kind === 'stylist-appointments' || item.kind === 'customer-appointments') {
+    if (item.kind === 'stylist-shifts' || item.kind === 'stylist-appointments' || item.kind === 'stylist-reports' || item.kind === 'customer-appointments') {
       if (requireLogin('Vui lòng đăng nhập để theo dõi lịch hẹn của bạn.', item.route)) return
       if (active !== item.route) navigation.navigate(item.route)
       return
