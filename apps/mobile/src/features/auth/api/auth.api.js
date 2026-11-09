@@ -158,10 +158,10 @@ export function getAuthErrorMessage(error) {
       return 'Phiên xác thực đã hết hạn hoặc không hợp lệ. Vui lòng thử lại từ đầu.'
     }
     if (error.code === 'INVALID_DISPLAY_NAME') {
-      return 'Tên hiển thị không được để trống và tối đa 120 ký tự.'
+      return error.message || 'Họ và tên phải từ 2 đến 50 ký tự và không được chứa chữ số.'
     }
     if (error.code === 'INVALID_PHONE') {
-      return 'Số điện thoại phải ở định dạng chuẩn quốc tế E.164 (ví dụ: +84901234567).'
+      return error.message || 'Số điện thoại phải gồm đúng 10 chữ số và bắt đầu bằng số 0 (ví dụ: 0901234567).'
     }
     if (error.code === 'RATE_LIMIT_EXCEEDED') {
       return 'Bạn đã thực hiện quá nhiều yêu cầu. Vui lòng thử lại sau ít phút.'

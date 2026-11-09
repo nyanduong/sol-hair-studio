@@ -55,18 +55,35 @@ function limited(input) {
 }
 
 function nameValue(name) {
-  if (typeof name !== 'string' || !name.trim() || name.trim().length > 120) {
-    fail('INVALID_DISPLAY_NAME', 'Tên hiển thị không được để trống và tối đa 120 ký tự.')
+  if (typeof name !== 'string' || !name.trim()) {
+    fail('INVALID_DISPLAY_NAME', 'Vui lòng nhập tên hiển thị (họ tên).')
   }
-  return name.trim()
+  const trimmed = name.trim()
+  if (/\d/.test(trimmed)) {
+    fail('INVALID_DISPLAY_NAME', 'Họ và tên không được chứa chữ số.')
+  }
+  if (trimmed.length < 2) {
+    fail('INVALID_DISPLAY_NAME', 'Họ và tên phải có ít nhất 2 ký tự.')
+  }
+  if (trimmed.length > 50) {
+    fail('INVALID_DISPLAY_NAME', 'Họ và tên không được vượt quá 50 ký tự.')
+  }
+  return trimmed
 }
 
 function phoneValue(phone) {
   if (phone === undefined) return undefined
-  if (typeof phone !== 'string' || !/^\+[1-9]\d{1,14}$/.test(phone.trim())) {
-    fail('INVALID_PHONE', 'Số điện thoại phải ở định dạng chuẩn E.164.')
+  if (typeof phone !== 'string' || !phone.trim()) {
+    fail('INVALID_PHONE', 'Vui lòng nhập số điện thoại.')
   }
-  return phone.trim()
+  const trimmed = phone.trim()
+  if (/[a-zA-Z]/.test(trimmed)) {
+    fail('INVALID_PHONE', 'Số điện thoại không được chứa chữ cái.')
+  }
+  if (!/^\+84\d{9}$/.test(trimmed)) {
+    fail('INVALID_PHONE', 'Số điện thoại phải gồm đúng 10 chữ số và bắt đầu bằng số 0 (ví dụ: 0901234567).')
+  }
+  return trimmed
 }
 
 function passwordValue(password) {
@@ -329,6 +346,12 @@ export async function updateMyProfile(identity, input) {
   await transaction(async (session) => {
     const account = await lockAccount({ _id: identity.accountId, roles: 'customer', status: 'active', authRevision: identity.authRevision }, session)
     if (!account) fail('UNAUTHORIZED', 'Tài khoản đã thay đổi; vui lòng đăng nhập lại.', 401)
+    if (!phone) {
+      const existing = await CustomerModel.findOne({ accountId: identity.accountId }).session(session).lean()
+      if (!existing?.phone) {
+        fail('INVALID_PHONE', 'Vui lòng nhập số điện thoại.')
+      }
+    }
     await CustomerModel.findOneAndUpdate(
       { accountId: identity.accountId },
       { $set: { displayName, ...(phone ? { phone } : {}) } },

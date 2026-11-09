@@ -16,7 +16,12 @@ import { colors } from '../../../theme/tokens.js'
 import { getAuthErrorMessage } from '../api/auth.api.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { authStyles } from '../styles/auth.styles.js'
-import { validateCustomerProfileForm } from '../validation/auth.validation.js'
+import {
+  DISPLAY_NAME_MAX_LENGTH,
+  PHONE_LENGTH,
+  formatPhoneForInput,
+  validateCustomerProfileForm,
+} from '../validation/auth.validation.js'
 
 function getRoleLabel(roles = []) {
   if (roles.includes('owner')) return 'Chủ tiệm'
@@ -29,6 +34,7 @@ export default function ProfileScreen({ navigation }) {
     account,
     customer,
     isAuthenticated,
+    isCustomer,
     isProfileComplete,
     logout,
     refreshProfile,
@@ -36,7 +42,7 @@ export default function ProfileScreen({ navigation }) {
   } = useAuth()
 
   const [displayName, setDisplayName] = useState(customer?.displayName || '')
-  const [phone, setPhone] = useState(customer?.phone || '')
+  const [phone, setPhone] = useState(formatPhoneForInput(customer?.phone))
   const [fieldErrors, setFieldErrors] = useState({})
   const [apiError, setApiError] = useState(null)
   const [successMessage, setSuccessMessage] = useState(null)
@@ -44,20 +50,26 @@ export default function ProfileScreen({ navigation }) {
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   const [prevCustomer, setPrevCustomer] = useState(customer)
-  if (customer !== prevCustomer) {
+  if (
+    customer !== prevCustomer &&
+    (customer?.displayName !== prevCustomer?.displayName ||
+      customer?.phone !== prevCustomer?.phone)
+  ) {
     setPrevCustomer(customer)
     setDisplayName(customer?.displayName || '')
-    setPhone(customer?.phone || '')
+    setPhone(formatPhoneForInput(customer?.phone))
   }
 
-  // Redirect to Login if unauthenticated
+  // Redirect to Login if unauthenticated, or sync latest customer profile on mount
   useEffect(() => {
     if (!isAuthenticated) {
       navigation.navigate('Login', {
         notice: 'Vui lòng đăng nhập để xem thông tin tài khoản.',
       })
+      return
     }
-  }, [isAuthenticated, navigation])
+    void refreshProfile().catch(() => {})
+  }, [isAuthenticated, navigation, refreshProfile])
 
   async function handleSaveProfile() {
     setApiError(null)
@@ -66,7 +78,7 @@ export default function ProfileScreen({ navigation }) {
     const validation = validateCustomerProfileForm({
       displayName,
       phone,
-      isPhoneRequired: false,
+      isPhoneRequired: true,
     })
 
     if (!validation.isValid) {
@@ -171,19 +183,19 @@ export default function ProfileScreen({ navigation }) {
             </View>
 
             {/* Booking Readiness Notice */}
-            {isProfileComplete ? (
+            {isCustomer && isProfileComplete ? (
               <View style={authStyles.successBox}>
                 <Text style={authStyles.successText}>
                   ✓ Hồ sơ đã sẵn sàng. Bạn có thể đặt lịch hẹn ngay bây giờ!
                 </Text>
               </View>
-            ) : (
+            ) : isCustomer ? (
               <View style={authStyles.noticeBox}>
                 <Text style={authStyles.noticeText}>
                   ⓘ Lưu ý: Vui lòng bổ sung đầy đủ Họ tên và Số điện thoại bên dưới trước khi đặt lịch hẹn.
                 </Text>
               </View>
-            )}
+            ) : null}
           </View>
 
           {/* Owner Dashboard Shortcut - ONLY visible to Owner role */}
@@ -227,85 +239,98 @@ export default function ProfileScreen({ navigation }) {
           ) : null}
 
           {/* Customer Profile Edit Card */}
-          <View style={authStyles.card}>
-            <Text style={[authStyles.title, { fontSize: 20, marginBottom: 16 }]}>
-              Hồ sơ khách hàng
-            </Text>
+          {isCustomer ? (
+            <View style={authStyles.card}>
+              <Text style={[authStyles.title, { fontSize: 20, marginBottom: 16 }]}>
+                Hồ sơ khách hàng
+              </Text>
 
-            {/* Display Name */}
-            <View style={authStyles.inputGroup}>
-              <Text style={authStyles.label}>Họ và tên</Text>
-              <View
+              {/* Display Name */}
+              <View style={authStyles.inputGroup}>
+                <Text style={authStyles.label}>Họ và tên</Text>
+                <View
+                  style={[
+                    authStyles.inputWrapper,
+                    fieldErrors.displayName && authStyles.inputWrapperError,
+                  ]}
+                >
+                  <TextInput
+                    value={displayName}
+                    onChangeText={(val) => {
+                      setDisplayName(val)
+                      if (fieldErrors.displayName) {
+                        setFieldErrors((prev) => ({ ...prev, displayName: null }))
+                      }
+                    }}
+                    placeholder="Ví dụ: Nguyễn Văn A"
+                    placeholderTextColor={colors.muted}
+                    maxLength={DISPLAY_NAME_MAX_LENGTH}
+                    editable={!isSubmitting}
+                    style={authStyles.input}
+                  />
+                </View>
+                {fieldErrors.displayName && (
+                  <Text style={authStyles.fieldError}>{fieldErrors.displayName}</Text>
+                )}
+              </View>
+
+              {/* Phone */}
+              <View style={authStyles.inputGroup}>
+                <Text style={authStyles.label}>Số điện thoại</Text>
+                <View
+                  style={[
+                    authStyles.inputWrapper,
+                    fieldErrors.phone && authStyles.inputWrapperError,
+                  ]}
+                >
+                  <TextInput
+                    value={phone}
+                    onChangeText={(val) => {
+                      setPhone(val)
+                      if (fieldErrors.phone) {
+                        setFieldErrors((prev) => ({ ...prev, phone: null }))
+                      }
+                    }}
+                    placeholder="Ví dụ: 0901234567"
+                    placeholderTextColor={colors.muted}
+                    keyboardType="phone-pad"
+                    maxLength={PHONE_LENGTH}
+                    editable={!isSubmitting}
+                    style={authStyles.input}
+                  />
+                </View>
+                {fieldErrors.phone && (
+                  <Text style={authStyles.fieldError}>{fieldErrors.phone}</Text>
+                )}
+              </View>
+
+              {/* Save Button */}
+              <Pressable
+                accessibilityRole="button"
+                onPress={handleSaveProfile}
+                disabled={isSubmitting}
                 style={[
-                  authStyles.inputWrapper,
-                  fieldErrors.displayName && authStyles.inputWrapperError,
+                  authStyles.primaryButton,
+                  isSubmitting && authStyles.primaryButtonDisabled,
                 ]}
               >
-                <TextInput
-                  value={displayName}
-                  onChangeText={(val) => {
-                    setDisplayName(val)
-                    if (fieldErrors.displayName) {
-                      setFieldErrors((prev) => ({ ...prev, displayName: null }))
-                    }
-                  }}
-                  placeholder="Ví dụ: Nguyễn Văn A"
-                  placeholderTextColor={colors.muted}
-                  editable={!isSubmitting}
-                  style={authStyles.input}
-                />
-              </View>
-              {fieldErrors.displayName && (
-                <Text style={authStyles.fieldError}>{fieldErrors.displayName}</Text>
-              )}
+                {isSubmitting ? (
+                  <ActivityIndicator color={colors.surface} />
+                ) : (
+                  <Text style={authStyles.primaryButtonText}>Lưu hồ sơ</Text>
+                )}
+              </Pressable>
             </View>
-
-            {/* Phone */}
-            <View style={authStyles.inputGroup}>
-              <Text style={authStyles.label}>Số điện thoại</Text>
-              <View
-                style={[
-                  authStyles.inputWrapper,
-                  fieldErrors.phone && authStyles.inputWrapperError,
-                ]}
-              >
-                <TextInput
-                  value={phone}
-                  onChangeText={(val) => {
-                    setPhone(val)
-                    if (fieldErrors.phone) {
-                      setFieldErrors((prev) => ({ ...prev, phone: null }))
-                    }
-                  }}
-                  placeholder="+84901234567 hoặc 0901234567"
-                  placeholderTextColor={colors.muted}
-                  keyboardType="phone-pad"
-                  editable={!isSubmitting}
-                  style={authStyles.input}
-                />
-              </View>
-              {fieldErrors.phone && (
-                <Text style={authStyles.fieldError}>{fieldErrors.phone}</Text>
-              )}
+          ) : (
+            <View style={authStyles.card}>
+              <Text style={[authStyles.title, { fontSize: 20, marginBottom: 8 }]}>
+                Hồ sơ nhân viên
+              </Text>
+              <Text style={authStyles.subtitle}>
+                Thông tin hồ sơ stylist và dịch vụ phụ trách được Chủ tiệm quản lý.
+              </Text>
             </View>
-
-            {/* Save Button */}
-            <Pressable
-              accessibilityRole="button"
-              onPress={handleSaveProfile}
-              disabled={isSubmitting}
-              style={[
-                authStyles.primaryButton,
-                isSubmitting && authStyles.primaryButtonDisabled,
-              ]}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color={colors.surface} />
-              ) : (
-                <Text style={authStyles.primaryButtonText}>Lưu hồ sơ</Text>
-              )}
-            </Pressable>
-          </View>
+          )}
 
           {/* Logout */}
           <Pressable

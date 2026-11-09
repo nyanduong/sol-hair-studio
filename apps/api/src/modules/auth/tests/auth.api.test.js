@@ -289,7 +289,18 @@ describe('SOL-017 API + real isolated MongoDB replica set', { timeout: 30000 }, 
   it('creates a real customer profile only when the active user supplies their name', async () => {
     const token = await activeCustomer()
     expect(await CustomerModel.countDocuments()).toBe(0)
-    for (const invalid of [{ displayName: '' }, { displayName: 'Khách', phone: null }, { displayName: 'Khách', phone: '0901234567' }]) {
+    for (const invalid of [
+      { displayName: '' },
+      { displayName: 'A', phone: '+84901234567' },
+      { displayName: 'A'.repeat(51), phone: '+84901234567' },
+      { displayName: 'Nguyễn 123', phone: '+84901234567' },
+      { displayName: 'Khách' },
+      { displayName: 'Khách', phone: '' },
+      { displayName: 'Khách', phone: null },
+      { displayName: 'Khách', phone: '0901234567' },
+      { displayName: 'Khách', phone: '+84901234abc' },
+      { displayName: 'Khách', phone: '+8412345' },
+    ]) {
       await request(app).patch('/api/auth/me').set('Authorization', bearer(token)).send(invalid).expect(400)
     }
     expect(await CustomerModel.countDocuments()).toBe(0)
