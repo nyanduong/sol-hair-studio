@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  DISPLAY_NAME_MAX_LENGTH,
+  DISPLAY_NAME_MIN_LENGTH,
+  formatPhoneForInput,
   validateConfirmPassword,
   validateCustomerProfileForm,
   validateDisplayName,
@@ -66,18 +69,52 @@ describe('validateOtpCode (mobile)', () => {
 })
 
 describe('validateDisplayName & validatePhone (mobile)', () => {
-  it('kiểm tra tên hiển thị bắt buộc', () => {
+  it('kiểm tra tên hiển thị: bắt buộc, từ 2 đến 50 ký tự và không chứa chữ số', () => {
+    expect(DISPLAY_NAME_MIN_LENGTH).toBe(2)
+    expect(DISPLAY_NAME_MAX_LENGTH).toBe(50)
+
     expect(validateDisplayName('').isValid).toBe(false)
+    expect(validateDisplayName('   ').isValid).toBe(false)
+
+    expect(validateDisplayName('456789').isValid).toBe(false)
+    expect(validateDisplayName('456789').message).toBe('Họ và tên không được chứa chữ số.')
+    expect(validateDisplayName('Nguyễn 123').isValid).toBe(false)
+
+    expect(validateDisplayName('A').isValid).toBe(false)
+    expect(validateDisplayName('A').message).toBe('Họ và tên phải có ít nhất 2 ký tự.')
+
+    expect(validateDisplayName('A'.repeat(51)).isValid).toBe(false)
+    expect(validateDisplayName('A'.repeat(51)).message).toBe('Họ và tên không được vượt quá 50 ký tự.')
+
+    expect(validateDisplayName('An').isValid).toBe(true)
     expect(validateDisplayName('Nguyễn Văn A').isValid).toBe(true)
     expect(validateDisplayName('  Trần Thị B  ').value).toBe('Trần Thị B')
   })
 
-  it('chấp nhận số điện thoại E.164 hoặc số 0 đầu tự động convert', () => {
-    expect(validatePhone('+84901234567').isValid).toBe(true)
+  it('yêu cầu số điện thoại không trống, không chứa chữ, đúng 10 số bắt đầu bằng 0 và convert sang E.164', () => {
+    expect(validatePhone('').isValid).toBe(false)
+    expect(validatePhone('   ').isValid).toBe(false)
+    expect(validatePhone('').message).toBe('Vui lòng nhập số điện thoại.')
+
+    expect(validatePhone('0901234abc').isValid).toBe(false)
+    expect(validatePhone('0901234abc').message).toBe('Số điện thoại không được chứa chữ cái.')
+
+    expect(validatePhone('0901234567').isValid).toBe(true)
     expect(validatePhone('0901234567').value).toBe('+84901234567')
+    expect(validatePhone('+84901234567').isValid).toBe(false)
     expect(validatePhone('12345').isValid).toBe(false)
+    expect(validatePhone('090123456').isValid).toBe(false)
+    expect(validatePhone('09012345678').isValid).toBe(false)
+    expect(validatePhone('1901234567').isValid).toBe(false)
     expect(validatePhone('', { isRequired: false }).isValid).toBe(true)
     expect(validatePhone('', { isRequired: true }).isValid).toBe(false)
+  })
+
+  it('formatPhoneForInput chuyển đổi số +84 về định dạng 0 đầu cho input', () => {
+    expect(formatPhoneForInput('+84901234567')).toBe('0901234567')
+    expect(formatPhoneForInput('0901234567')).toBe('0901234567')
+    expect(formatPhoneForInput('')).toBe('')
+    expect(formatPhoneForInput(undefined)).toBe('')
   })
 })
 
@@ -86,11 +123,32 @@ describe('validateCustomerProfileForm (mobile)', () => {
     const res = validateCustomerProfileForm({
       displayName: 'Nguyễn Khách',
       phone: '0912345678',
-      isPhoneRequired: true,
     })
     expect(res.isValid).toBe(true)
     expect(res.values.displayName).toBe('Nguyễn Khách')
     expect(res.values.phone).toBe('+84912345678')
+  })
+
+  it('chặn tên hoặc số điện thoại để trống mặc định', () => {
+    const res = validateCustomerProfileForm({
+      displayName: '',
+      phone: '',
+    })
+    expect(res.isValid).toBe(false)
+    expect(res.errors.displayName).toBe('Vui lòng nhập tên hiển thị (họ tên).')
+    expect(res.errors.phone).toBe('Vui lòng nhập số điện thoại.')
+  })
+
+  it('chặn tên chứa số và số điện thoại không hợp lệ', () => {
+    const res = validateCustomerProfileForm({
+      displayName: '456789',
+      phone: '12345',
+    })
+    expect(res.isValid).toBe(false)
+    expect(res.errors.displayName).toBe('Họ và tên không được chứa chữ số.')
+    expect(res.errors.phone).toBe(
+      'Số điện thoại phải gồm đúng 10 chữ số và bắt đầu bằng số 0 (ví dụ: 0901234567).'
+    )
   })
 })
 

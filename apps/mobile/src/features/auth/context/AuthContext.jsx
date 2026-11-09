@@ -50,9 +50,7 @@ export function AuthProvider({ children }) {
             if (!cancelled && data) {
               const resolvedAccount = data.account || data
               setAccount(resolvedAccount)
-              if (data.customer) {
-                setCustomer(data.customer)
-              }
+              setCustomer(data.customer || null)
               await setStoredSession({ token: savedToken, account: resolvedAccount })
             }
           } catch (err) {
@@ -88,13 +86,17 @@ export function AuthProvider({ children }) {
 
     setToken(authToken)
     setAccount(authAccount)
+    setCustomer(null)
     await setStoredSession({ token: authToken, account: authAccount })
 
     // Fetch full profile (e.g. linked customer details)
     try {
       const profile = await getMe(apiBaseUrl, authToken)
-      if (profile?.customer) {
-        setCustomer(profile.customer)
+      if (profile) {
+        const resolvedAccount = profile.account || profile
+        setAccount(resolvedAccount)
+        setCustomer(profile.customer || null)
+        await setStoredSession({ token: authToken, account: resolvedAccount })
       }
     } catch {
       // Profile fetch can fail safely without blocking login
@@ -115,6 +117,7 @@ export function AuthProvider({ children }) {
     if (data?.token && data?.account) {
       setToken(data.token)
       setAccount(data.account)
+      setCustomer(data.customer || null)
       await setStoredSession({ token: data.token, account: data.account })
       return data
     }
@@ -125,6 +128,7 @@ export function AuthProvider({ children }) {
         const loginData = await loginUser(apiBaseUrl, { email, password: savedPassword })
         setToken(loginData.token)
         setAccount(loginData.account)
+        setCustomer(null)
         await setStoredSession({ token: loginData.token, account: loginData.account })
         return loginData
       } catch {
@@ -174,9 +178,7 @@ export function AuthProvider({ children }) {
       const data = await getMe(apiBaseUrl, token)
       const resolved = data.account || data
       setAccount(resolved)
-      if (data.customer) {
-        setCustomer(data.customer)
-      }
+      setCustomer(data.customer || null)
       await setStoredSession({ token, account: resolved })
       return data
     } catch (err) {

@@ -16,7 +16,12 @@ import { colors } from '../../../theme/tokens.js'
 import { getAuthErrorMessage } from '../api/auth.api.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { authStyles } from '../styles/auth.styles.js'
-import { validateCustomerProfileForm } from '../validation/auth.validation.js'
+import {
+  DISPLAY_NAME_MAX_LENGTH,
+  PHONE_LENGTH,
+  formatPhoneForInput,
+  validateCustomerProfileForm,
+} from '../validation/auth.validation.js'
 
 function getRoleLabel(roles = []) {
   if (roles.includes('owner')) return 'Chủ tiệm'
@@ -36,7 +41,7 @@ export default function ProfileScreen({ navigation }) {
   } = useAuth()
 
   const [displayName, setDisplayName] = useState(customer?.displayName || '')
-  const [phone, setPhone] = useState(customer?.phone || '')
+  const [phone, setPhone] = useState(formatPhoneForInput(customer?.phone))
   const [fieldErrors, setFieldErrors] = useState({})
   const [apiError, setApiError] = useState(null)
   const [successMessage, setSuccessMessage] = useState(null)
@@ -44,20 +49,26 @@ export default function ProfileScreen({ navigation }) {
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   const [prevCustomer, setPrevCustomer] = useState(customer)
-  if (customer !== prevCustomer) {
+  if (
+    customer !== prevCustomer &&
+    (customer?.displayName !== prevCustomer?.displayName ||
+      customer?.phone !== prevCustomer?.phone)
+  ) {
     setPrevCustomer(customer)
     setDisplayName(customer?.displayName || '')
-    setPhone(customer?.phone || '')
+    setPhone(formatPhoneForInput(customer?.phone))
   }
 
-  // Redirect to Login if unauthenticated
+  // Redirect to Login if unauthenticated, or sync latest customer profile on mount
   useEffect(() => {
     if (!isAuthenticated) {
       navigation.navigate('Login', {
         notice: 'Vui lòng đăng nhập để xem thông tin tài khoản.',
       })
+      return
     }
-  }, [isAuthenticated, navigation])
+    void refreshProfile().catch(() => {})
+  }, [isAuthenticated, navigation, refreshProfile])
 
   async function handleSaveProfile() {
     setApiError(null)
@@ -66,7 +77,7 @@ export default function ProfileScreen({ navigation }) {
     const validation = validateCustomerProfileForm({
       displayName,
       phone,
-      isPhoneRequired: false,
+      isPhoneRequired: true,
     })
 
     if (!validation.isValid) {
@@ -251,6 +262,7 @@ export default function ProfileScreen({ navigation }) {
                   }}
                   placeholder="Ví dụ: Nguyễn Văn A"
                   placeholderTextColor={colors.muted}
+                  maxLength={DISPLAY_NAME_MAX_LENGTH}
                   editable={!isSubmitting}
                   style={authStyles.input}
                 />
@@ -277,9 +289,10 @@ export default function ProfileScreen({ navigation }) {
                       setFieldErrors((prev) => ({ ...prev, phone: null }))
                     }
                   }}
-                  placeholder="+84901234567 hoặc 0901234567"
+                  placeholder="Ví dụ: 0901234567"
                   placeholderTextColor={colors.muted}
                   keyboardType="phone-pad"
+                  maxLength={PHONE_LENGTH}
                   editable={!isSubmitting}
                   style={authStyles.input}
                 />

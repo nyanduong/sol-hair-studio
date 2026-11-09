@@ -1,12 +1,14 @@
 export const EMAIL_MAX_LENGTH = 254
 export const PASSWORD_MIN_LENGTH = 8
 export const PASSWORD_MAX_LENGTH = 128
-export const DISPLAY_NAME_MAX_LENGTH = 120
+export const DISPLAY_NAME_MIN_LENGTH = 2
+export const DISPLAY_NAME_MAX_LENGTH = 50
+export const PHONE_LENGTH = 10
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const OTP_REGEX = /^\d{6}$/
-// E.164 phone format: starts with +, followed by 1 to 15 digits (e.g., +84901234567)
-const E164_PHONE_REGEX = /^\+[1-9]\d{1,14}$/
+// Vietnamese local phone format: exactly 10 digits starting with 0
+const VIETNAM_PHONE_REGEX = /^0\d{9}$/
 
 export function validateEmail(email) {
   if (!email || typeof email !== 'string' || !email.trim()) {
@@ -72,14 +74,31 @@ export function validateDisplayName(displayName) {
   }
 
   const trimmed = displayName.trim()
+  if (/\d/.test(trimmed)) {
+    return { isValid: false, message: 'Họ và tên không được chứa chữ số.' }
+  }
+
+  if (trimmed.length < DISPLAY_NAME_MIN_LENGTH) {
+    return { isValid: false, message: `Họ và tên phải có ít nhất ${DISPLAY_NAME_MIN_LENGTH} ký tự.` }
+  }
+
   if (trimmed.length > DISPLAY_NAME_MAX_LENGTH) {
-    return { isValid: false, message: `Tên không được vượt quá ${DISPLAY_NAME_MAX_LENGTH} ký tự.` }
+    return { isValid: false, message: `Họ và tên không được vượt quá ${DISPLAY_NAME_MAX_LENGTH} ký tự.` }
   }
 
   return { isValid: true, value: trimmed }
 }
 
-export function validatePhone(phone, { isRequired = false } = {}) {
+export function formatPhoneForInput(phone) {
+  if (!phone || typeof phone !== 'string') return ''
+  const trimmed = phone.trim()
+  if (trimmed.startsWith('+84') && trimmed.length === 12) {
+    return '0' + trimmed.slice(3)
+  }
+  return trimmed
+}
+
+export function validatePhone(phone, { isRequired = true } = {}) {
   if (!phone || typeof phone !== 'string' || !phone.trim()) {
     if (isRequired) {
       return { isValid: false, message: 'Vui lòng nhập số điện thoại.' }
@@ -87,20 +106,22 @@ export function validatePhone(phone, { isRequired = false } = {}) {
     return { isValid: true, value: undefined }
   }
 
-  let formatted = phone.trim()
-  // Convenience: auto-convert 0xxxxxxxxx to +84xxxxxxxxx if entered locally
-  if (formatted.startsWith('0') && formatted.length === 10) {
-    formatted = '+84' + formatted.slice(1)
-  }
-
-  if (!E164_PHONE_REGEX.test(formatted)) {
+  const trimmed = phone.trim()
+  if (/[a-zA-Z]/.test(trimmed)) {
     return {
       isValid: false,
-      message: 'Số điện thoại phải ở định dạng chuẩn quốc tế E.164 (ví dụ: +84901234567 hoặc 0901234567).',
+      message: 'Số điện thoại không được chứa chữ cái.',
     }
   }
 
-  return { isValid: true, value: formatted }
+  if (!VIETNAM_PHONE_REGEX.test(trimmed)) {
+    return {
+      isValid: false,
+      message: 'Số điện thoại phải gồm đúng 10 chữ số và bắt đầu bằng số 0 (ví dụ: 0901234567).',
+    }
+  }
+
+  return { isValid: true, value: '+84' + trimmed.slice(1) }
 }
 
 export function validateLoginForm({ email, password }) {
@@ -142,7 +163,7 @@ export function validateRegisterForm({ email, password, confirmPassword }) {
   }
 }
 
-export function validateCustomerProfileForm({ displayName, phone, isPhoneRequired = false }) {
+export function validateCustomerProfileForm({ displayName, phone, isPhoneRequired = true }) {
   const nameRes = validateDisplayName(displayName)
   const phoneRes = validatePhone(phone, { isRequired: isPhoneRequired })
 
