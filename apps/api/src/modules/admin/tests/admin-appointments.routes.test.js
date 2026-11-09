@@ -105,7 +105,7 @@ describe('Owner EJS uses the shared Admin session', () => {
       .send({ token }).expect(303)
     const response = await browser.get('/admin/appointments?localDate=2026-10-31').expect(200)
     expect(response.headers['content-type']).toMatch(/text\/html/)
-    expect(listAppointments).toHaveBeenCalledWith(owner, { localDate: '2026-10-31' })
+    expect(listAppointments).toHaveBeenCalledWith(owner, { localDate: '2026-10-31', includeSummary: 'true' })
     expect(authenticate).toHaveBeenCalledWith(token)
   })
 
@@ -138,7 +138,7 @@ describe('Owner EJS uses the shared Admin session', () => {
     expect(listAppointments).toHaveBeenCalledWith(owner, { localDate: '2026-10-31' })
   })
 
-  it('renders the React-style card and escapes contact text', async () => {
+  it('renders the compact schedule table and escapes contact text', async () => {
     listAppointments.mockResolvedValue({ items: [appointment], pagination: { hasNextPage: false } })
     const response = await request(app).get('/admin/appointments?localDate=2026-10-31')
       .set('Cookie', `sol_admin_token=${token}`).expect(200)
@@ -146,14 +146,32 @@ describe('Owner EJS uses the shared Admin session', () => {
     expect(response.text).toContain('Lịch toàn salon')
     expect(response.text).toContain('&lt;Customer&gt;')
     expect(response.text).toContain('bg-emerald-50')
-    expect(response.text).toContain('lg:grid-cols-3')
+    expect(response.text).toContain('data-schedule-row=')
+    expect(response.text).toContain('data-schedule-detail')
+    expect(response.text).toContain('data-schedule-action="start"')
+    expect(response.text).not.toContain('data-schedule-detail href="/admin/appointments/' + id + '#start"')
+    expect(response.text).toContain('Chờ hoàn tất')
+  })
+
+  it('keeps a transferable heading for embedded detail and a visible heading for the standalone page', async () => {
+    getAppointmentDetail.mockResolvedValue({ ...appointment, referenceCode: 'SOL-TEST1234' })
+    const embedded = await request(app).get(`/admin/appointments/${id}?embedded=1`)
+      .set('Cookie', `sol_admin_token=${token}`).expect(200)
+    expect(embedded.text).toContain('data-appointment-heading hidden')
+    expect(embedded.text).toContain('LỊCH SALON / CHI TIẾT')
+    expect(embedded.text).toContain('Lịch hẹn SOL-TEST1234')
+    expect(embedded.text).toContain('Đã xác nhận')
+    const standalone = await request(app).get(`/admin/appointments/${id}`)
+      .set('Cookie', `sol_admin_token=${token}`).expect(200)
+    expect(standalone.text).toContain('data-appointment-heading ')
+    expect(standalone.text).not.toContain('data-appointment-heading hidden')
   })
 
   it('filters personal appointments by the authenticated account, ignoring a supplied Staff', async () => {
     listStaff.mockResolvedValue([personalStaff])
     await request(app).get('/admin/appointments?view=mine&localDate=2026-10-31&staffId=other')
       .set('Cookie', `sol_admin_token=${token}`).expect(200)
-    expect(listAppointments).toHaveBeenCalledWith(owner, { localDate: '2026-10-31', staffId })
+    expect(listAppointments).toHaveBeenCalledWith(owner, { localDate: '2026-10-31', staffId, includeSummary: 'true' })
   })
 
   it('does not fall back to salon appointments when Owner has no Staff profile', async () => {
@@ -163,11 +181,11 @@ describe('Owner EJS uses the shared Admin session', () => {
     expect(response.text).toContain('chưa có hồ sơ stylist')
   })
 
-  it('shows start only in the assigned personal workspace, preserving list filters', async () => {
+  it('shows owner start in salon and assigned personal workspaces, preserving list filters', async () => {
     listStaff.mockResolvedValue([personalStaff])
     const salon = await request(app).get(`/admin/appointments/${id}`)
       .set('Cookie', `sol_admin_token=${token}`).expect(200)
-    expect(salon.text).not.toContain(`/${id}/start`)
+    expect(salon.text).toContain(`/${id}/start`)
     const mine = await request(app).get(`/admin/appointments/${id}?view=mine&localDate=2026-10-31&status=confirmed`)
       .set('Cookie', `sol_admin_token=${token}`).expect(200)
     expect(mine.text).toContain(`/${id}/start?view=mine`)
@@ -204,8 +222,12 @@ describe('Owner EJS uses the shared Admin session', () => {
     getAppointmentRescheduleOptions.mockResolvedValue({ revision: 0, stylists: [] })
     getAppointmentAudit.mockResolvedValue({ items: [], pagination: { hasNextPage: false } })
     const context = '?view=mine&localDate=2026-10-31&status=confirmed'
-    await request(app).get(`/admin/appointments/${id}/reschedule${context}`)
+    const optionsPage = await request(app).get(`/admin/appointments/${id}/reschedule${context}`)
       .set('Cookie', `sol_admin_token=${token}`).expect(200)
+    expect(optionsPage.text).not.toContain('Mã lịch đang thao tác:')
+    expect(optionsPage.text).not.toContain('Chỉ đổi giờ hoặc Stylist của lịch này;')
+    expect(optionsPage.text).toContain('Lịch đang đổi')
+    expect(optionsPage.text).toContain('&lt;Customer&gt;')
     expect(getAppointmentRescheduleOptions).toHaveBeenCalledWith(owner, id, { localDate: '2026-10-31' })
     await request(app).get(`/admin/appointments/${id}/audit${context}`)
       .set('Cookie', `sol_admin_token=${token}`).expect(200)

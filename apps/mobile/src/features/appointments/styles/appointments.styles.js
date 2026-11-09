@@ -312,6 +312,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
+    marginHorizontal: 20,
   },
   buttonText: { color: colors.surface, fontWeight: '600', fontSize: 14 },
   footer: { paddingVertical: 12 },

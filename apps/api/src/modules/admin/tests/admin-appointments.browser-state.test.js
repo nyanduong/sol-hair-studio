@@ -59,7 +59,37 @@ describe('EJS appointment dialog request state', () => {
     expect(page.fetch.mock.calls[1][0].pathname).toBe(`/admin/appointments/${id}/reschedule`)
     expect(page.fetch.mock.calls[1][1].body).toBe(body)
     expect(page.state.pending).toBe(false)
-    expect(page.window.location.assign).toHaveBeenCalledWith(page.window.location.href)
+    expect(new URL(page.window.location.assign.mock.calls[0][0]).searchParams.has('updated')).toBe(true)
+    expect(new URL(page.window.location.assign.mock.calls[0][0]).hash).toBe('')
+  })
+
+  it('opens QR after a successful completion, keeping embedded detail and current filters', async () => {
+    const page = setup()
+    page.window.location.href += '&embedded=1#complete'
+    page.fetch.mockResolvedValueOnce(page.response('success'))
+    await page.request(`/admin/appointments/${id}/complete`, 'POST', 'expectedRevision=2&commandKey=complete-key')
+    const target = new URL(page.window.location.assign.mock.calls[0][0])
+    expect(target.pathname).toBe(`/admin/appointments/${id}`)
+    expect(target.searchParams.get('collect')).toBe('1')
+    expect(target.searchParams.get('embedded')).toBe('1')
+    expect(target.searchParams.get('localDate')).toBe('2026-10-31')
+    expect(target.hash).toBe('#payment')
+  })
+
+  it('does not open QR when completion failed or its outcome is still unknown, then opens after a successful retry', async () => {
+    const page = setup()
+    page.fetch.mockResolvedValueOnce(page.response('pending'))
+    const body = 'expectedRevision=2&commandKey=complete-key'
+    await page.request(`/admin/appointments/${id}/complete`, 'POST', body)
+    expect(page.window.location.assign).not.toHaveBeenCalled()
+    page.fetch.mockResolvedValueOnce(page.response('success'))
+    await page.request(`/admin/appointments/${id}/cancel`, 'POST', 'different')
+    expect(page.fetch.mock.calls[1][1].body).toBe(body)
+    expect(new URL(page.window.location.assign.mock.calls[0][0]).hash).toBe('#payment')
+    const failed = setup()
+    failed.fetch.mockResolvedValueOnce(failed.response('error'))
+    await failed.request(`/admin/appointments/${id}/complete`, 'POST', body)
+    expect(failed.window.location.assign).not.toHaveBeenCalled()
   })
 
   it('blocks loading new slot options while a command result is pending', async () => {

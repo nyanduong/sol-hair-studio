@@ -716,3 +716,16 @@ describe('SOL-025 M3 Staff profiles, capabilities, shifts & appointment protecti
     expect(notFoundShift.body.code).toBe('SHIFT_NOT_FOUND')
   })
 })
+
+
+describe('Owner service profile', () => {
+  it('links only the current owner login, preserves roles and rejects duplicates', async () => {
+    const { account, token } = await createOwnerActor('self-profile@example.test')
+    const input = { email: 'self-profile@example.test', displayName: 'Owner stylist', serviceIds: [] }
+    const response = await request(app).post('/api/staff').set('Authorization', `Bearer ${token}`).send(input).expect(201)
+    expect(response.body.data.accountId).toBe(String(account._id))
+    expect((await AccountModel.findById(account._id).lean()).roles).toEqual(['owner'])
+    await request(app).post('/api/staff').set('Authorization', `Bearer ${token}`).send(input).expect(409)
+    expect(await StaffModel.countDocuments({ accountId: account._id })).toBe(1)
+  })
+})

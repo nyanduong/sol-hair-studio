@@ -1,0 +1,24 @@
+<%- include('../layout-header', { title, identity: locals.identity, activeTab: 'appointments' }) %>
+<% const field = 'mt-2 block min-h-11 w-full rounded-xl border border-border bg-white px-3 py-2 text-sm'; const button = 'min-h-11 rounded-xl border border-border px-4 py-2 text-sm font-semibold'; %>
+<section data-owner-booking data-api-token="<%= apiToken %>">
+  <a href="/admin/appointments" class="text-sm text-terracotta">← Lịch salon</a>
+  <header class="my-6"><p class="text-xs tracking-widest text-muted">VẬN HÀNH / ĐẶT LỊCH</p><h1 class="mt-2 text-3xl font-bold">Đặt lịch cho khách</h1><p class="mt-2 text-sm text-muted">Chọn khách, dịch vụ và stylist. Xác nhận sau khi đã thống nhất với khách.</p></header>
+  <form id="owner-booking-form" class="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+    <fieldset id="booking-fields" class="min-w-0 space-y-5">
+      <section class="rounded-2xl border border-border bg-white p-6"><h2 class="text-lg font-bold">1. Khách hàng</h2>
+        <div class="mt-4 flex gap-5"><label><input type="radio" name="customerMode" value="existing" checked> Khách đã có hồ sơ</label><label><input type="radio" name="customerMode" value="guest"> Khách vãng lai</label></div>
+        <div id="existing-customer" class="mt-4"><label class="text-sm font-semibold">Số điện thoại<input id="customer-phone" type="tel" class="<%= field %>" placeholder="0901234567"></label><button type="button" id="find-customer" class="<%= button %> mt-3">Tìm khách</button><div id="customer-results" role="status" class="mt-3 space-y-2"></div></div>
+        <div id="guest-customer" hidden class="mt-4 grid gap-4 sm:grid-cols-2"><label class="text-sm font-semibold">Tên khách<input name="guestName" maxlength="120" class="<%= field %>"></label><label class="text-sm font-semibold">Số điện thoại<input name="guestPhone" type="tel" class="<%= field %>" placeholder="0901234567"></label><p class="text-xs text-muted sm:col-span-2">Tạo hồ sơ riêng cho lần đặt này; không tự gộp hồ sơ trùng số điện thoại.</p></div>
+      </section>
+      <section class="rounded-2xl border border-border bg-white p-6"><h2 class="text-lg font-bold">2. Dịch vụ</h2><p class="mt-2 text-sm text-muted">Chọn tối đa 5 dịch vụ có thời lượng đặt lịch.</p><div id="booking-services" class="mt-4 grid gap-3 sm:grid-cols-2" role="status">Đang tải dịch vụ…</div></section>
+      <section class="rounded-2xl border border-border bg-white p-6"><h2 class="text-lg font-bold">3. Thời gian &amp; stylist</h2>
+        <div class="mt-4 flex flex-wrap gap-5"><label><input type="radio" name="bookingMode" value="owner_scheduled" checked> Hẹn giờ trước</label><label><input type="radio" name="bookingMode" value="owner_walkin">Khách đến ngay</label></div>
+        <label id="booking-date-label" class="mt-4 block text-sm font-semibold">Ngày hẹn · giờ Việt Nam<input id="booking-date" type="date" class="<%= field %>"></label>
+        <button type="button" id="find-slots" class="<%= button %> mt-4">Tìm stylist &amp; giờ trống</button><div id="booking-slots" class="mt-4 space-y-4" role="status"></div>
+      </section>
+    </fieldset>
+    <aside class="sticky top-6 rounded-2xl border border-border bg-white p-6"><h2 class="text-lg font-bold">Kiểm tra lịch hẹn</h2><div id="booking-summary" class="my-5 space-y-3 text-sm text-muted">Chọn khách và dịch vụ để bắt đầu.</div><p id="booking-feedback" role="status" class="my-4 text-sm text-terracotta"></p><label class="flex gap-2 text-sm"><input id="booking-agreed" type="checkbox" required> Tôi đã thống nhất dịch vụ và giờ hẹn với khách.</label><button id="create-booking" type="submit" class="mt-5 min-h-11 w-full rounded-xl bg-terracotta px-5 py-3 font-semibold text-white disabled:opacity-50" disabled>Xác nhận đặt lịch</button><p class="mt-3 text-xs text-muted">Giờ trống chỉ được giữ khi đặt thành công.</p><a id="booking-result" hidden class="mt-4 block text-terracotta underline">Xem chi tiết lịch hẹn →</a></aside>
+  </form>
+</section>
+<script src="/admin-assets/js/admin-booking.js" defer></script>
+<%- include('../layout-footer') %>

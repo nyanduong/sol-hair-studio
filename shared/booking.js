@@ -34,6 +34,7 @@ export function bookingPayload({
   owner,
   customerId,
   guestCustomer,
+  note,
 }) {
   if (
     !Array.isArray(serviceIds) ||
@@ -54,6 +55,7 @@ export function bookingPayload({
     serviceIds: [...serviceIds],
     staffId,
     bookingMode,
+    ...(typeof note === 'string' && note.trim() ? { note: note.trim() } : {}),
     // Walk-in time is assigned by the server when writing, never replay the preview timestamp.
     ...(bookingMode === 'owner_walkin' ? {} : { startAt }),
     ...(owner ? (customerId ? { customerId } : { guestCustomer }) : {}),

@@ -81,7 +81,7 @@ export function findCustomerAppointments(customerId, {limit =20, cursor} = {}) {
 
     applyAppointmentCursor(filter, cursor, -1)
 
-    return findAppointmentPage(filter, limit, -1, { ...APPOINTMENT_LIST_FIELDS }, 50)
+    return findAppointmentPage(filter, limit, -1, { ...APPOINTMENT_LIST_FIELDS, 'payment.receivedAt': 1 }, 50)
 }
 
 // Đọc danh sách lịch theo hồ sơ khách.
@@ -114,7 +114,7 @@ export function findStylistAppointments( staffId, { localDate, limit = 50, curso
 }
 
 // Đọc lịch toàn tiệm theo ngày, Stylist và trạng thái.
-export function findOwnerAppointments({ localDate, staffId, status, q, limit = 50, cursor} = {}) {
+function ownerAppointmentFilter({ localDate, staffId, status, q, paymentStatus } = {}) {
     if (localDate !== undefined) assertLocalDate(localDate)
     if (localDate === undefined && !q) throw new TypeError('A date or search term is required')
     const filter = localDate === undefined ? {} : { localDate }
@@ -145,9 +145,44 @@ export function findOwnerAppointments({ localDate, staffId, status, q, limit = 5
         }
         filter.status = status
     }
-    applyAppointmentCursor(filter, cursor, 1)
+    if (paymentStatus !== undefined) {
+        if (!['paid', 'unpaid'].includes(paymentStatus)) throw new TypeError('Invalid payment status')
+        filter['payment.receivedAt'] = { $exists: paymentStatus === 'paid' }
+        if (paymentStatus === 'unpaid') {
+            // A balance is collectible only after service completion.
+            filter.$and = [...(filter.$and || []), { status: 'completed' }]
+        }
+    }
+    return filter
+}
 
-    return findAppointmentPage(filter, limit, 1, { ...APPOINTMENT_LIST_FIELDS, ...APPOINTMENT_CONTACT_FIELDS, customerId: 1 }, 100)
+export function findOwnerAppointments({ limit = 50, cursor, ...options } = {}) {
+    const filter = ownerAppointmentFilter(options)
+    applyAppointmentCursor(filter, cursor, 1)
+    return findAppointmentPage(filter, limit, 1, {
+        ...APPOINTMENT_LIST_FIELDS, ...APPOINTMENT_CONTACT_FIELDS, customerId: 1,
+        'payment.receivedAt': 1, estimatedEndAt: 1,
+    }, 100)
+}
+
+// Counts ignore status and cursor, but retain the selected day, search, stylist and payment filter.
+export async function countOwnerAppointments({ localDate, staffId, q, paymentStatus }) {
+    const filter = ownerAppointmentFilter({ localDate, staffId, q, paymentStatus })
+    if (filter.staffId) filter.staffId = new mongoose.Types.ObjectId(filter.staffId)
+    const groups = await AppointmentModel.aggregate([
+        { $match: filter },
+        { $group: { _id: '$status', count: { $sum: 1 }, unpaid: { $sum: {
+            $cond: [{ $and: [{ $eq: ['$status', 'completed'] }, { $eq: [{ $ifNull: ['$payment.receivedAt', null] }, null] }] }, 1, 0],
+        } } } },
+    ])
+    const counts = Object.fromEntries(APPOINTMENT_STATUSES.map(status => [status, 0]))
+    let total = 0, unpaid = 0
+    for (const group of groups) {
+        counts[group._id] = group.count
+        total += group.count
+        unpaid += group.unpaid
+    }
+    return { total, unpaid, statuses: counts }
 }
 
 // Đọc chi tiết lịch trong phạm vi được phép của từng vai trò.

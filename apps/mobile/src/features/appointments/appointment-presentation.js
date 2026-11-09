@@ -1,3 +1,10 @@
+// A prior successful command is not the current state after another command/correction.
+export function isCurrentAppointmentResult(result, appointment) {
+  return Boolean(result && appointment && result.id === appointment.id &&
+    Number.isSafeInteger(result.revision) && result.revision === appointment.revision &&
+    result.status === appointment.status)
+}
+
 // Cùng thứ tự ưu tiên role của API: Owner > Stylist > Customer.
 export function isAppointmentOwner(account) {
   return account?.status === 'active' && Array.isArray(account.roles) && account.roles.includes('owner')

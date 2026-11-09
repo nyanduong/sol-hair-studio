@@ -69,7 +69,7 @@ export default function BookingServicePicker({ services, selectedIds, onChange, 
           {visible.length}
           {query || category ? ` / ${services.length}` : ''} dịch vụ
         </span>
-        <div className="flex w-full flex-wrap gap-2 sm:contents">
+        <div className="hidden">
           {selected.map((service) => (
             <button
               key={service.id}

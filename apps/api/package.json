@@ -11,6 +11,7 @@
     "test": "vitest run --no-file-parallelism",
     "test:watch": "vitest",
     "test:booking:integration": "vitest run --no-file-parallelism src/modules/appointments/tests/booking.integration.test.js",
+    "test:appointments:integration": "vitest run --no-file-parallelism src/modules/appointments/tests/appointments-lifecycle.integration.test.js",
     "acceptance:booking": "node scripts/booking-acceptance.js",
     "build": "node scripts/check-source.js"
   },

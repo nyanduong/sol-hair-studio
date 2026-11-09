@@ -6,6 +6,7 @@ import { createInterface } from 'node:readline'
 import { parseArgs } from 'node:util'
 import { MongoMemoryReplSet } from 'mongodb-memory-server'
 import { seedAcceptanceData } from './booking-acceptance/fixtures.js'
+import { seedLifecycleAcceptanceData } from './booking-acceptance/lifecycle-fixtures.js'
 import { startAcceptanceProxy } from './booking-acceptance/proxy.js'
 import { connectToDatabase, disconnectFromDatabase } from '../src/config/database.js'
 import { prepareBookingStorage } from '../src/modules/appointments/booking.repository.js'
@@ -19,7 +20,7 @@ import { AppointmentEventModel } from '../src/modules/appointments/appointment-e
 import { BookingRequestModel } from '../src/modules/appointments/booking-requests.model.js'
 
 const { values } = parseArgs({
-  options: { port: { type: 'string', default: '4012' }, 'evidence-dir': { type: 'string' } },
+  options: { port: { type: 'string', default: '4012' }, 'evidence-dir': { type: 'string' }, lifecycle: { type: 'boolean', default: false } },
 })
 const port = Number(values.port)
 if (!Number.isInteger(port) || port < 1024 || port > 65535)
@@ -59,17 +60,31 @@ async function audit() {
       endAt: a.endAt,
       confirmedAt: a.confirmedAt,
       occupiedUntil: a.occupiedUntil,
+      revision: a.revision,
+      startedAt: a.startedAt,
+      completedAt: a.completedAt,
+      estimatedEndAt: a.estimatedEndAt,
       items: a.items,
       totalPriceVnd: a.totalPriceVnd,
       totalDurationMinutes: a.totalDurationMinutes,
     })),
     events: await AppointmentEventModel.countDocuments(),
+    appointmentEvents: (await AppointmentEventModel.find().sort({ appointmentId: 1, revision: 1 }).lean()).map(event => ({
+      appointmentId: String(event.appointmentId), actorId: String(event.actorId),
+      kind: event.kind, revision: event.revision, occurredAt: event.occurredAt,
+      before: event.before, after: event.after,
+      ...(event.reason ? { reason: event.reason } : {}),
+    })),
     receipts: await BookingRequestModel.countDocuments(),
   }
   await writeFile(path.join(evidence, 'db-audit.json'), JSON.stringify(data, null, 2) + '\n')
   await writeFile(
     path.join(evidence, 'transport.json'),
     JSON.stringify(proxy?.records ?? [], null, 2) + '\n',
+  )
+  await writeFile(
+    path.join(evidence, 'command-transport.json'),
+    JSON.stringify(proxy?.commandRecords ?? [], null, 2) + '\n',
   )
 }
 async function stop() {
@@ -101,6 +116,7 @@ try {
     await model.init()
   await prepareBookingStorage()
   const fixture = await seedAcceptanceData()
+  if (values.lifecycle) fixture.scenarios = await seedLifecycleAcceptanceData(fixture)
   await writeFile(credentialPath, JSON.stringify(fixture), { mode: 0o600 })
   const { app } = await import('../src/app.js')
   server = app.listen(0, '127.0.0.1')
@@ -112,12 +128,15 @@ try {
   console.log(`Acceptance API: ${proxy.url}; Android emulator host: http://10.0.2.2:${port}`)
   console.log(`Temporary credentials file (do not commit): ${credentialPath}`)
   console.log(`Evidence: ${evidence}`)
-  console.log('Commands: drop-next, audit, change-catalog, stop. Product routes are unchanged.')
+  console.log('Commands: drop-next, drop-command-next, audit, change-catalog, stop. Product routes are unchanged.')
   input = createInterface({ input: process.stdin })
   for await (const line of input) {
     if (line.trim() === 'drop-next') {
       proxy.dropNextResponse()
       console.log('Next successful booking response will be dropped AFTER upstream commit.')
+    } else if (line.trim() === 'drop-command-next') {
+      proxy.dropNextCommandResponse()
+      console.log('Next successful appointment command response will be dropped AFTER upstream commit.')
     } else if (line.trim() === 'audit') {
       await audit()
       console.log('Sanitized DB/transport evidence saved.')

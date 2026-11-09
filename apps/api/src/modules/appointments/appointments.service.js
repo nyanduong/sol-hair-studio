@@ -6,6 +6,7 @@ import {
     findStylistAppointments,
     findAppointmentStaffByAccountId,
     findOwnerAppointments,
+    countOwnerAppointments,
     findAppointmentDetail,
     findAppointmentCommandActor,
     findAppointmentForUpdate,
@@ -151,7 +152,10 @@ function buildAppointmentPage(appointments, limit, role, timeField = 'startAt') 
     return {
         items: page.map(appointment => timeField === 'completedAt'
             ? { ...toAppointmentListItem(appointment, 'customer'), completedAt: appointment.completedAt.toISOString() }
-            : toAppointmentListItem(appointment, role)),
+            : { ...toAppointmentListItem(appointment, role), ...(role === 'customer' ? { paymentStatus: appointment.payment?.receivedAt ? 'paid' : 'unpaid' } : {}), ...(role === 'owner' ? {
+                paymentStatus: appointment.payment?.receivedAt ? 'paid' : 'unpaid',
+                ...(appointment.estimatedEndAt ? { estimatedEndAt: appointment.estimatedEndAt.toISOString() } : {}),
+            } : {}) }),
         pagination: { limit, hasNextPage, nextCursor },
     }
 }
@@ -163,6 +167,7 @@ function toAppointmentListItem(appointment, role) {
         ...(appointment.referenceCode ? { referenceCode: appointment.referenceCode } : {}),
         staffId: String(appointment.staffId),
         staffNameSnapshot: appointment.staffNameSnapshot,
+        ...(appointment.note ? { note: appointment.note } : {}),
         items: appointment.items.map(service => ({
         serviceId: service.serviceId, name: service.name,
         priceVnd: service.priceVnd, durationMinutes: service.durationMinutes,
@@ -270,7 +275,7 @@ export async function listStylistAppointments( identity, { localDate, limit = 50
 
 // Kiểm tra bộ lọc ngày, Stylist và trạng thái của Owner.
 export function parseOwnerAppointmentQuery(query = {}) {
-    const allowedKeys =['localDate', 'staffId', 'status', 'limit', 'cursor', 'q']
+    const allowedKeys =['localDate', 'staffId', 'status', 'limit', 'cursor', 'q', 'paymentStatus', 'includeSummary']
     if (query.q !== undefined && (typeof query.q !== 'string' || !query.q.trim() || query.q.trim().length > 100)) {
         throw new AppointmentError('Từ khóa tìm kiếm cần từ 1 đến 100 ký tự.', { code: 'INVALID_SEARCH', status: 400 })
     }
@@ -296,21 +301,34 @@ export function parseOwnerAppointmentQuery(query = {}) {
         }
         options.status = query.status
     }
+    if (query.paymentStatus !== undefined) {
+        if (!['paid', 'unpaid'].includes(query.paymentStatus)) {
+            throw new AppointmentError('Trạng thái thanh toán không hợp lệ.', { code: 'INVALID_PAYMENT_STATUS', status: 400 })
+        }
+        options.paymentStatus = query.paymentStatus
+    }
+    if (query.includeSummary !== undefined) {
+        if (query.includeSummary !== 'true') throw new AppointmentError('includeSummary must be true', { code: 'INVALID_QUERY', status: 400 })
+        options.includeSummary = true
+    }
     return options
 }
 
 // Lấy lịch toàn tiệm theo bộ lọc của Owner.
-export async function listOwnerAppointments(identity, { localDate, staffId, status, q, limit = 50, cursor} = {}) {
+export async function listOwnerAppointments(identity, { localDate, staffId, status, q, paymentStatus, includeSummary, limit = 50, cursor} = {}) {
     requireAppointmentRole(identity, 'owner')
     const appointments = await findOwnerAppointments({
         localDate,
         staffId,
         status,
         q,
+        paymentStatus,
         limit,
         cursor,
     })
-    return buildAppointmentPage(appointments, limit, 'owner')
+    const page = buildAppointmentPage(appointments, limit, 'owner')
+    if (includeSummary) page.summary = await countOwnerAppointments({ localDate, staffId, q, paymentStatus })
+    return page
 }
 
 // Điều hướng lấy danh sách lịch hẹn theo vai trò người dùng.

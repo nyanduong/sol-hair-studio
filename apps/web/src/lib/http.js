@@ -42,6 +42,7 @@ export async function requestJson(path, { baseUrl, signal, timeoutMs = DEFAULT_R
     return await response.json()
   } catch (error) {
     if (didTimeout) throw new Error('Yêu cầu kiểm tra API đã hết thời gian chờ. Vui lòng thử lại.', { cause: error })
+    if (error instanceof TypeError) throw new Error('Không kết nối được với salon. Kiểm tra mạng rồi thử lại.', { cause: error })
     throw error
   } finally {
     clearTimeout(timeoutId)

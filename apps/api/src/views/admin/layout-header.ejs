@@ -35,9 +35,11 @@
       }
     }
   </script>
+<style>[hidden] { display: none !important; }</style>
 </head>
-<body class="min-h-screen bg-canvas font-sans text-ink antialiased lg:pl-60">
+<body class="min-h-screen bg-canvas font-sans text-ink antialiased <%= locals.embeddedAppointment ? '' : 'flex min-h-[100svh] flex-col lg:pl-60' %>">
   <a href="#admin-content" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-lg focus:bg-white focus:p-3">Đến nội dung chính</a>
+  <% if (!locals.embeddedAppointment) { %>
   <header class="border-b border-border bg-white lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex lg:w-60 lg:flex-col lg:border-b-0 lg:border-r">
     <a href="/admin/dashboard" class="flex items-center gap-3 px-5 py-6">
       <img src="/admin-assets/logo/sol-logo.png" alt="" width="44" height="44" class="h-11 w-11 shrink-0 object-contain" decoding="async">
@@ -49,6 +51,7 @@
         { key: 'revenue', href: '/admin/revenue', label: 'Báo cáo doanh thu', path: 'M3 21h18M6 17v-4h3v4m3 0V8h3v9m3 0V3h3v14' },
         { key: 'appointments', href: '/owner/appointments', label: 'Lịch salon', path: 'M8 2v4m8-4v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2' },
         { key: 'services', href: '/admin/services', label: 'Quản lý dịch vụ', path: 'M14 14l7 7M14 10l7-7M3 3l18 18M9 7a3 3 0 11-6 0 3 3 0 016 0zm0 10a3 3 0 11-6 0 3 3 0 016 0zM8 15l3-3' },
+        { key: 'categories', href: '/admin/service-categories', label: 'Danh mục dịch vụ', path: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z' },
         { key: 'staff', href: '/admin/nhan-su', label: 'Nhân sự', path: 'M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2m14-18a4 4 0 010 8m6 10v-2a4 4 0 00-3-3.87M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
         { key: 'customers', href: '/admin/khach-hang', label: 'Khách hàng', path: 'M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M13 7a4 4 0 11-8 0 4 4 0 018 0z' }
       ]; %>
@@ -67,4 +70,26 @@
       </div>
     <% } %>
   </header>
-  <main id="admin-content" class="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+  <% } %>
+  <main id="admin-content" class="mx-auto w-full max-w-[1600px] <%= locals.embeddedAppointment ? 'p-3 sm:p-4' : 'flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8' %>">
+  <% if (!locals.embeddedAppointment) {
+    const sections = {
+      dashboard: ['Tổng quan', '/admin/dashboard'],
+      services: ['Quản lý dịch vụ', '/admin/services'],
+      categories: ['Danh mục dịch vụ', '/admin/service-categories'],
+      revenue: ['Báo cáo doanh thu', '/admin/revenue'],
+      staff: ['Nhân sự', '/admin/nhan-su'],
+      customers: ['Khách hàng', '/admin/khach-hang'],
+      appointments: ['Lịch salon', '/admin/appointments'],
+    }
+    const section = sections[locals.activeTab]
+    const currentLabel = locals.activeTab === 'appointments' ? (title || 'Lịch salon').split(' — ')[0] : (section?.[0] || (title || 'Quản trị salon').split(' — ')[0])
+  %>
+    <nav aria-label="Điều hướng" class="mb-6 flex flex-wrap items-center gap-2 text-sm font-semibold text-muted">
+      <% if (locals.activeTab === 'categories') { %><a href="/admin/services" class="hover:text-terracotta">Quản lý dịch vụ</a>
+      <% } else { %><a href="/admin/dashboard" class="hover:text-terracotta">Quản trị salon</a><% } %>
+      <span aria-hidden="true">/</span>
+      <% if (locals.activeTab === 'appointments' && currentLabel !== 'Lịch salon') { %><a href="/admin/appointments" class="hover:text-terracotta">Lịch salon</a><span aria-hidden="true">/</span><% } %>
+      <span aria-current="page" class="text-terracotta"><%= currentLabel %></span>
+    </nav>
+  <% } %>

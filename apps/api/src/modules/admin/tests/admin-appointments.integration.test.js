@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import mongoose from 'mongoose'
 import request from 'supertest'
 import { MongoMemoryReplSet } from 'mongodb-memory-server'
+import { Window } from 'happy-dom'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.hoisted(() => {
@@ -103,6 +104,53 @@ async function stored(id) { return AppointmentModel.findById(id).lean() }
 async function eventCount(id) { return AppointmentEventModel.countDocuments({ appointmentId: id }) }
 
 describe('SOL-037 EJS with real Login, Services and isolated MongoDB transactions', () => {
+  it('counts all filtered appointments beyond pagination and distinguishes collectible balances from pending service', async () => {
+    const waiting = await booking()
+    const unpaid = await booking({ startAt: '2026-10-31T06:00:00.000Z' })
+    const paid = await booking({ startAt: '2026-10-31T08:00:00.000Z', staffId: otherStaff._id, guest: true })
+    await AppointmentModel.updateOne({ _id: unpaid }, { $set: { status: 'completed' } })
+    await AppointmentModel.updateOne({ _id: paid }, { $set: {
+      status: 'in_progress', payment: { amountVnd: 450000, receivedAt: NOW,
+        receivedLocalDate: '2026-10-31', receivedByAccountId: owner._id,
+        receivedByRole: 'owner', commandKey: randomUUID() },
+    } })
+    const read = query => request(app).get('/api/appointments').set('Authorization', `Bearer ${token}`)
+      .query({ localDate: '2026-10-31', includeSummary: 'true', ...query })
+    const first = (await read({ limit: '1' }).expect(200)).body.data
+    expect(first.items.map(item => item.id)).toEqual([waiting])
+    expect(first.summary).toEqual({ total: 3, unpaid: 1, statuses: {
+      confirmed: 1, completed: 1, in_progress: 1, cancelled: 0, no_show: 0,
+    } })
+    const second = (await read({ limit: '1', cursor: first.pagination.nextCursor }).expect(200)).body.data
+    expect(second.items.map(item => item.id)).toEqual([unpaid])
+    expect(second.summary).toEqual(first.summary)
+    const collectible = (await read({ paymentStatus: 'unpaid' }).expect(200)).body.data
+    expect(collectible.items.map(item => item.id)).toEqual([unpaid])
+    expect(collectible.summary.total).toBe(1)
+    const receipts = (await read({ paymentStatus: 'paid' }).expect(200)).body.data
+    expect(receipts.items.map(item => item.id)).toEqual([paid])
+    expect(receipts.items[0].paymentStatus).toBe('paid')
+    expect(receipts.items[0]).not.toHaveProperty('payment')
+    const scoped = (await read({ staffId: String(staff._id), status: 'completed', q: 'EJS Customer' }).expect(200)).body.data
+    expect(scoped.items.map(item => item.id)).toEqual([unpaid])
+    expect(scoped.summary.total).toBe(2)
+    expect(scoped.summary.statuses.confirmed).toBe(1)
+    await read({ paymentStatus: 'anything' }).expect(400)
+    await read({ includeSummary: 'false' }).expect(400)
+    const list = await browser.get('/admin/appointments').query({ localDate: '2026-10-31', paymentStatus: 'unpaid', layout: 'staff' }).expect(200)
+    expect(list.text).toContain('Chi tiết &amp; thu tiền')
+    expect(list.text).not.toContain('>Chi tiết</a>')
+    expect(list.text).toContain('1 lịch hoàn tất chưa thu tiền')
+    expect(list.text).toContain(`data-schedule-row="${unpaid}"`)
+    expect(list.text).not.toContain(`data-schedule-row="${waiting}"`)
+    expect(list.text).not.toContain(`data-schedule-row="${paid}"`)
+    const embedded = await browser.get(`/admin/appointments/${waiting}?view=mine&embedded=1`).expect(200)
+    expect(embedded.text).not.toContain('aria-label="Quản trị salon"')
+    expect(embedded.text).toContain('Bắt đầu phục vụ')
+    const reschedule = await browser.get(`/admin/appointments/${waiting}/reschedule?view=mine&embedded=1&layout=staff&paymentStatus=paid&localDate=2026-10-31`).expect(200)
+    expect(reschedule.text).toContain('Đổi lịch')
+  })
+
   it('accepts the existing React token handoff, cleans the URL and continues with the Admin cookie', async () => {
     const visitor = request.agent(app)
     const handoff = await visitor.get('/admin/appointments')
@@ -237,17 +285,50 @@ describe('SOL-037 EJS with real Login, Services and isolated MongoDB transaction
     expect(choices.text).toContain(`data-appointment-response="${id}"`)
     expect(choices.text).toContain('data-command-state="form"')
     expect(choices.text).toContain('Lịch đang đổi')
-    expect(choices.text.match(/<form method="post"/g)).toHaveLength(1)
+    const window = new Window()
+    window.document.body.innerHTML = choices.text
+    const forms = window.document.querySelectorAll('form[method="post"]')
+    expect(forms).toHaveLength(1)
+    const form = forms[0]
+    expect(form.matches('[data-reschedule-form]')).toBe(true)
+    expect(form.id).toBe('appointment-reschedule-' + id)
+    expect(new URL(form.getAttribute('action'), 'http://localhost').pathname).toBe(`/admin/appointments/${id}/reschedule`)
+    const reason = form.elements.namedItem('reason')
+    const agreement = form.elements.namedItem('customerAgreementConfirmed')
+    const confirm = form.elements.namedItem('rescheduleSubmit')
+    expect(reason.form).toBe(form)
+    expect(agreement.form).toBe(form)
+    expect(confirm.form).toBe(form)
+    expect(form.contains(reason)).toBe(false)
+    expect(form.contains(agreement)).toBe(false)
+    expect(reason.value).toBe('')
+    expect(reason.required).toBe(true)
+    expect(agreement.required).toBe(true)
     expect(choices.text).toContain(`/${id}/reschedule?view=mine`)
     expect(choices.text).toContain('data-unchanged="true"')
     expect(choices.text).not.toContain('Trang Quản Trị Salon')
     expect(choices.text).not.toContain('Lịch toàn salon')
     expect(choices.text).not.toContain(other)
-    const key = choices.text.match(/name="commandKey" value="([^"]+)"/)[1]
-    const response = await submit(id, 'reschedule', {
-      startAt: '2026-10-31T06:00:00.000Z', staffId: String(otherStaff._id),
+    form.elements.namedItem('staffId').value = String(otherStaff._id)
+    form.querySelector('[name="stylistMode"][value="other"]').checked = true
+    for (const group of form.querySelectorAll('[data-slot-staff]')) {
+      group.disabled = group.dataset.slotStaff !== String(otherStaff._id)
+    }
+    const slot = form.querySelector(`[data-slot-staff="${otherStaff._id}"] [name="startAt"][value="2026-10-31T06:00:00.000Z"]`)
+    expect(slot).not.toBeNull()
+    slot.checked = true
+    reason.value = 'Only this appointment'
+    agreement.checked = true
+    const fields = Object.fromEntries(new window.FormData(form))
+    expect(fields).toMatchObject({
+      expectedRevision: '0', staffId: String(otherStaff._id), startAt: slot.value,
       reason: 'Only this appointment', customerAgreementConfirmed: 'true',
-    }, key).set('X-Appointment-Dialog', 'true').expect(200)
+    })
+    const key = fields.commandKey
+    expect(key).toBeTruthy()
+    await window.happyDOM.abort()
+    const response = await submit(id, 'reschedule', fields, key)
+      .set('X-Appointment-Dialog', 'true').expect(200)
     expect(response.text).toContain(`data-appointment-response="${id}"`)
     expect(response.text).toContain('data-command-state="success"')
     expect(response.text).toContain(`data-result-staff-id="${otherStaff._id}"`)

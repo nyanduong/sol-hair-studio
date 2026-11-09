@@ -10,10 +10,11 @@ export function createPaymentReader(read) {
     getSnapshot: () => state,
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener) },
     async load() {
-      publish({ kind: 'loading' })
+      publish(state.kind === 'success' ? { ...state, refreshing: true } : { kind: 'loading' })
       const result = await latest.run(read)
       if (result.kind === 'ignored') return
       publish(result.kind === 'success' ? { kind: 'success', value: result.value } : { kind: 'error', error: result.error })
+      return result.kind === 'success' ? result.value : null
     },
     cancel() { latest.cancel() },
   }
@@ -24,8 +25,9 @@ export function usePayment(token, appointmentId) {
   useEffect(() => {
     void reader.load()
     const onFocus = () => { void reader.load() }
+    const timer = window.setInterval(() => { if (document.visibilityState !== 'hidden') void reader.load() }, 15000)
     window.addEventListener('focus', onFocus)
-    return () => { reader.cancel(); window.removeEventListener('focus', onFocus) }
+    return () => { window.clearInterval(timer); reader.cancel(); window.removeEventListener('focus', onFocus) }
   }, [reader])
   return { ...state, refresh: () => reader.load() }
 }

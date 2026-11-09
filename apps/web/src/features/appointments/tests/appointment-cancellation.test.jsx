@@ -12,7 +12,7 @@ import { createCustomerAppointmentList } from '../hooks/useCustomerAppointments.
 const now = Date.parse('2026-10-23T03:00:00.000Z')
 const customer = { roles: ['customer'], status: 'active' }
 const appointment = {
-  id: '1234567890abcdef12345678', staffId: 'aaaaaaaaaaaaaaaaaaaaaaaa', revision: 3, status: 'confirmed',
+  id: '1234567890abcdef12345678', referenceCode: 'SOL-23456789', staffId: 'aaaaaaaaaaaaaaaaaaaaaaaa', revision: 3, status: 'confirmed',
   startAt: new Date(now + 7200000).toISOString(), endAt: new Date(now + 10800000).toISOString(),
   staffNameSnapshot: 'Stylist An', totalDurationMinutes: 60, totalPriceVnd: 150000,
   items: [{ serviceId: 'cut', name: 'Cắt tóc', durationMinutes: 40, priceVnd: 100000 },
@@ -29,7 +29,7 @@ afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
 describe('Customer cancellation confirmation', () => {
   it('identifies the exact appointment, Vietnam time, stylist and all services without requiring a reason', () => {
     const html = renderDialog()
-    for (const text of [appointment.id, '23/10/2026', '12:00', 'Stylist An', 'Cắt tóc', 'Gội đầu', 'không thể mở lại']) {
+    for (const text of [appointment.referenceCode, '23/10/2026', '12:00', 'Stylist An', 'Cắt tóc', 'Gội đầu', 'không thể mở lại']) {
       expect(html).toContain(text)
     }
     expect(html).toContain('aria-describedby="appointment-cancel-description"')

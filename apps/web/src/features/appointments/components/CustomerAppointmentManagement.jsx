@@ -49,7 +49,7 @@ export default function CustomerAppointmentManagement({ token, appointment, onCh
             <button className={primary} onClick={() => setOperation('reschedule')}>Đổi lịch hẹn</button>
             <button className={secondary} onClick={() => setOperation('cancel')}>Hủy lịch hẹn</button>
           </>
-        ) : <p className="text-sm text-muted">Lịch này không còn đủ điều kiện đổi/hủy trực tuyến.</p>}
+        ) : <p className="text-sm text-muted">{appointment.status === 'confirmed' ? 'Còn dưới 2 giờ trước giờ hẹn. Vui lòng liên hệ salon để được hỗ trợ đổi hoặc hủy.' : appointment.status === 'in_progress' ? 'Salon đang phục vụ bạn. Lịch không thể đổi hoặc hủy.' : appointment.status === 'completed' ? 'Lịch đã hoàn tất. Bạn có thể kiểm tra thanh toán bên dưới.' : 'Lịch đã kết thúc; bạn có thể đặt một lịch mới.'}</p>}
       </div>
       {operation && <CommandDialog key={operation} token={token} appointment={appointment}
         operation={operation} editable={editable} onClose={close} onChanged={onChanged} />}
@@ -147,7 +147,7 @@ export function CancellationDialog({ dialogRef, appointment, command, editable, 
         Bạn có chắc muốn hủy lịch này? Lịch đã hủy không thể mở lại; nếu cần, bạn đặt một lịch mới.
       </p>
       <dl className="mt-4 space-y-2 rounded-2xl border border-border bg-soft-surface p-4 text-sm">
-        <div><dt className="text-muted">Mã lịch</dt><dd className="break-all font-medium">{appointment.id}</dd></div>
+        <div><dt className="text-muted">Mã lịch</dt><dd className="break-all font-medium">{appointment.referenceCode || 'Chưa cấp mã'}</dd></div>
         <div><dt className="text-muted">Thời gian hẹn</dt><dd className="font-medium">{formatScheduleSummary(appointment.startAt)} · {new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(appointment.startAt))}</dd></div>
         <div><dt className="text-muted">Stylist</dt><dd className="font-medium">{appointment.staffNameSnapshot}</dd></div>
         <div><dt className="text-muted">Dịch vụ</dt><dd className="font-medium">{appointment.items.map(item => item.name).join(' · ')}</dd></div>

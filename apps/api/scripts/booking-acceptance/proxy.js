@@ -7,7 +7,9 @@ const digest = (value) => createHash('sha256').update(value).digest('hex')
 // No test control endpoint or fault switch is installed in the product server.
 export async function startAcceptanceProxy(target, { port = 0 } = {}) {
   const records = []
+  const commandRecords = []
   let drops = 0
+  let commandDrops = 0
   const sockets = new Set()
   const server = createServer((incoming, outgoing) => {
     const chunks = []
@@ -15,20 +17,23 @@ export async function startAcceptanceProxy(target, { port = 0 } = {}) {
     incoming.on('end', () => {
       const body = Buffer.concat(chunks)
       const booking = incoming.method === 'POST' && incoming.url === '/api/appointments'
-      const drop = booking && drops > 0
-      if (drop) drops--
+      const command = incoming.method === 'POST' && /^\/api\/appointments\/[a-fA-F0-9]{24}\/(cancel|reschedule|no-show|start|complete|eta|correct-start|correct-complete)$/.test(incoming.url)
+      const drop = (booking && drops > 0) || (command && commandDrops > 0)
+      if (drop && booking) drops--
+      if (drop && command) commandDrops--
       let payload
       try {
         payload = JSON.parse(body.toString())
       } catch {
         /* Forward malformed bodies unchanged. */
       }
-      const record = booking
+      const record = booking || command
         ? {
             requestHash: digest(body),
             keyHash: digest(incoming.headers['idempotency-key'] ?? ''),
             hasStartAt: payload != null && Object.hasOwn(payload, 'startAt'),
             responseDropped: false,
+            ...(command ? { operation: incoming.url.split('/').at(-1) } : {}),
           }
         : null
       const upstream = request(
@@ -49,7 +54,8 @@ export async function startAcceptanceProxy(target, { port = 0 } = {}) {
               } catch {
                 /* Preserve HTTP behavior even when upstream is not JSON. */
               }
-              records.push(record)
+              if (booking) records.push(record)
+              else commandRecords.push(record)
             }
             // Drop only after an actual successful commit response has arrived.
             if (drop && response.statusCode >= 200 && response.statusCode < 300) {
@@ -78,8 +84,12 @@ export async function startAcceptanceProxy(target, { port = 0 } = {}) {
   return {
     url: `http://127.0.0.1:${server.address().port}`,
     records,
+    commandRecords,
     dropNextResponse() {
       drops++
+    },
+    dropNextCommandResponse() {
+      commandDrops++
     },
     async close() {
       for (const socket of sockets) socket.destroy()

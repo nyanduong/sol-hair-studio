@@ -150,6 +150,13 @@ afterEach(() => {
 })
 
 describe('SOL-031 transactional booking HTTP + real temporary replica set', () => {
+  it('validates and saves an optional salon note with the booking receipt', async () => {
+    await post({ note: 'x'.repeat(501) }).expect(400)
+    await post({ note: 123 }).expect(400)
+    const response = await post({ note: '  Tư vấn kiểu tóc phù hợp  ' }).expect(201)
+    expect(response.body.data.note).toBe('Tư vấn kiểu tóc phù hợp')
+    expect((await AppointmentModel.findById(response.body.data.id).lean()).note).toBe('Tư vấn kiểu tóc phù hợp')
+  })
   it('creates confirmed snapshots, guards, event and 24h receipt; M5 reads the same appointment', async () => {
     const servicesReader = vi.spyOn(availabilityRepository, 'findBookingServices')
     const staffReader = vi.spyOn(availabilityRepository, 'findEligibleStaff')

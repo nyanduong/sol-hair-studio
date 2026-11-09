@@ -1,0 +1,29 @@
+{
+  "environment": "Synthetic acceptance data; actual Express + MongoDB 8.0.17 temporary replica set",
+  "generatedAt": "2026-11-06T03:37:51.463Z",
+  "appointments": [
+    {
+      "id": "6aed4b2e4f55fbe637e8ff97",
+      "customerId": "6aed4ab74f55fbe637e8ff7b",
+      "staffId": "6aed4ab74f55fbe637e8ff81",
+      "bookingMode": "customer",
+      "status": "cancelled",
+      "startAt": "2026-11-07T06:00:00.000Z",
+      "endAt": "2026-11-07T06:30:00.000Z",
+      "confirmedAt": "2026-11-06T03:36:14.623Z",
+      "occupiedUntil": "2026-11-07T06:40:00.000Z",
+      "items": [
+        {
+          "serviceId": "accept-cut",
+          "name": "SOL034 Cut",
+          "priceVnd": 100000,
+          "durationMinutes": 30
+        }
+      ],
+      "totalPriceVnd": 100000,
+      "totalDurationMinutes": 30
+    }
+  ],
+  "events": 2,
+  "receipts": 1
+}

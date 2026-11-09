@@ -1,0 +1,17 @@
+{
+  "platform": "Chrome headless, actual React and EJS; actual API and temporary MongoDB",
+  "customerLogin": true,
+  "customerDetail": true,
+  "customerCancel": true,
+  "ownerReadsSameBooking": true,
+  "ownerAudit": [
+    "cancelled",
+    "created"
+  ],
+  "viewports": [
+    1440,
+    390
+  ],
+  "uncaughtExceptions": 0,
+  "androidTested": false
+}

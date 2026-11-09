@@ -1,5 +1,5 @@
 import { Router, urlencoded } from 'express'
-import { requireAdminAuth } from './admin.middleware.js'
+import { getAdminTokenFromRequest, requireAdminAuth } from './admin.middleware.js'
 import {
     showOwnerAppointments,
     showOwnerAppointmentDetail,
@@ -18,16 +18,17 @@ export const adminAppointmentsRouter = Router()
 
 adminAppointmentsRouter.use((req, res, next) => {
     res.set('Cache-Control', 'no-store')
+    res.locals.embeddedAppointment = req.query.embedded === '1'
     res.locals.appointmentDialog = req.get('X-Appointment-Dialog') === 'true'
     res.locals.ownerPersonal = req.query.view === 'mine'
     res.locals.ownerContext = Object.fromEntries(
-        ['view', 'localDate', 'staffId', 'status', 'q']
+        ['view', 'localDate', 'staffId', 'status', 'q', 'paymentStatus', 'layout', 'embedded']
             .filter(key => typeof req.query[key] === 'string')
             .map(key => [key, req.query[key]]),
     )
     res.locals.ownerUrl = (path, changes = {}) => {
         const query = new URLSearchParams()
-        for (const key of ['view', 'localDate', 'staffId', 'status', 'q']) {
+        for (const key of ['view', 'localDate', 'staffId', 'status', 'q', 'paymentStatus', 'layout', 'embedded']) {
             if (typeof req.query[key] === 'string' && req.query[key]) {
                 query.set(key, req.query[key])
             }
@@ -48,6 +49,7 @@ adminAppointmentsRouter.get('/appointments/setup', requireAdminAuth, (req, res) 
     })
 })
 adminAppointmentsRouter.get('/appointments', requireAdminAuth, showOwnerAppointments)
+adminAppointmentsRouter.get('/appointments/new', requireAdminAuth, (req, res) => res.render('admin/appointments/appointment-create', { title: 'Đặt lịch cho khách', apiToken: getAdminTokenFromRequest(req) }))
 adminAppointmentsRouter.get('/appointments/:appointmentId', requireAdminAuth, showOwnerAppointmentDetail)
 adminAppointmentsRouter.post('/appointments/:appointmentId/cancel', requireAdminAuth, urlencoded({ extended: false, limit: '10kb' }), submitOwnerCancellation)
 adminAppointmentsRouter.get('/appointments/:appointmentId/reschedule', requireAdminAuth, showOwnerReschedule)
