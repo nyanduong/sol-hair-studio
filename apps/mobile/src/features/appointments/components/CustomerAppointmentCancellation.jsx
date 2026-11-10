@@ -1,3 +1,9 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Component Modal và nút bấm xác nhận hủy lịch hẹn an toàn cho khách hàng với Idempotency Key chống gửi trùng.
+ */
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, View } from 'react-native'
 import { usePreventRemove } from '@react-navigation/native'
@@ -11,6 +17,9 @@ import { appointmentCardText } from '../appointment-presentation.js'
 import { cancellationBlockReason, createCustomerCancellation } from '../hooks/customer-cancellation.js'
 import { styles } from '../styles/cancellation.styles.js'
 
+/**
+ * Component điều khiển quy trình hủy lịch hẹn an toàn cho khách hàng kèm modal xác nhận.
+ */
 export default function CustomerAppointmentCancellation({ token, accountId, appointmentId, appointment, onChanged }) {
   const command = useMemo(() => createCustomerCancellation({
     accountId, appointmentId, newKey: randomUUID, onChanged,

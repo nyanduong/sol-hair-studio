@@ -1,3 +1,9 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Màn hình danh sách lịch hẹn của khách hàng: hỗ trợ xem lịch sắp tới/lịch sử, phân trang cursor và làm mới.
+ */
 import { useState } from 'react'
 import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -15,6 +21,9 @@ import {
 import { useCustomerAppointments } from '../hooks/useCustomerAppointments.js'
 import { styles } from '../styles/appointments.styles.js'
 
+/**
+ * Nút bấm hành động với hiệu ứng nhấn và trạng thái vô hiệu hóa.
+ */
 function Action({ label, onPress, disabled = false }) {
   return (
     <Pressable
@@ -29,6 +38,9 @@ function Action({ label, onPress, disabled = false }) {
   )
 }
 
+/**
+ * Thẻ hiển thị thông tin tóm tắt cuộc hẹn (ngày giờ, trạng thái, stylist, dịch vụ, giá) và điều hướng xem chi tiết.
+ */
 function AppointmentCard({ item, navigation }) {
   const text = appointmentCardText(item)
   const theme = getStatusTheme(item.status)
@@ -90,6 +102,9 @@ function AppointmentCard({ item, navigation }) {
   )
 }
 
+/**
+ * Danh sách cuộc hẹn của khách hàng hỗ trợ chuyển tab (Sắp tới / Lịch sử), kéo xuống làm mới và phân trang.
+ */
 function CustomerList({ navigation, token, accountId }) {
   const state = useCustomerAppointments(token, accountId)
   const [tab, setTab] = useState('upcoming')
@@ -193,6 +208,9 @@ function CustomerList({ navigation, token, accountId }) {
   )
 }
 
+/**
+ * Màn hình chính quản lý lịch hẹn của khách hàng, kiểm tra xác thực tài khoản và quyền customer.
+ */
 export default function CustomerAppointmentsScreen({ navigation }) {
   const { token, account, isAuthenticated, isLoading } = useAuth()
   const accountId = account?.accountId ?? account?.id

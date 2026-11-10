@@ -1,3 +1,9 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Định nghĩa stylesheet cho giao diện danh sách ca làm việc và lịch sử phục vụ của stylist.
+ */
 import { StyleSheet } from 'react-native'
 import { colors, displayFont } from '../../../theme/tokens.js'
 

@@ -34,5 +34,4 @@ appointmentsRouter.post('/appointments/:appointmentId/complete', requireAuth, re
 appointmentsRouter.post('/appointments/:appointmentId/eta', requireAuth, requireRoles('stylist', 'owner'), updateAppointmentEtaController)
 appointmentsRouter.post('/appointments/:appointmentId/correct-start', requireAuth, requireRoles('stylist', 'owner'), correctAppointmentStartController)
 appointmentsRouter.post('/appointments/:appointmentId/correct-complete', requireAuth, requireRoles('stylist', 'owner'), correctAppointmentCompletionController)
-
 appointmentsRouter.get('/appointments/:appointmentId/audit', requireAuth, requireRoles('owner'), getAppointmentAuditController)

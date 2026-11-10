@@ -1,18 +1,36 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Logic điều khiển tiến trình cập nhật giờ kết thúc dự kiến (ETA) cho stylist đang phục vụ ca hẹn.
+ */
 import { createBookingSubmission } from '../../../../../../shared/booking.js'
 import { readStylistSession } from './stylist-appointments-reader.js'
 import { canUpdateStylistEta, defaultStylistEtaInput, stylistEtaPayload } from '../appointment-eta.js'
 
+/**
+ * Tạo đối tượng lỗi xung đột kèm mã code và HTTP status (mặc định 409).
+ */
 const conflict = (code, message, status = 409) => Object.assign(new Error(message), { status, code })
+/**
+ * So sánh đối chiếu lịch hẹn đảm bảo giữ nguyên thông tin cốt lõi khi cập nhật ETA.
+ */
 const sameSchedule = (a, b) => a.id === b.id && a.staffId === b.staffId && a.startAt === b.startAt && a.endAt === b.endAt &&
   a.staffNameSnapshot === b.staffNameSnapshot && a.confirmedAt === b.confirmedAt &&
   JSON.stringify(a.customerSnapshot) === JSON.stringify(b.customerSnapshot) && a.startedAt === b.startedAt && a.completedAt === b.completedAt && a.totalPriceVnd === b.totalPriceVnd &&
   a.totalDurationMinutes === b.totalDurationMinutes && JSON.stringify(a.items) === JSON.stringify(b.items)
+/**
+ * Định dạng thông báo lỗi cập nhật ETA tương ứng theo mã lỗi phản hồi từ API.
+ */
 const errorText = (error, pending) => pending ? 'Chưa xác định được kết quả. Kiểm tra và thử lại cùng yêu cầu, không đổi ETA hoặc tạo yêu cầu mới.'
   : [401, 403, 404].includes(error.status) ? 'Phiên hoặc quyền truy cập đã thay đổi, hoặc lịch không còn được giao cho bạn. Hãy tải lại lịch.'
     : error.code === 'INVALID_ETA' ? 'ETA phải ở tương lai và sau giờ kết thúc theo kế hoạch.'
       : error.status === 409 ? 'Lịch đã thay đổi. Tải lại và xác nhận lại trước khi cập nhật ETA.'
         : 'Không cập nhật được ETA. Hãy tải lại và kiểm tra.'
 
+/**
+ * Tạo command quản lý việc chỉnh sửa, review và gửi yêu cầu cập nhật ETA lên server an toàn.
+ */
 export function createStylistEtaCommand({ accountId, appointmentId, readProfile, readStaff, readDetail, send, newKey, onChanged, now = Date.now }) {
   const initial = { kind: 'idle', visible: false, confirming: false, appointment: null, date: '', time: '', pending: null, message: '' }
   const listeners = new Set()

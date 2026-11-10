@@ -1,3 +1,9 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Tập hợp các component giao diện hiển thị lịch hẹn của chuyên viên: card lịch hẹn, header, trạng thái tải và thông báo lỗi.
+ */
 import { ActivityIndicator, Pressable, Text, View } from 'react-native'
 import Feather from '@expo/vector-icons/Feather'
 import { colors } from '../../../theme/tokens.js'
@@ -18,6 +24,9 @@ const money = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND
 
 const WEEKDAY_SHORT = ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7']
 
+/**
+ * Nút bấm hành động chuẩn hóa cho stylist hỗ trợ trạng thái disabled.
+ */
 export function StylistAction({ label, onPress, disabled = false }) {
   return (
     <Pressable
@@ -32,6 +41,9 @@ export function StylistAction({ label, onPress, disabled = false }) {
   )
 }
 
+/**
+ * Thanh header chuẩn cho stylist kèm nút quay lại và nút xem ca làm việc.
+ */
 export function StylistHeader({ navigation, detail = false, title }) {
   return (
     <View style={styles.header}>
@@ -63,6 +75,9 @@ export function StylistHeader({ navigation, detail = false, title }) {
   )
 }
 
+/**
+ * Giao diện hiển thị trạng thái đang tải dữ liệu cho stylist.
+ */
 export function StylistLoading() {
   return (
     <View style={[styles.center, styles.gate]}>
@@ -72,6 +87,9 @@ export function StylistLoading() {
   )
 }
 
+/**
+ * Hiển thị thông báo lỗi khi tải lịch hẹn của stylist kèm nút thử lại.
+ */
 export function StylistReadError({ state }) {
   const message = state.kind === 'notFound'
     ? 'Không tìm thấy lịch hoặc lịch không còn được giao cho bạn.'
@@ -96,6 +114,9 @@ export function StylistReadError({ state }) {
   )
 }
 
+/**
+ * Giao diện chặn yêu cầu đăng nhập tài khoản chuyên viên đang hoạt động.
+ */
 export function StylistGate({ isLoading, navigation }) {
   if (isLoading) return <StylistLoading />
   return (
@@ -111,6 +132,9 @@ export function StylistGate({ isLoading, navigation }) {
   )
 }
 
+/**
+ * Thẻ hiển thị thông tin ca hẹn của chuyên viên (hỗ trợ cả chế độ danh sách và chế độ xem chi tiết).
+ */
 export function StylistAppointmentCard({ appointment, onPress, detail = false }) {
   const text = appointmentCardText(appointment)
   const theme = getStatusTheme(appointment.status)

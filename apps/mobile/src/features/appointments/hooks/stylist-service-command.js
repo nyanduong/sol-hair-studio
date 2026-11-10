@@ -1,15 +1,30 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Logic điều khiển thao tác Bắt đầu hoặc Hoàn tất ca làm của stylist với Idempotency Key và kiểm tra tính nhất quán kết quả.
+ */
 import { createBookingSubmission } from '../../../../../../shared/booking.js'
 import { readStylistSession } from './stylist-appointments-reader.js'
 
 const validTime = value => typeof value === 'string' && Number.isFinite(Date.parse(value))
+/**
+ * Tạo đối tượng lỗi xung đột kèm mã code và HTTP status (mặc định 409).
+ */
 const conflict = (code, message, status = 409) => Object.assign(new Error(message), { code, status })
 
+/**
+ * Xác định thao tác khả dụng ('start' khi confirmed, 'complete' khi in_progress).
+ */
 export function stylistServiceOperation(appointment) {
   if (!appointment || !Number.isSafeInteger(appointment.revision) ||
       appointment.revision < 0 || appointment.revision >= Number.MAX_SAFE_INTEGER) return null
   return appointment.status === 'confirmed' ? 'start' : appointment.status === 'in_progress' ? 'complete' : null
 }
 
+/**
+ * Đóng gói payload cho lệnh phục vụ và kiểm tra cờ xác nhận trách nhiệm của stylist.
+ */
 export function stylistServicePayload(appointment, operation, attested) {
   if (!['start', 'complete'].includes(operation) || stylistServiceOperation(appointment) !== operation) {
     throw conflict('APPOINTMENT_STATE_CONFLICT', 'Trạng thái lịch không còn phù hợp. Hãy tải lại lịch.')
@@ -19,6 +34,9 @@ export function stylistServicePayload(appointment, operation, attested) {
   return { expectedRevision: appointment.revision }
 }
 
+/**
+ * Bản đồ dịch mã lỗi thao tác phục vụ sang thông báo tiếng Việt.
+ */
 export function stylistServiceErrorMessage(error, pending) {
   if (pending) return 'Chưa xác định được kết quả. Kiểm tra và thử lại cùng yêu cầu; không tạo thao tác khác.'
   if ([401, 403, 404].includes(error?.status)) return 'Phiên hoặc quyền truy cập đã thay đổi, hoặc lịch không còn được giao cho bạn. Hãy tải lại lịch.'
@@ -34,12 +52,18 @@ export function stylistServiceErrorMessage(error, pending) {
   return messages[error?.code] ?? 'Không thực hiện được thao tác. Hãy tải lại lịch và kiểm tra trước khi thử tiếp.'
 }
 
+/**
+ * So sánh đối chiếu đảm bảo thông tin cuộc hẹn không bị thay đổi ngầm trong lúc phục vụ.
+ */
 function unchangedSchedule(a, b) {
   return a.id === b.id && a.staffId === b.staffId && a.startAt === b.startAt && a.endAt === b.endAt &&
     a.staffNameSnapshot === b.staffNameSnapshot && a.confirmedAt === b.confirmedAt && a.totalPriceVnd === b.totalPriceVnd && a.totalDurationMinutes === b.totalDurationMinutes &&
     JSON.stringify(a.items) === JSON.stringify(b.items) && JSON.stringify(a.customerSnapshot) === JSON.stringify(b.customerSnapshot)
 }
 
+/**
+ * Tạo command quản lý quy trình gửi lệnh bắt đầu / hoàn tất ca phục vụ an toàn.
+ */
 export function createStylistServiceCommand({ accountId, appointmentId, readProfile, readStaff, readDetail, send, newKey, onChanged }) {
   const initial = { kind: 'idle', visible: false, appointment: null, operation: null, attested: false, pending: null, message: '' }
   const listeners = new Set()

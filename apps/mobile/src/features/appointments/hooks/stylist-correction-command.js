@@ -1,7 +1,16 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Logic điều khiển thao tác Sửa nhầm ca (hoàn tác start hoặc complete nhầm) cho stylist kèm lý do giải trình.
+ */
 import { createBookingSubmission } from '../../../../../../shared/booking.js'
 import { readStylistSession } from './stylist-appointments-reader.js'
 import { stylistCorrectionOperation, stylistCorrectionPayload } from '../api/stylist-corrections.api.js'
 
+/**
+ * Tạo command quản lý quy trình nhập lý do và gửi yêu cầu sửa nhầm thao tác lên server an toàn.
+ */
 export function createStylistCorrectionCommand({ accountId, appointmentId, readProfile, readStaff, readDetail, send, newKey, onChanged }) {
   const initial = { visible: false, kind: 'idle', appointment: null, fields: { reason: '', date: '', time: '', confirmed: false }, pending: null, message: '' }
   let state = initial, controller = new AbortController(), epoch = 0, busy = false, job, operation

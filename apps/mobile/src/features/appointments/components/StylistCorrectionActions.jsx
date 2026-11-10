@@ -1,3 +1,9 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Component Modal cho phép stylist hoàn tác sửa nhầm thao tác (bắt đầu nhầm hoặc hoàn tất nhầm) kèm lý do giải trình vào audit log.
+ */
 import { useEffect, useMemo, useSyncExternalStore } from 'react'
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import { usePreventRemove } from '@react-navigation/native'
@@ -14,6 +20,9 @@ import { createStylistCorrectionCommand } from '../hooks/stylist-correction-comm
 import { StylistAction } from './StylistAppointmentView.jsx'
 import { styles } from '../styles/cancellation.styles.js'
 
+/**
+ * Component điều khiển luồng hoàn tác thao tác nhầm cho stylist, kiểm tra lý do bắt buộc và checkbox xác nhận.
+ */
 export default function StylistCorrectionActions({ token, accountId, appointmentId, appointment, onChanged }) {
   const command = useMemo(() => createStylistCorrectionCommand({
     accountId, appointmentId, newKey: randomUUID, onChanged,

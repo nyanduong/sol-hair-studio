@@ -1,13 +1,24 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Module giao tiếp API lấy lịch sử dịch vụ đã hoàn tất của khách hàng theo ngữ cảnh cuộc hẹn được giao cho stylist.
+ */
 import { requestJson } from '../../../lib/http.js'
 import { appointmentBaseDto } from './appointments.api.js'
 
+/**
+ * Kiểm tra tính hợp lệ của mã lịch hẹn ngữ cảnh.
+ */
 export function assertServiceHistoryContext(appointmentId) {
   if (typeof appointmentId !== 'string' || !/^[a-fA-F0-9]{24}$/.test(appointmentId)) {
     throw Object.assign(new Error('Mã lịch hẹn không hợp lệ.'), { status: 400 })
   }
 }
 
-// Lịch sử dùng snapshot không có thông tin liên hệ hay audit.
+/**
+ * Chuẩn hóa dữ liệu một bản ghi lịch sử dịch vụ đã hoàn tất của khách hàng.
+ */
 export function serviceHistoryDto(value) {
   const item = appointmentBaseDto(value)
   if (item.status !== 'completed' || typeof value.completedAt !== 'string' ||
@@ -18,6 +29,9 @@ export function serviceHistoryDto(value) {
   return { ...item, completedAt: value.completedAt }
 }
 
+/**
+ * Gọi API lấy danh sách lịch sử dịch vụ của khách hàng có phân trang cursor.
+ */
 export async function listStylistServiceHistory(baseUrl, token, appointmentId, cursor, signal) {
   assertServiceHistoryContext(appointmentId)
   const query = new URLSearchParams({ limit: '20' })

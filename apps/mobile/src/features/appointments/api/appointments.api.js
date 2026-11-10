@@ -1,8 +1,17 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Module giao tiếp API phía khách hàng: lấy danh sách lịch, xem chi tiết, hủy lịch, lấy giờ trống và đổi lịch hẹn.
+ */
 import { requestJson } from '../../../lib/http.js'
 
 const validId = value => typeof value === 'string' && /^[a-fA-F0-9]{24}$/.test(value)
 const validTime = value => typeof value === 'string' && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value
 
+/**
+ * Gọi API lấy danh sách lịch hẹn của khách hàng với phân trang cursor.
+ */
 export async function listCustomerAppointments(baseUrl, token, cursor, signal) {
   const query = new URLSearchParams({ limit: '20' })
   if (cursor) query.set('cursor', cursor)
@@ -18,6 +27,9 @@ export async function listCustomerAppointments(baseUrl, token, cursor, signal) {
   return { items, pagination: { hasNextPage: data.pagination.hasNextPage, nextCursor: data.pagination.nextCursor } }
 }
 
+/**
+ * Chuẩn hóa dữ liệu lịch hẹn cơ bản của khách hàng theo allowlist an toàn.
+ */
 export function appointmentBaseDto(item) {
     if (!item || !validId(item.id) || !validId(item.staffId) ||
         ['customerId', 'customerSnapshot', 'actorId', 'affectedAppointments', 'lastCommand', 'email'].some(field => field in item) ||
@@ -39,6 +51,9 @@ export function appointmentBaseDto(item) {
       items: item.items.map(({ serviceId, name, priceVnd, durationMinutes }) => ({ serviceId, name, priceVnd, durationMinutes })) }
 }
 
+/**
+ * Gọi API lấy dữ liệu chi tiết một cuộc hẹn của khách hàng.
+ */
 export async function getCustomerAppointment(baseUrl, token, appointmentId, signal) {
   if (!validId(appointmentId)) throw Object.assign(new Error('Mã lịch hẹn không hợp lệ.'), { status: 400 })
   const response = await requestJson('/api/appointments/' + encodeURIComponent(appointmentId), {
@@ -59,6 +74,9 @@ export async function getCustomerAppointment(baseUrl, token, appointmentId, sign
     ...(item.status === 'completed' && data.completedAt ? { completedAt: data.completedAt } : {}) }
 }
 
+/**
+ * Gọi API hủy lịch hẹn với Idempotency-Key.
+ */
 export async function cancelCustomerAppointment(baseUrl, token, appointmentId, payload, key, signal) {
   if (!validId(appointmentId) || !payload || Object.keys(payload).some(field => field !== 'expectedRevision') ||
       !Number.isSafeInteger(payload.expectedRevision) || payload.expectedRevision < 0 ||
@@ -78,6 +96,9 @@ export async function cancelCustomerAppointment(baseUrl, token, appointmentId, p
   return { ...appointmentBaseDto(data), revision: data.revision, cancelledAt: data.cancelledAt }
 }
 
+/**
+ * Gọi API lấy danh sách khung giờ trống để đổi lịch hẹn theo ngày.
+ */
 export async function getCustomerRescheduleOptions(baseUrl, token, appointmentId, localDate, signal) {
   if (!validId(appointmentId) || typeof localDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(localDate) ||
       !Number.isFinite(Date.parse(localDate)) || new Date(localDate).toISOString().slice(0, 10) !== localDate) {
@@ -104,6 +125,9 @@ export async function getCustomerRescheduleOptions(baseUrl, token, appointmentId
       slots: staff.slots.map(({ startAt, endAt, occupiedUntil }) => ({ startAt, endAt, occupiedUntil })) })) }
 }
 
+/**
+ * Gọi API gửi yêu cầu đổi lịch hẹn với Idempotency-Key.
+ */
 export async function rescheduleCustomerAppointment(baseUrl, token, appointmentId, payload, key, signal) {
   if (!validId(appointmentId) || !payload ||
       Object.keys(payload).some(field => !['expectedRevision', 'staffId', 'startAt'].includes(field)) ||

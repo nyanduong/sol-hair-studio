@@ -1,3 +1,9 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Component Modal và nút bấm thực hiện Bắt đầu hoặc Hoàn tất ca phục vụ cho stylist kèm checkbox cam kết trách nhiệm.
+ */
 import { useEffect, useMemo, useSyncExternalStore } from 'react'
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, View } from 'react-native'
 import { usePreventRemove } from '@react-navigation/native'
@@ -15,6 +21,9 @@ import { StylistAction } from './StylistAppointmentView.jsx'
 import { styles } from '../styles/cancellation.styles.js'
 import { styles as local } from '../styles/stylist-service.styles.js'
 
+/**
+ * Component điều khiển luồng bắt đầu hoặc hoàn tất ca làm, kiểm tra checkbox cam kết và gửi lệnh an toàn.
+ */
 export default function StylistServiceActions({ token, accountId, appointmentId, appointment, onChanged }) {
   const command = useMemo(() => createStylistServiceCommand({
     accountId, appointmentId, newKey: randomUUID, onChanged,
