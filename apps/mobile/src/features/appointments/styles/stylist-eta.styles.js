@@ -1,3 +1,9 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Định nghĩa stylesheet cho modal cập nhật ETA và khối cảnh báo lịch hẹn bị ảnh hưởng.
+ */
 import { StyleSheet } from 'react-native'
 import { colors } from '../../../theme/tokens.js'
 export const styles = StyleSheet.create({

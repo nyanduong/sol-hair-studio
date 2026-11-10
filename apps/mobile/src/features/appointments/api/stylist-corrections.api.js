@@ -1,3 +1,9 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Module giao tiếp API sửa nhầm thao tác phục vụ (hoàn tác bắt đầu hoặc hoàn tất nhầm) dành cho chuyên viên.
+ */
 import { requestJson } from '../../../lib/http.js'
 import { stylistAppointmentDto } from './stylist-appointments.api.js'
 import { etaInputToIso } from '../appointment-eta.js'
@@ -8,11 +14,17 @@ const rules = {
 }
 const canonical = value => typeof value === 'string' && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value
 
+/**
+ * Xác định loại thao tác sửa nhầm ('correct-start' hoặc 'correct-complete') theo trạng thái lịch.
+ */
 export function stylistCorrectionOperation(appointment) {
   if (!appointment || !Number.isSafeInteger(appointment.revision) || appointment.revision < 0 || appointment.revision >= Number.MAX_SAFE_INTEGER) return null
   return appointment.status === 'in_progress' ? 'correct-start' : appointment.status === 'completed' ? 'correct-complete' : null
 }
 
+/**
+ * Kiểm tra và đóng gói payload sửa nhầm ca làm kèm lý do và ETA mới.
+ */
 export function stylistCorrectionPayload(appointment, fields, now = Date.now()) {
   const operation = stylistCorrectionOperation(appointment)
   if (!operation) throw new Error('Trạng thái lịch không cho phép sửa nhầm. Hãy tải lại lịch.')
@@ -29,6 +41,9 @@ export function stylistCorrectionPayload(appointment, fields, now = Date.now()) 
   return body
 }
 
+/**
+ * Gọi API gửi yêu cầu sửa nhầm thao tác phục vụ với Idempotency-Key.
+ */
 export async function sendStylistCorrection(baseUrl, token, id, operation, body, key, signal) {
   const rule = rules[operation]
   const allowed = ['expectedRevision', 'reason', rule?.[2], ...(operation === 'correct-complete' ? ['estimatedEndAt'] : [])]

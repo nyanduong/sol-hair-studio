@@ -1,3 +1,9 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Component Modal cập nhật giờ kết thúc dự kiến (ETA) cho stylist và hiển thị khối cảnh báo các lịch hẹn bị ảnh hưởng do dời giờ.
+ */
 import { useEffect, useMemo, useSyncExternalStore } from 'react'
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -18,6 +24,9 @@ import { styles } from '../styles/cancellation.styles.js'
 import { styles as card } from '../styles/appointments.styles.js'
 import { styles as local } from '../styles/stylist-eta.styles.js'
 
+/**
+ * Khối hiển thị tóm tắt giờ ETA đã lưu và danh sách các lịch hẹn bị ảnh hưởng hoặc trùng lặp.
+ */
 export function StylistEtaSummary({ appointment, previousRead = false }) {
   if (!appointment || appointment.status !== 'in_progress') return null
   const warnings = appointment.affectedAppointments
@@ -46,6 +55,9 @@ export function StylistEtaSummary({ appointment, previousRead = false }) {
   </View>
 }
 
+/**
+ * Component Modal cho phép stylist nhập và xác nhận thời gian dự kiến hoàn tất ca làm mới.
+ */
 export default function StylistEtaManagement({ token, accountId, appointmentId, appointment, onChanged }) {
   const command = useMemo(() => createStylistEtaCommand({
     accountId, appointmentId, newKey: randomUUID, onChanged,

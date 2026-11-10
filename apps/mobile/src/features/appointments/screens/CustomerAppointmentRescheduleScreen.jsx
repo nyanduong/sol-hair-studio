@@ -1,3 +1,9 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Màn hình đổi lịch hẹn cho khách hàng: chọn chuyên viên, chọn ngày trong 7 ngày, chọn khung giờ trống và xác nhận đổi lịch.
+ */
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -15,6 +21,9 @@ import { styles as dialog } from '../styles/cancellation.styles.js'
 
 const WEEKDAYS = ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7']
 
+/**
+ * Định dạng chuỗi thời gian hẹn đầy đủ giờ, thứ, ngày/tháng/năm theo giờ Việt Nam.
+ */
 function formatScheduleSummary(isoString) {
   if (!isoString) return ''
   const d = new Date(isoString)
@@ -27,6 +36,9 @@ function formatScheduleSummary(isoString) {
   return `${time} – ${weekday}, ${day}/${month}/${year}`
 }
 
+/**
+ * Giao diện hiển thị kết quả và thông tin tóm tắt sau khi đổi lịch hẹn thành công.
+ */
 function RescheduleSuccessView({ appointment, onBackToDetail, onBackToList }) {
   const serviceNames = appointment?.items?.map(i => i.name).join(' · ') || 'Dịch vụ làm tóc'
   const duration = appointment?.totalDurationMinutes ? `${appointment.totalDurationMinutes} phút` : ''
@@ -105,6 +117,9 @@ function RescheduleSuccessView({ appointment, onBackToDetail, onBackToList }) {
   )
 }
 
+/**
+ * Form tương tác đổi lịch hẹn gồm chọn chuyên viên, chọn ngày, lưới giờ trống và modal xác nhận.
+ */
 function RescheduleForm({ navigation, token, accountId, appointmentId }) {
   const { state, command } = useCustomerReschedule(token, accountId, appointmentId)
   const [now, setNow] = useState(Date.now)
@@ -153,13 +168,19 @@ function RescheduleForm({ navigation, token, accountId, appointmentId }) {
   const currentDayMeta = allUpcomingDays[currentDayIdx >= 0 ? currentDayIdx : 0]
   const monthDisplay = currentDayMeta ? `Tháng ${currentDayMeta.month}, ${currentDayMeta.year}` : ''
 
-  function handlePrevDay() {
+  /**
+ * Chuyển sang ngày trước đó trên dải ngày.
+ */
+function handlePrevDay() {
     if (currentDayIdx > 0 && !locked) {
       command.chooseDate(allUpcomingDays[currentDayIdx - 1].dateStr)
     }
   }
 
-  function handleNextDay() {
+  /**
+ * Chuyển sang ngày tiếp theo trên dải ngày.
+ */
+function handleNextDay() {
     if (currentDayIdx >= 0 && currentDayIdx < allUpcomingDays.length - 1 && !locked) {
       command.chooseDate(allUpcomingDays[currentDayIdx + 1].dateStr)
     }
@@ -576,6 +597,9 @@ function RescheduleForm({ navigation, token, accountId, appointmentId }) {
   )
 }
 
+/**
+ * Màn hình đổi lịch hẹn khách hàng, kiểm tra xác thực tài khoản và phân quyền.
+ */
 export default function CustomerAppointmentRescheduleScreen({ navigation, route }) {
   const { token, account, isAuthenticated, isLoading } = useAuth()
   const accountId = account?.accountId ?? account?.id

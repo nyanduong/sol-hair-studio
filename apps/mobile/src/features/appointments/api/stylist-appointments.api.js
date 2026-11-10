@@ -1,3 +1,9 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Module giao tiếp API phía stylist: lấy danh sách ca hẹn theo ngày, xem chi tiết và gửi lệnh bắt đầu/hoàn tất phục vụ.
+ */
 import { stylistEtaImpact } from '../appointment-eta.js'
 import { requestJson } from '../../../lib/http.js'
 import { appointmentBaseDto } from './appointments.api.js'
@@ -6,7 +12,9 @@ import { validAppointmentDate } from '../appointment-presentation.js'
 const validId = value => typeof value === 'string' && /^[a-fA-F0-9]{24}$/.test(value)
 const validTime = value => typeof value === 'string' && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value
 
-// Chỉ giữ DTO cần đọc; không giữ email, receipt, cảnh báo của lịch khác hoặc audit.
+/**
+ * Chuẩn hóa dữ liệu ca hẹn của stylist kèm thông tin khách và trạng thái thực tế.
+ */
 export function stylistAppointmentDto(data, detail = false) {
   if (!data || ['customerId', 'accountId', 'email', 'lastCommand', 'audit', 'events'].some(field => field in data) ||
       !['confirmed', 'in_progress', 'completed'].includes(data.status) ||
@@ -27,6 +35,9 @@ export function stylistAppointmentDto(data, detail = false) {
     ...(detail && data.status === 'in_progress' && data.estimatedEndAt ? { estimatedEndAt: data.estimatedEndAt, ...stylistEtaImpact(data) } : {}) }
 }
 
+/**
+ * Gọi API lấy danh sách ca hẹn được giao cho stylist theo ngày.
+ */
 export async function listStylistAppointments(baseUrl, token, localDate, cursor, signal) {
   if (!validAppointmentDate(localDate)) throw Object.assign(new Error('Ngày không hợp lệ.'), { status: 400 })
   const query = new URLSearchParams({ localDate, limit: '50' })
@@ -42,6 +53,9 @@ export async function listStylistAppointments(baseUrl, token, localDate, cursor,
   return { items, pagination: { hasNextPage: data.pagination.hasNextPage, nextCursor: data.pagination.nextCursor } }
 }
 
+/**
+ * Gọi API lấy chi tiết ca hẹn của stylist.
+ */
 export async function getStylistAppointment(baseUrl, token, id, signal) {
   if (!validId(id)) throw Object.assign(new Error('Mã lịch không hợp lệ.'), { status: 400 })
   const response = await requestJson('/api/appointments/' + encodeURIComponent(id), {
@@ -51,6 +65,9 @@ export async function getStylistAppointment(baseUrl, token, id, signal) {
   return stylistAppointmentDto(response.data, true)
 }
 
+/**
+ * Gọi API gửi lệnh bắt đầu ('start') hoặc hoàn tất ('complete') ca phục vụ.
+ */
 export async function sendStylistServiceCommand(baseUrl, token, id, operation, payload, key, signal) {
   if (!['start', 'complete'].includes(operation) || !validId(id) || !payload ||
       Object.keys(payload).length !== 1 || !Object.hasOwn(payload, 'expectedRevision') || !Number.isSafeInteger(payload.expectedRevision) ||

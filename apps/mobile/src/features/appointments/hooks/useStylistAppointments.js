@@ -1,3 +1,9 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Hook lấy danh sách ca làm việc theo ngày hoặc chi tiết một ca làm của chuyên viên kèm tự làm mới khi focus.
+ */
 import { useCallback, useMemo, useSyncExternalStore } from 'react'
 import { AppState } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
@@ -8,6 +14,9 @@ import { getStylistAppointment, listStylistAppointments } from '../api/stylist-a
 import { bindAppointmentLifecycle } from './customer-appointments-reader.js'
 import { createStylistAppointmentReader } from './stylist-appointments-reader.js'
 
+/**
+ * Hook lấy danh sách ca làm việc theo ngày hoặc chi tiết một ca làm của chuyên viên kèm tự làm mới khi focus.
+ */
 export function useStylistAppointments(token, accountId, localDate, appointmentId) {
   const reader = useMemo(() => createStylistAppointmentReader({
     accountId, appointmentId,

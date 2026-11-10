@@ -1,3 +1,9 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Màn hình xem lịch sử dịch vụ đã hoàn tất của khách hàng dành cho stylist phụ trách ca hẹn.
+ */
 import { ActivityIndicator, FlatList, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Feather from '@expo/vector-icons/Feather'
@@ -20,6 +26,9 @@ const performedAt = new Intl.DateTimeFormat('vi-VN', {
 })
 const money = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' })
 
+/**
+ * Thẻ hiển thị thông tin một lần làm dịch vụ đã hoàn tất của khách trong quá khứ.
+ */
 function HistoryCard({ item }) {
   return (
     <View style={local.historyCard}>
@@ -74,6 +83,9 @@ function HistoryCard({ item }) {
   )
 }
 
+/**
+ * Hiển thị thông báo lỗi và nút tải lại khi gặp sự cố đọc lịch sử dịch vụ.
+ */
 function HistoryError({ state }) {
   const message = state.kind === 'denied'
     ? state.error?.status === 404
@@ -93,6 +105,9 @@ function HistoryError({ state }) {
   )
 }
 
+/**
+ * Danh sách lịch sử dịch vụ của khách hàng với phân trang cursor và làm mới.
+ */
 function PersonalHistory({ token, accountId, appointmentId }) {
   const state = useStylistServiceHistory(token, accountId, appointmentId)
 
@@ -159,6 +174,9 @@ function PersonalHistory({ token, accountId, appointmentId }) {
   )
 }
 
+/**
+ * Màn hình lịch sử dịch vụ của khách hàng dành cho stylist được phân công.
+ */
 export default function StylistServiceHistoryScreen({ navigation, route }) {
   const auth = useAuth()
   const accountId = auth.account?.accountId ?? auth.account?.id

@@ -1,10 +1,22 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Tiện ích và thuật toán tính toán thời gian dự kiến kết thúc (ETA), kiểm tra xung đột lịch và cảnh báo đè ca của stylist.
+ */
 import { validAppointmentDate } from './appointment-presentation.js'
 
 const canonical = value => typeof value === 'string' && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value
 const id = value => typeof value === 'string' && /^[a-fA-F0-9]{24}$/.test(value)
+/**
+ * Định dạng thời gian ETA đầy đủ ngày giờ theo múi giờ Việt Nam.
+ */
 export const formatEtaTime = value => new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh',
   day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).format(new Date(value))
 
+/**
+ * Xử lý và kiểm tra tính hợp lệ của danh sách các cuộc hẹn bị ảnh hưởng do dời giờ ETA.
+ */
 export function stylistEtaImpact(data) {
   if (!Array.isArray(data.affectedAppointments) || typeof data.ownerReviewRequired !== 'boolean') throw new Error('Không đọc được cảnh báo ETA.')
   const seen = new Set()
@@ -20,11 +32,17 @@ export function stylistEtaImpact(data) {
   return { affectedAppointments, ownerReviewRequired: data.ownerReviewRequired }
 }
 
+/**
+ * Kiểm tra điều kiện cho phép stylist cập nhật ETA (lịch phải đang in_progress).
+ */
 export function canUpdateStylistEta(appointment) {
   return appointment?.status === 'in_progress' && Number.isSafeInteger(appointment.revision) &&
     appointment.revision >= 0 && appointment.revision < Number.MAX_SAFE_INTEGER
 }
 
+/**
+ * Chuyển đổi ngày và giờ nhập vào thành chuỗi ISO chuẩn múi giờ Việt Nam (+07:00).
+ */
 export function etaInputToIso(date, time) {
   if (!validAppointmentDate(date) || typeof time !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(time)) {
     throw new Error('Nhập ngày YYYY-MM-DD và giờ HH:mm hoặc HH:mm:ss hợp lệ theo giờ Việt Nam.')
@@ -32,6 +50,9 @@ export function etaInputToIso(date, time) {
   return new Date(date + 'T' + time + (time.length === 5 ? ':00' : '') + '+07:00').toISOString()
 }
 
+/**
+ * Đóng gói payload gửi lên API cập nhật ETA, kiểm tra các ràng buộc thời gian.
+ */
 export function stylistEtaPayload(appointment, date, time, now = Date.now()) {
   if (!canUpdateStylistEta(appointment)) throw new Error('Chỉ cập nhật ETA cho lịch đang phục vụ có revision hợp lệ.')
   const estimatedEndAt = etaInputToIso(date, time), eta = Date.parse(estimatedEndAt)
@@ -40,6 +61,9 @@ export function stylistEtaPayload(appointment, date, time, now = Date.now()) {
   return { expectedRevision: appointment.revision, estimatedEndAt }
 }
 
+/**
+ * Tính toán giá trị ngày và giờ ETA gợi ý mặc định (làm tròn mốc 15 phút tiếp theo).
+ */
 export function defaultStylistEtaInput(appointment, now = Date.now()) {
   const old = Date.parse(appointment.estimatedEndAt)
   const base = Number.isFinite(old) && old > Math.max(now, Date.parse(appointment.endAt)) + 1000
@@ -49,6 +73,9 @@ export function defaultStylistEtaInput(appointment, now = Date.now()) {
 }
 
 // GET mới có ưu tiên, kể cả cùng revision: impact có thể đổi khi lịch khác đổi.
+/**
+ * Chọn dữ liệu tóm tắt ETA mới nhất giữa lần đọc API và kết quả cập nhật vừa nhận.
+ */
 export function selectStylistEtaSummary(detailState, result, appointmentId) {
   if (detailState.kind === 'success') {
     const current = detailState.appointment

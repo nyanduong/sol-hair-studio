@@ -1,19 +1,37 @@
-// A prior successful command is not the current state after another command/correction.
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Tiện ích định dạng dữ liệu hiển thị lịch hẹn: format ngày giờ Việt Nam, theme badge trạng thái, nhãn ca làm và kiểm tra vai trò.
+ */
+
+/**
+ * Kiểm tra kết quả lệnh vừa thực thi có khớp với trạng thái hiện tại của lịch hẹn không.
+ */
 export function isCurrentAppointmentResult(result, appointment) {
   return Boolean(result && appointment && result.id === appointment.id &&
     Number.isSafeInteger(result.revision) && result.revision === appointment.revision &&
     result.status === appointment.status)
 }
 
-// Cùng thứ tự ưu tiên role của API: Owner > Stylist > Customer.
+
+/**
+ * Kiểm tra tài khoản có vai trò Owner đang hoạt động.
+ */
 export function isAppointmentOwner(account) {
   return account?.status === 'active' && Array.isArray(account.roles) && account.roles.includes('owner')
 }
+/**
+ * Kiểm tra tài khoản có vai trò Customer độc lập đang hoạt động.
+ */
 export function isAppointmentCustomer(account) {
   return account?.status === 'active' && Array.isArray(account.roles) &&
     account.roles.includes('customer') && !account.roles.some(role => ['owner', 'stylist'].includes(role))
 }
 
+/**
+ * Xác định màn hình danh sách lịch hẹn phù hợp theo vai trò của người dùng.
+ */
 export function appointmentListDestination(account) {
   if (isAppointmentStylist(account)) return 'StylistAppointments'
   return isAppointmentCustomer(account) ? 'CustomerAppointments' : null
@@ -62,6 +80,9 @@ export const statusConfig = {
   },
 }
 
+/**
+ * Lấy cấu hình màu sắc, nhãn và viền của badge trạng thái cuộc hẹn.
+ */
 export function getStatusTheme(status) {
   return statusConfig[status] ?? {
     label: appointmentStatuses[status] ?? 'Chưa xác định',
@@ -72,6 +93,9 @@ export function getStatusTheme(status) {
   }
 }
 
+/**
+ * Xác định ca làm việc (Sáng, Chiều, Tối) dựa trên mốc thời gian hẹn giờ Việt Nam.
+ */
 export function getShiftLabel(isoStr) {
   if (!isoStr) return ''
   const hour = new Date(isoStr).toLocaleTimeString('en-US', { timeZone: 'Asia/Ho_Chi_Minh', hour: 'numeric', hour12: false })
@@ -83,6 +107,9 @@ const fmtWeekday = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Min
 const fmtDay = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit' })
 const fmtMonth = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', month: 'numeric' })
 
+/**
+ * Tách chuỗi thời gian thành Thứ, Ngày, Tháng phục vụ hiển thị khối ô lịch trực quan.
+ */
 export function getCalendarTileParts(isoStr) {
   if (!isoStr) return { weekday: '', day: '', month: '' }
   const d = new Date(isoStr)
@@ -95,6 +122,9 @@ export function getCalendarTileParts(isoStr) {
   }
 }
 
+/**
+ * Phân loại danh sách lịch hẹn thành 2 tab Sắp tới và Lịch sử kèm số lượng đếm.
+ */
 export function customerAppointmentTab(state, tab) {
   const upcoming = state.items.filter(item => ['confirmed', 'in_progress'].includes(item.status))
   const history = state.items.filter(item => ['completed', 'cancelled', 'no_show'].includes(item.status))
@@ -108,20 +138,32 @@ const date = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', we
 const time = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 const price = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' })
 
+/**
+ * Định dạng đầy đủ thông tin hiển thị trên card cuộc hẹn (ngày, giờ, dịch vụ, stylist, thời lượng, giá tiền).
+ */
 export function appointmentCardText(item) {
   return { date: date.format(new Date(item.startAt)), time: time.format(new Date(item.startAt)) + ' – ' + time.format(new Date(item.endAt)),
     services: item.items.map(service => service.name).join(' · '), stylist: item.staffNameSnapshot,
     duration: item.totalDurationMinutes + ' phút', price: price.format(item.totalPriceVnd), status: appointmentStatuses[item.status] }
 }
 
+/**
+ * Kiểm tra tài khoản có vai trò Stylist đang hoạt động.
+ */
 export function isAppointmentStylist(account) {
   return account?.status === 'active' && Array.isArray(account.roles) && account.roles.includes('stylist') && !account.roles.includes('owner')
 }
 
+/**
+ * Kiểm tra chuỗi ngày có đúng định dạng YYYY-MM-DD hợp lệ hay không.
+ */
 export function validAppointmentDate(value) {
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value
 }
 
+/**
+ * Tăng hoặc giảm một số ngày từ một chuỗi ngày chuẩn.
+ */
 export function moveAppointmentDay(localDate, days) {
   if (!validAppointmentDate(localDate)) return null
   return new Date(Date.parse(localDate + 'T00:00:00.000Z') + days * 86400000).toISOString().slice(0, 10)

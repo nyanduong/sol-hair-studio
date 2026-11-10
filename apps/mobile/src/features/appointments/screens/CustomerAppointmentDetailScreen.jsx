@@ -1,3 +1,9 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Màn hình chi tiết một cuộc hẹn của khách hàng: hiển thị thông tin stylist, dịch vụ, thời gian thực tế và các nút hành động.
+ */
 import CustomerAppointmentRescheduleAction from '../components/CustomerAppointmentRescheduleAction.jsx'
 import CustomerAppointmentCancellation from '../components/CustomerAppointmentCancellation.jsx'
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native'
@@ -25,6 +31,9 @@ const actualTime = new Intl.DateTimeFormat('vi-VN', {
   minute: '2-digit',
 })
 
+/**
+ * Hiển thị nội dung chi tiết cuộc hẹn (mã lịch, ô ngày giờ, stylist, dịch vụ, giá và thời gian phục vụ thực tế).
+ */
 function DetailContent({ state }) {
   if (state.kind === 'loading') {
     return (
@@ -160,6 +169,9 @@ function DetailContent({ state }) {
   )
 }
 
+/**
+ * Khối chi tiết liên kết hook dữ liệu và tích hợp các nút hành động đổi lịch và hủy lịch.
+ */
 function Detail({ token, accountId, appointmentId, navigation }) {
   const state = useCustomerAppointmentDetail(token, accountId, appointmentId)
   return (
@@ -177,6 +189,9 @@ function Detail({ token, accountId, appointmentId, navigation }) {
   )
 }
 
+/**
+ * Màn hình chi tiết cuộc hẹn khách hàng, kiểm tra quyền và điều hướng an toàn.
+ */
 export default function CustomerAppointmentDetailScreen({ navigation, route }) {
   const { token, account, isAuthenticated, isLoading } = useAuth()
   const accountId = account?.accountId ?? account?.id

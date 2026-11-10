@@ -1,3 +1,9 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Định nghĩa stylesheet cho form đổi lịch hẹn, dải chọn ngày và lưới khung giờ trống.
+ */
 import { StyleSheet } from 'react-native'
 import { colors, displayFont } from '../../../theme/tokens.js'
 

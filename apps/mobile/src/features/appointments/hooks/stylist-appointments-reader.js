@@ -1,8 +1,16 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Bộ đọc dữ liệu ca hẹn của stylist, bắt buộc đối chiếu quyền hạn và staffId của chính stylist đăng nhập.
+ */
 import { createAppointmentListReader } from './customer-appointments-reader.js'
 import { createAppointmentDetailReader } from './customer-appointment-detail-reader.js'
 import { isAppointmentStylist } from '../appointment-presentation.js'
 
-// Staff được lấy theo phiên, không nhận Staff ID tùy ý từ route hoặc ô lọc.
+/**
+ * Khởi tạo reader danh sách hoặc chi tiết ca làm cho stylist có kiểm tra đối chiếu phân công (staffId).
+ */
 export function createStylistAppointmentReader({ accountId, readProfile, readStaff, readPage, readDetail, appointmentId }) {
   let staffId
   const denied = () => Object.assign(new Error('Phiên hoặc hồ sơ stylist không còn phù hợp.'), { status: 403 })
@@ -29,6 +37,9 @@ export function createStylistAppointmentReader({ accountId, readProfile, readSta
     } })
 }
 
+/**
+ * Đọc và xác thực phiên làm việc cùng mã nhân viên (staffId) của tài khoản stylist đăng nhập.
+ */
 export async function readStylistSession({ accountId, readProfile, readStaff }, signal) {
   const denied = () => Object.assign(new Error('Phiên hoặc hồ sơ stylist không còn phù hợp.'), { status: 403 })
   const profile = await readProfile(signal), account = profile?.account ?? profile

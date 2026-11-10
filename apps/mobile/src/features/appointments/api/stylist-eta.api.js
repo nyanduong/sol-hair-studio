@@ -1,7 +1,16 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Module giao tiếp API cập nhật thời gian dự kiến kết thúc (ETA) cho ca hẹn đang phục vụ của stylist.
+ */
 import { requestJson } from '../../../lib/http.js'
 import { stylistAppointmentDto } from './stylist-appointments.api.js'
 
 const canonical = value => typeof value === 'string' && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value
+/**
+ * Gọi API cập nhật giờ kết thúc dự kiến (ETA) kèm Idempotency-Key và kiểm tra occupiedUntil.
+ */
 export async function updateStylistEta(baseUrl, token, id, payload, key, signal) {
   if (typeof id !== 'string' || !/^[a-fA-F0-9]{24}$/.test(id) || !payload || Object.keys(payload).length !== 2 ||
       Object.keys(payload).some(field => !['expectedRevision', 'estimatedEndAt'].includes(field)) ||
