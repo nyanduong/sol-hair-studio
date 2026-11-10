@@ -170,6 +170,62 @@ afterAll(async () => {
 })
 
 describe('SOL-025 M3 Staff profiles, capabilities, shifts & appointment protection', { timeout: 30000 }, () => {
+  it('stylist chỉ điểm danh ca của mình trong giờ làm và API ghi nhận giờ server', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime('2026-11-10T02:30:15.000Z')
+      const stylist = await createActiveStylistActor()
+      const otherStylist = await createActiveStylistActor({ emailNormalized: 'stylist2@example.test' })
+      const shift = await StaffShiftModel.create({
+        staffId: stylist.staff._id,
+        localDate: '2026-11-10',
+        startAt: new Date('2026-11-10T01:00:00.000Z'),
+        endAt: new Date('2026-11-10T10:00:00.000Z'),
+        status: 'active',
+      })
+      const path = `/api/staff/${stylist.staff._id}/shifts/${shift._id}`
+
+      await request(app).post(`${path}/check-in`).set('Authorization', bearer(otherStylist.token)).expect(403)
+      const checkIn = await request(app).post(`${path}/check-in`).set('Authorization', bearer(stylist.token)).expect(200)
+      expect(checkIn.body.data).toMatchObject({
+        shiftId: String(shift._id),
+        actualStartedAt: '2026-11-10T02:30:15.000Z',
+        actualEndedAt: null,
+      })
+      await request(app).post(`${path}/check-in`).set('Authorization', bearer(stylist.token)).expect(409)
+
+      vi.setSystemTime('2026-11-10T10:15:00.000Z')
+      const checkOut = await request(app).post(`${path}/check-out`).set('Authorization', bearer(stylist.token)).expect(200)
+      expect(checkOut.body.data.actualEndedAt).toBe('2026-11-10T10:15:00.000Z')
+      await request(app).post(`${path}/check-out`).set('Authorization', bearer(stylist.token)).expect(409)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('không cho stylist bắt đầu ca trước giờ hoặc bắt đầu ca đã hết giờ', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime('2026-11-10T00:59:59.999Z')
+      const stylist = await createActiveStylistActor()
+      const shift = await StaffShiftModel.create({
+        staffId: stylist.staff._id,
+        localDate: '2026-11-10',
+        startAt: new Date('2026-11-10T01:00:00.000Z'),
+        endAt: new Date('2026-11-10T10:00:00.000Z'),
+        status: 'active',
+      })
+      const path = `/api/staff/${stylist.staff._id}/shifts/${shift._id}/check-in`
+      await request(app).post(path.replace('/check-in', '/check-out')).set('Authorization', bearer(stylist.token)).expect(409)
+      await request(app).post(path).set('Authorization', bearer(stylist.token)).expect(409)
+      vi.setSystemTime('2026-11-10T10:00:00.000Z')
+      const freshToken = await loginAccount('stylist1@example.test')
+      await request(app).post(path).set('Authorization', bearer(freshToken)).expect(409)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('owner tạo staff qua createStaffAccount, kích hoạt OTP thật và không lộ trường nhạy cảm', async () => {
     const { token } = await createOwnerActor()
     const createAccountSpy = vi.spyOn(authService, 'createStaffAccount')

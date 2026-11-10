@@ -31,11 +31,11 @@ Nếu in_progress đã quá endAt mà chưa có ETA hợp lệ hoặc ETA cũng 
 <a id="shifts"></a>
 ## BR-03. Ca, nghỉ và năng lực
 
-Chủ tạo/xem/sửa/hủy staff_shifts theo ngày, xếp tuần một lần cho nhân viên và chính mình. Nhân viên chỉ xem ca mình. Không ca chồng cùng staff; chưa xếp ngày không mở giờ, không tự lặp weeklyHours.
+Chủ tạo/xem/sửa/hủy staff_shifts theo ngày, xếp tuần một lần cho nhân viên và chính mình. Nhân viên chỉ xem và điểm danh ca mình. Check-in chỉ vào ca active của đúng stylist trong khoảng giờ đã xếp; check-out cần check-in trước và cả hai mốc dùng đồng hồ server. Không ca chồng cùng staff; chưa xếp ngày không mở giờ, không tự lặp weeklyHours.
 
 Sửa/hủy ca, đặt nghỉ hoặc ngừng staff: ghi guard staff rồi kiểm mọi in_progress và confirmed còn hiệu lực bị ảnh hưởng. Không xung đột mới lưu; có xung đột không lưu, trả danh sách, chủ đổi giờ/đổi người/hủy từng lịch trước rồi thử lại. Kiểm lại tại lúc lưu, không có transaction chờ con người. completed/cancelled/no_show không bị đổi trạng thái gián tiếp.
 
-**Không có BR chặn bỏ dịch vụ khỏi năng lực khi còn lịch** (chủ đã loại). Giữ lịch/snapshot hiện có; tạo/đổi mới kiểm năng lực hiện tại. Đây là khác biệt với baseline cũ, không tự khôi phục qua checker. Không chấm công/lương hoặc workflow nhân viên xin nghỉ/đổi ca.
+**Không có BR chặn bỏ dịch vụ khỏi năng lực khi còn lịch** (chủ đã loại). Giữ lịch/snapshot hiện có; tạo/đổi mới kiểm năng lực hiện tại. Đây là khác biệt với baseline cũ, không tự khôi phục qua checker. Check-in/check-out chỉ ghi nhận thời điểm ca; không tính lương hoặc có workflow nhân viên xin nghỉ/đổi ca.
 
 <a id="concurrency"></a>
 ## BR-04. Chống trùng ở DB

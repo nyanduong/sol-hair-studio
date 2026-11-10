@@ -60,6 +60,24 @@ staffRouter.get(
 );
 
 staffRouter.post(
+  "/staff/:staffId/shifts/:shiftId/check-in",
+  requireAuth,
+  requireRoles("stylist"),
+  staffHandler(({ identity, params }) =>
+    staffService.checkInStaffShift(identity, params.staffId, params.shiftId),
+  ),
+);
+
+staffRouter.post(
+  "/staff/:staffId/shifts/:shiftId/check-out",
+  requireAuth,
+  requireRoles("stylist"),
+  staffHandler(({ identity, params }) =>
+    staffService.checkOutStaffShift(identity, params.staffId, params.shiftId),
+  ),
+);
+
+staffRouter.post(
   "/staff/:staffId/shifts",
   requireAuth,
   requireRoles("owner"),

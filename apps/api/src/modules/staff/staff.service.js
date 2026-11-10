@@ -65,6 +65,8 @@ export function shiftDto(shift) {
     startAt: shift.startAt,
     endAt: shift.endAt,
     status: shift.status,
+    actualStartedAt: shift.actualStartedAt ?? null,
+    actualEndedAt: shift.actualEndedAt ?? null,
     createdAt: shift.createdAt,
     updatedAt: shift.updatedAt,
   };
@@ -634,6 +636,76 @@ export async function listStaffShifts(identity, staffId, query = {}) {
     .sort({ startAt: 1, _id: 1 })
     .lean();
   return shifts.map(shiftDto);
+}
+
+async function getOwnedActiveShift(identity, staffId, shiftId) {
+  requireAuthenticatedIdentity(identity);
+  if (!identity.roles.includes("stylist")) {
+    fail("FORBIDDEN", "Chỉ stylist mới có thể điểm danh ca làm.", 403);
+  }
+
+  const validStaffId = validateObjectId(staffId, "INVALID_STAFF_ID", "Mã nhân viên không hợp lệ.");
+  const validShiftId = validateObjectId(shiftId, "INVALID_SHIFT_ID", "Mã ca làm việc không hợp lệ.");
+  const staff = await StaffModel.findOne({ _id: validStaffId, accountId: identity.accountId, isActive: true }).lean();
+  if (!staff) {
+    fail("FORBIDDEN", "Stylist chỉ được điểm danh ca làm việc của chính mình.", 403);
+  }
+
+  const shift = await StaffShiftModel.findOne({ _id: validShiftId, staffId: validStaffId });
+  if (!shift) {
+    fail("SHIFT_NOT_FOUND", "Không tìm thấy ca làm việc của nhân viên này.", 404);
+  }
+  if (shift.status !== "active") {
+    fail("SHIFT_NOT_ACTIVE", "Chỉ có thể điểm danh ca làm đang áp dụng.", 409);
+  }
+  return shift;
+}
+
+// Stylist ghi nhận giờ vào ca bằng đồng hồ server. Không cho điểm danh trước hoặc sau khung ca đã được chủ xếp.
+export async function checkInStaffShift(identity, staffId, shiftId) {
+  const shift = await getOwnedActiveShift(identity, staffId, shiftId);
+  if (shift.actualStartedAt) {
+    fail("SHIFT_ALREADY_CHECKED_IN", "Ca làm này đã được bắt đầu.", 409);
+  }
+
+  const now = new Date();
+  if (now < shift.startAt) {
+    fail("SHIFT_NOT_STARTED", "Chưa đến giờ bắt đầu ca làm.", 409);
+  }
+  if (now >= shift.endAt) {
+    fail("SHIFT_ENDED", "Ca làm đã hết giờ, không thể bắt đầu ca.", 409);
+  }
+
+  const updated = await StaffShiftModel.findOneAndUpdate(
+    { _id: shift._id, status: "active", actualStartedAt: null },
+    { $set: { actualStartedAt: now } },
+    { returnDocument: "after", runValidators: true },
+  );
+  if (!updated) {
+    fail("SHIFT_ALREADY_CHECKED_IN", "Ca làm này đã được bắt đầu.", 409);
+  }
+  return shiftDto(updated);
+}
+
+// Stylist chỉ được kết thúc ca do chính mình đã bắt đầu. Giờ ra ca dùng đồng hồ server và có thể muộn hơn giờ kế hoạch.
+export async function checkOutStaffShift(identity, staffId, shiftId) {
+  const shift = await getOwnedActiveShift(identity, staffId, shiftId);
+  if (!shift.actualStartedAt) {
+    fail("SHIFT_NOT_CHECKED_IN", "Cần bắt đầu ca trước khi kết thúc ca.", 409);
+  }
+  if (shift.actualEndedAt) {
+    fail("SHIFT_ALREADY_CHECKED_OUT", "Ca làm này đã được kết thúc.", 409);
+  }
+
+  const updated = await StaffShiftModel.findOneAndUpdate(
+    { _id: shift._id, status: "active", actualStartedAt: { $ne: null }, actualEndedAt: null },
+    { $set: { actualEndedAt: new Date() } },
+    { returnDocument: "after", runValidators: true },
+  );
+  if (!updated) {
+    fail("SHIFT_ALREADY_CHECKED_OUT", "Ca làm này đã được kết thúc.", 409);
+  }
+  return shiftDto(updated);
 }
 
 // Chủ tiệm tạo ca làm mới cho nhân viên dưới guard bookingRevision và kiểm tra chống chồng ca active [startAt, endAt).

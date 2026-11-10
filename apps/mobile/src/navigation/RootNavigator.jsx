@@ -19,6 +19,7 @@ import OwnerDashboardScreen from '../features/appointments/screens/OwnerDashboar
 import { colors } from '../theme/tokens.js'
 import BookingScreen from '../features/booking/screens/BookingScreen.jsx'
 import StylistShiftsScreen from '../features/staff/screens/StylistShiftsScreen.jsx'
+import StylistShiftDetailScreen from '../features/staff/screens/StylistShiftDetailScreen.jsx'
 import StylistReportsScreen from '../features/reports/screens/StylistReportsScreen.jsx'
 
 const Stack = createNativeStackNavigator()
@@ -38,6 +39,7 @@ export default function RootNavigator() {
       <Stack.Screen name="StylistAppointmentDetail" component={StylistAppointmentDetailScreen} getId={({ params }) => params?.appointmentId} />
       <Stack.Screen name="StylistServiceHistory" component={StylistServiceHistoryScreen} getId={({ params }) => params?.appointmentId} />
       <Stack.Screen name="StylistShifts" component={StylistShiftsScreen} />
+      <Stack.Screen name="StylistShiftDetail" component={StylistShiftDetailScreen} getId={({ params }) => params?.shiftId} />
       <Stack.Screen name="StylistReports" component={StylistReportsScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />

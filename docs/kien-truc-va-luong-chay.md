@@ -146,8 +146,8 @@ apps/mobile/
 │   ├── features/staff/
 │   │   ├── screens/StylistShiftsScreen.jsx  Ghép màn Ca làm của tôi cho stylist
 │   │   ├── hooks/useStylistShifts.js  Đọc hồ sơ/ca theo phiên, retry và cleanup
-│   │   ├── api/staff.api.js           Chọn GET /api/staff và /api/staff/:staffId/shifts
-│   │   ├── staff-presentation.js      Tính tuần, định dạng ngày/giờ và trạng thái ca
+│   │   ├── api/staff.api.js           Chọn reader ca và POST check-in/check-out
+│   │   ├── staff-presentation.js      Tính tuần, định dạng ngày/giờ và trạng thái/điểm danh ca
 │   │   ├── styles/                    StyleSheet native của màn ca
 │   │   └── tests/staff.api.test.js    Kiểm tra hợp đồng endpoint và request mới nhất
 │   └── lib/
@@ -180,7 +180,7 @@ Mobile mở `HomeScreen` trước với logo, hero và danh mục thật; thanh 
 
 ### Luồng ca làm stylist (SOL-027)
 
-Stylist đã đăng nhập có thanh dưới riêng gồm **Trang chủ**, **Lịch hẹn**, **Ca làm của tôi**, **Báo cáo** và **Tài khoản**. **Lịch hẹn** mở `StylistAppointments`: screen gọi `GET /api/appointments?localDate=...` bằng token phiên và chỉ render DTO API trả về cho stylist (lịch được giao, không có cancelled/no-show). Màn có chọn ngày, tải, lỗi/thử lại và ngày trống; không có quyền sửa/hủy lịch. Mục giữa mở `StylistShifts`, gọi `useStylistShifts`; hook lần lượt gọi `GET /api/staff` với token phiên, lấy duy nhất hồ sơ được API lọc theo `accountId`, rồi gọi `GET /api/staff/:staffId/shifts?fromDate=...&toDate=...`. Mobile không cho người dùng chọn hoặc truyền staffId. API tiếp tục kiểm ownership độc lập. Màn ca hiển thị tải, lỗi/thử lại, tuần trống hoặc ca với ngày, giờ và trạng thái; đổi tuần hoặc rời màn hủy request cũ bằng `latest-request.js`. Báo cáo và lịch hẹn của khách chưa có API/screen nên vẫn thông báo tính năng đang phát triển.
+Stylist đã đăng nhập có thanh dưới riêng gồm **Trang chủ**, **Lịch hẹn**, **Ca làm của tôi**, **Báo cáo** và **Tài khoản**. **Lịch hẹn** mở `StylistAppointments`: screen gọi `GET /api/appointments?localDate=...` bằng token phiên và chỉ render DTO API trả về cho stylist (lịch được giao, không có cancelled/no-show). Màn có chọn ngày, tải, lỗi/thử lại và ngày trống; không có quyền sửa/hủy lịch. Mục giữa mở `StylistShifts`, gọi `useStylistShifts`; hook lần lượt gọi `GET /api/staff` với token phiên, lấy duy nhất hồ sơ được API lọc theo `accountId`, rồi gọi `GET /api/staff/:staffId/shifts?fromDate=...&toDate=...`. Chạm một thẻ ca sẽ mở `StylistShiftDetail`, đọc lại đúng ngày rồi hiển thị giờ ca, trạng thái và mốc chấm công. Mobile không cho người dùng chọn hoặc truyền staffId. API tiếp tục kiểm ownership độc lập. Ca chưa đến giờ hiển thị **Chưa đến giờ làm**, ca qua giờ nhưng chưa điểm danh hiển thị **Đã quá giờ điểm danh**; chỉ ca active trong khoảng giờ mới có nút bắt đầu. Stylist gọi `POST /api/staff/:staffId/shifts/:shiftId/check-in`, rồi `POST .../check-out`; API tự ghi giờ server vào `actualStartedAt`/`actualEndedAt`, chặn ca hủy, sai stylist, điểm danh lặp và check-out khi chưa check-in. Đổi tuần hoặc rời màn hủy request cũ bằng `latest-request.js`.
 
 ## E. Luồng chạy health
 

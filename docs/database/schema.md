@@ -101,8 +101,9 @@ Không dùng weeklyHours lặp tự động cho tuần chưa xếp. **Không th�
 | localDate | String R | YYYY-MM-DD đúng ngày của startAt, Asia/Ho_Chi_Minh |
 | startAt, endAt | Date R | Ca theo ngày thực tế, phút nguyên, end>start, không qua ngày trừ biên phải 00:00 hôm sau |
 | status | String R | active, cancelled; giữ ca đã hủy để đối chiếu, không tự xóa lịch sử |
+| actualStartedAt, actualEndedAt | Date O | Giờ server khi stylist check-in/check-out; end không sớm hơn start |
 
-Chủ tạo/xem/sửa/hủy ca mọi người, nhân viên chỉ xem ca mình. Chỉ active shift mở giờ, không chồng ca cùng người; không tự sinh ca lặp từ tuần cũ. Unique start không chống overlap: dùng guard staff và kiểm khoảng. Ca/nghỉ thay đổi có lịch hiệu lực vi phạm thì không lưu, trả danh sách. Completed/cancelled không bị đổi trạng thái gián tiếp.
+Chủ tạo/xem/sửa/hủy ca mọi người, nhân viên chỉ xem và điểm danh ca mình. Chỉ active shift mở giờ, không chồng ca cùng người; không tự sinh ca lặp từ tuần cũ. Unique start không chống overlap: dùng guard staff và kiểm khoảng. Ca/nghỉ thay đổi có lịch hiệu lực vi phạm thì không lưu, trả danh sách. Completed/cancelled không bị đổi trạng thái gián tiếp.
 
 ## staff_time_off
 

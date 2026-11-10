@@ -129,6 +129,25 @@ const staffShiftSchema = new mongoose.Schema(
       enum: STAFF_SHIFT_STATUSES,
       default: "active",
     },
+    actualStartedAt: {
+      type: Date,
+      default: null,
+    },
+    actualEndedAt: {
+      type: Date,
+      default: null,
+      validate: {
+        validator(value) {
+          return (
+            value === null ||
+            value === undefined ||
+            !(this.actualStartedAt instanceof Date) ||
+            value.getTime() >= this.actualStartedAt.getTime()
+          );
+        },
+        message: "actualEndedAt must not be earlier than actualStartedAt",
+      },
+    },
   },
   { timestamps: true, versionKey: false, collection: "staff_shifts" },
 );
