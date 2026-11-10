@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createLatestRequest } from '../../../lib/latest-request.js'
-import { fetchMyShifts, fetchMyStaff, getStaffErrorMessage } from '../api/staff.api.js'
-import { currentWeekRange, formatShiftTime, moveWeek, shiftStatusLabel } from '../staff-presentation.js'
+import { fetchMyShifts, fetchMyStaff, getStaffErrorMessage, recordShiftAttendance } from '../api/staff.api.js'
+import { currentWeekRange, formatShiftTime, moveWeek, shiftAttendanceAction, shiftAttendanceLabel, shiftStatusLabel } from '../staff-presentation.js'
 
 const baseUrl = 'http://10.0.2.2:4000/'
 const token = 'stylist-token'
@@ -33,10 +33,30 @@ describe('ca làm của stylist trên mobile', () => {
     expect(getStaffErrorMessage({ status: 403 })).toContain('không có quyền')
   })
 
+  it('gửi điểm danh vào đúng endpoint, còn trạng thái thực tế đến từ API', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response({ shiftId: 'shift-1', actualStartedAt: '2026-11-10T02:00:00.000Z' }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(recordShiftAttendance(baseUrl, token, 'staff-1', 'shift-1', 'check-in')).resolves.toMatchObject({ shiftId: 'shift-1' })
+    expect(fetchMock).toHaveBeenCalledWith('http://10.0.2.2:4000/api/staff/staff-1/shifts/shift-1/check-in', expect.objectContaining({ method: 'POST', headers: expect.any(Headers) }))
+  })
+
   it('trình bày khoảng tuần và dữ liệu ca từ hợp đồng API', () => {
     expect(currentWeekRange(new Date('2026-10-21T12:00:00'))).toEqual(range)
     expect(moveWeek(range, 1)).toEqual({ fromDate: '2026-10-26', toDate: '2026-11-01' })
     expect(formatShiftTime('2026-10-19T02:00:00.000Z')).toBe('09:00')
     expect(shiftStatusLabel('cancelled')).toBe('Đã hủy')
+    const originalNow = Date.now
+    Date.now = () => Date.parse('2026-10-19T02:00:00.000Z')
+    expect(shiftAttendanceLabel({ status: 'active', startAt: '2026-10-19T03:00:00.000Z', endAt: '2026-10-19T10:00:00.000Z' })).toBe('Chưa đến giờ làm')
+    expect(shiftAttendanceAction({ status: 'active', startAt: '2026-10-19T03:00:00.000Z', endAt: '2026-10-19T10:00:00.000Z' })).toBeNull()
+    expect(shiftAttendanceLabel({ status: 'active', startAt: '2026-10-19T01:00:00.000Z', endAt: '2026-10-19T10:00:00.000Z' })).toBe('Sẵn sàng bắt đầu ca')
+    expect(shiftAttendanceAction({ status: 'active', startAt: '2026-10-19T01:00:00.000Z', endAt: '2026-10-19T10:00:00.000Z' })).toBe('check-in')
+    expect(shiftAttendanceLabel({ status: 'active', startAt: '2026-10-19T00:00:00.000Z', endAt: '2026-10-19T01:00:00.000Z' })).toBe('Đã quá giờ điểm danh')
+    expect(shiftAttendanceAction({ status: 'active', startAt: '2026-10-19T00:00:00.000Z', endAt: '2026-10-19T01:00:00.000Z' })).toBeNull()
+    expect(shiftAttendanceLabel({ status: 'active', actualStartedAt: '2026-10-19T02:00:00.000Z' })).toBe('Đang làm ca')
+    expect(shiftAttendanceAction({ status: 'active', actualStartedAt: '2026-10-19T02:00:00.000Z' })).toBe('check-out')
+    Date.now = originalNow
+    expect(shiftAttendanceAction({ status: 'cancelled' })).toBeNull()
   })
 })

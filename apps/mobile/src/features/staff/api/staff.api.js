@@ -26,6 +26,17 @@ export async function fetchMyShifts(apiBaseUrl, token, staffId, range, { signal 
   return response.data
 }
 
+export async function recordShiftAttendance(apiBaseUrl, token, staffId, shiftId, action, { signal } = {}) {
+  const path = action === 'check-in' ? 'check-in' : 'check-out'
+  const response = await requestJson(`/api/staff/${staffId}/shifts/${shiftId}/${path}`, {
+    baseUrl: apiBaseUrl,
+    method: 'POST',
+    signal,
+    headers: authHeaders(token),
+  })
+  return response.data
+}
+
 export function getStaffErrorMessage(error) {
   if (error?.status === 401) return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
   if (error?.status === 403) return 'Tài khoản này không có quyền xem ca làm.'

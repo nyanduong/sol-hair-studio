@@ -11,6 +11,7 @@ import {
   formatShiftTime,
   moveWeek,
   shiftStatusLabel,
+  shiftAttendanceLabel,
   weekLabel,
 } from '../staff-presentation.js'
 import { styles } from '../styles/stylist-shifts.styles.js'
@@ -55,13 +56,13 @@ export default function StylistShiftsScreen({ navigation }) {
           <Feather name="chevron-right" size={22} color={colors.ink} />
         </Pressable>
       </View>
-      <ShiftContent state={state} retry={retry} />
+      <ShiftContent state={state} retry={retry} navigation={navigation} />
       <BottomNav navigation={navigation} active="StylistShifts" />
     </SafeAreaView>
   )
 }
 
-function ShiftContent({ state, retry }) {
+function ShiftContent({ state, retry, navigation }) {
   if (state.kind === 'loading') return <LoadingScreen />
   if (state.kind === 'error') {
     return <View style={styles.center}><Text accessibilityRole="alert" style={styles.error}>{state.message}</Text><Pressable style={styles.primaryButton} onPress={retry}><Text style={styles.primaryButtonText}>Thử lại</Text></Pressable></View>
@@ -70,10 +71,15 @@ function ShiftContent({ state, retry }) {
   return (
     <ScrollView contentContainerStyle={styles.list}>
       <Text style={styles.staffName}>{state.data.staff.displayName}</Text>
-      {state.data.shifts.map((shift) => <View key={shift.shiftId} style={styles.shiftCard}>
-        <View><Text style={styles.shiftDate}>{formatShiftDate(shift.localDate)}</Text><Text style={styles.shiftTime}>{formatShiftTime(shift.startAt)} – {formatShiftTime(shift.endAt)}</Text></View>
-        <Text style={[styles.status, shift.status === 'cancelled' && styles.cancelled]}>{shiftStatusLabel(shift.status)}</Text>
-      </View>)}
+      {state.data.shifts.map((shift) => {
+        return <Pressable key={shift.shiftId} accessibilityRole="button" accessibilityLabel={`Ca ${formatShiftDate(shift.localDate)}, ${shiftAttendanceLabel(shift)}. Xem chi tiết`} onPress={() => navigation.navigate('StylistShiftDetail', { shiftId: shift.shiftId, localDate: shift.localDate })} style={({ pressed }) => [styles.shiftCard, pressed && styles.pressed]}>
+          <View style={styles.shiftInfo}><Text style={styles.shiftDate}>{formatShiftDate(shift.localDate)}</Text><Text style={styles.shiftTime}>{formatShiftTime(shift.startAt)} – {formatShiftTime(shift.endAt)}</Text><Text style={styles.attendance}>{shiftAttendanceLabel(shift)}</Text></View>
+          <View style={styles.shiftActions}>
+            <Text style={[styles.status, shift.status === 'cancelled' && styles.cancelled]}>{shiftStatusLabel(shift.status)}</Text>
+            <Feather name="chevron-right" size={20} color={colors.copper} />
+          </View>
+        </Pressable>
+      })}
     </ScrollView>
   )
 }

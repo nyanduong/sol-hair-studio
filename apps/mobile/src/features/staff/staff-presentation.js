@@ -54,6 +54,23 @@ export function shiftStatusLabel(status) {
   return status === 'cancelled' ? 'Đã hủy' : 'Đang áp dụng'
 }
 
+export function shiftAttendanceLabel(shift) {
+  if (shift.status === 'cancelled') return 'Ca đã hủy'
+  if (shift.actualEndedAt) return 'Đã kết thúc ca'
+  if (shift.actualStartedAt) return 'Đang làm ca'
+  const now = Date.now()
+  if (now < Date.parse(shift.startAt)) return 'Chưa đến giờ làm'
+  if (now >= Date.parse(shift.endAt)) return 'Đã quá giờ điểm danh'
+  return 'Sẵn sàng bắt đầu ca'
+}
+
+export function shiftAttendanceAction(shift) {
+  if (shift.status !== 'active' || shift.actualEndedAt) return null
+  if (shift.actualStartedAt) return 'check-out'
+  const now = Date.now()
+  return now >= Date.parse(shift.startAt) && now < Date.parse(shift.endAt) ? 'check-in' : null
+}
+
 export function moveLocalDate(value, amount) {
   const date = new Date(`${value}T00:00:00.000Z`)
   date.setUTCDate(date.getUTCDate() + amount)
