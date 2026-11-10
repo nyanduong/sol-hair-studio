@@ -1,7 +1,15 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Bộ đọc danh sách lịch hẹn hỗ trợ phân trang cursor, khử trùng lặp và đồng bộ vòng đời ứng dụng.
+ */
 import { createLatestRequest } from '../../../lib/latest-request.js'
 import { isAppointmentCustomer } from '../appointment-presentation.js'
 
-// Mỗi reader chỉ thuộc một token/account; không lưu danh sách vào storage.
+/**
+ * Khởi tạo state store đọc danh sách lịch hẹn với phân trang cursor, khử trùng lặp và bảo vệ phiên.
+ */
 export function createAppointmentListReader({ accountId, readProfile, readPage, authorize, compareAppointments }) {
   const latest = createLatestRequest()
   const listeners = new Set(), consumed = new Set()
@@ -67,7 +75,9 @@ export function createAppointmentListReader({ accountId, readProfile, readPage, 
   }
 }
 
-// Một subscription trong lúc screen được focus; blur/background bỏ response cũ.
+/**
+ * Lắng nghe sự kiện AppState để tự động tải lại dữ liệu khi active và hủy request khi background.
+ */
 export function bindAppointmentLifecycle(reader, appState) {
   let previous = appState.currentState
   if (previous === 'active' || previous == null) void reader.load()
@@ -79,6 +89,9 @@ export function bindAppointmentLifecycle(reader, appState) {
   return () => { subscription.remove(); reader.cancel() }
 }
 
+/**
+ * Khởi tạo reader danh sách lịch hẹn chuyên biệt cho khách hàng.
+ */
 export function createCustomerAppointmentsReader(options) {
   return createAppointmentListReader({ ...options, authorize: isAppointmentCustomer,
     compareAppointments: (a, b) => Date.parse(b.startAt) - Date.parse(a.startAt) || b.id.localeCompare(a.id) })

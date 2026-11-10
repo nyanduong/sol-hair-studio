@@ -1,6 +1,15 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Logic điều khiển nghiệp vụ hủy lịch hẹn an toàn cho khách hàng với cơ chế chống gửi trùng lặp và xác thực trước khi hủy.
+ */
 import { createBookingSubmission } from '../../../../../../shared/booking.js'
 import { isAppointmentCustomer } from '../appointment-presentation.js'
 
+/**
+ * Kiểm tra xem cuộc hẹn có thỏa điều kiện hủy hay không (trạng thái confirmed, trước giờ hẹn >= 2 tiếng).
+ */
 export function cancellationBlockReason(appointment, now = Date.now()) {
   if (!appointment || appointment.status !== 'confirmed') return 'Chỉ có thể hủy lịch đang ở trạng thái đã xác nhận.'
   if (!Number.isSafeInteger(appointment.revision) || appointment.revision < 0) return 'Cần tải lại lịch trước khi hủy.'
@@ -9,6 +18,9 @@ export function cancellationBlockReason(appointment, now = Date.now()) {
   return ''
 }
 
+/**
+ * Định dạng thông báo lỗi hủy lịch tương ứng theo mã lỗi phản hồi từ API.
+ */
 export function cancellationErrorMessage(error, pending) {
   if (pending) return 'Chưa xác định được kết quả hủy. Kiểm tra trạng thái server và thử lại cùng yêu cầu; không tạo yêu cầu mới.'
   if ([401, 403, 404].includes(error?.status)) return 'Phiên đăng nhập hoặc quyền xem lịch đã thay đổi. Vui lòng đăng nhập hoặc tải lại lịch.'
@@ -23,7 +35,9 @@ export function cancellationErrorMessage(error, pending) {
     : 'Không hủy được lịch. Hãy tải lại và kiểm tra trước khi thử tiếp.')
 }
 
-// Một controller cho account/token/appointment; manager giữ nguyên intent khi chưa rõ kết quả.
+/**
+ * Tạo command quản lý tiến trình hủy lịch hẹn an toàn với Idempotency Key và safe retry.
+ */
 export function createCustomerCancellation({ accountId, appointmentId, readProfile, readDetail, send, newKey, onChanged, now = Date.now }) {
   const listeners = new Set()
   const initial = { kind: 'idle', visible: false, appointment: null, pending: null }

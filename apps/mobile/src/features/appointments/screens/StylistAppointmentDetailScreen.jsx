@@ -1,3 +1,9 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Màn hình chi tiết ca hẹn của stylist: tích hợp cập nhật ETA, bắt đầu/hoàn tất phục vụ và sửa nhầm thao tác.
+ */
 import { useCallback, useState } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -14,6 +20,9 @@ import { StylistAppointmentCard, StylistGate, StylistHeader, StylistLoading, Sty
 import { styles } from '../styles/appointments.styles.js'
 import { styles as local } from '../styles/stylist-appointments.styles.js'
 
+/**
+ * Hiển thị chi tiết ca hẹn của stylist (thông tin khách, dịch vụ, cảnh báo ETA và nút xem lịch sử).
+ */
 function DetailContent({ state, etaResult, appointmentId, navigation }) {
   const summary = selectStylistEtaSummary(state, etaResult, appointmentId)
 
@@ -55,6 +64,9 @@ function DetailContent({ state, etaResult, appointmentId, navigation }) {
   )
 }
 
+/**
+ * Container quản lý ca làm của stylist và gắn kết các component hành động (ETA, Service, Correction).
+ */
 function PersonalDetail({ token, accountId, appointmentId, navigation }) {
   const state = useStylistAppointments(token, accountId, undefined, appointmentId)
   const [etaResult, setEtaResult] = useState(null)
@@ -85,6 +97,9 @@ function PersonalDetail({ token, accountId, appointmentId, navigation }) {
   )
 }
 
+/**
+ * Màn hình chi tiết ca hẹn của stylist, kiểm tra xác thực và phân quyền.
+ */
 export default function StylistAppointmentDetailScreen({ navigation, route }) {
   const auth = useAuth()
   const accountId = auth.account?.accountId ?? auth.account?.id

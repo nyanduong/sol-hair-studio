@@ -1,3 +1,9 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Màn hình danh sách ca hẹn được giao cho stylist theo ngày, hỗ trợ chuyển ngày và xem ca làm việc.
+ */
 import { useState } from 'react'
 import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -14,6 +20,9 @@ import { styles as local } from '../styles/stylist-appointments.styles.js'
 
 const WEEKDAY_NAMES = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7']
 
+/**
+ * Định dạng tiêu đề ngày theo giờ Việt Nam và xác định xem có phải hôm nay không.
+ */
 function formatDateTitle(dateStr) {
   if (!dateStr) return { title: '', isToday: false, dateFormatted: '' }
   const [y, m, d] = dateStr.split('-').map(Number)
@@ -25,6 +34,9 @@ function formatDateTitle(dateStr) {
   return { title, isToday, dateFormatted }
 }
 
+/**
+ * Thanh công cụ điều hướng ngày (hôm trước, hôm nay, hôm sau) cho stylist.
+ */
 function DateControls({ date, onChange }) {
   const { title, isToday, dateFormatted } = formatDateTitle(date)
 
@@ -88,6 +100,9 @@ function DateControls({ date, onChange }) {
   )
 }
 
+/**
+ * Danh sách ca hẹn được phân công cho stylist trong ngày đã chọn kèm phân trang.
+ */
 function PersonalList({ token, accountId, navigation }) {
   const [date, setDate] = useState(() => salonDate())
   const state = useStylistAppointments(token, accountId, date)
@@ -151,6 +166,9 @@ function PersonalList({ token, accountId, navigation }) {
   )
 }
 
+/**
+ * Màn hình danh sách ca làm việc của stylist, kiểm tra quyền stylist hợp lệ.
+ */
 export default function StylistAppointmentsScreen({ navigation }) {
   const auth = useAuth()
   const accountId = auth.account?.accountId ?? auth.account?.id

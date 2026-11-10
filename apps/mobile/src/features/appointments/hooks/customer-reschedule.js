@@ -1,15 +1,33 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Logic điều khiển nghiệp vụ đổi lịch hẹn cho khách hàng: validate ràng buộc thời gian, xử lý dải ngày và gửi lệnh đổi lịch an toàn.
+ */
 import { createBookingSubmission, salonDate } from '../../../../../../shared/booking.js'
 import { createLatestRequest } from '../../../lib/latest-request.js'
 import { isAppointmentCustomer } from '../appointment-presentation.js'
 import { cancellationBlockReason } from './customer-cancellation.js'
 
+/**
+ * Kiểm tra lý do chặn đổi lịch (chỉ cho phép đổi khi lịch confirmed và trước giờ hẹn tối thiểu 2 tiếng).
+ */
 export const rescheduleBlockReason = (appointment, now = Date.now()) =>
   cancellationBlockReason(appointment, now).replaceAll('hủy', 'đổi lịch')
 
+/**
+ * Tạo đối tượng lỗi kèm mã code và HTTP status tương ứng.
+ */
 const failure = (code, message, status = 409) => Object.assign(new Error(message), { code, status })
+/**
+ * So sánh đối chiếu snapshot dịch vụ, giá và thời lượng đảm bảo không bị thay đổi ngầm.
+ */
 const sameSnapshot = (a, b) => a.totalPriceVnd === b.totalPriceVnd && a.totalDurationMinutes === b.totalDurationMinutes &&
   JSON.stringify(a.items) === JSON.stringify(b.items)
 
+/**
+ * Kiểm tra và đóng gói payload đổi lịch hẹn theo quy tắc salon (bước nhảy 15p, trước 30p, trong 7 ngày).
+ */
 export function customerReschedulePayload(appointment, options, staffId, startAt, now = Date.now()) {
   const blocked = rescheduleBlockReason(appointment, now)
   if (blocked) throw failure('RESCHEDULE_CUTOFF', blocked)
@@ -28,6 +46,9 @@ export function customerReschedulePayload(appointment, options, staffId, startAt
   return { expectedRevision: appointment.revision, staffId, startAt }
 }
 
+/**
+ * Chuyển đổi mã lỗi server trả về khi đổi lịch thành thông báo tiếng Việt dễ hiểu.
+ */
 export function rescheduleErrorMessage(error, pending = false) {
   if (pending) return 'Chưa xác định được kết quả. Kiểm tra và thử lại cùng yêu cầu; không đổi lựa chọn hoặc tạo yêu cầu mới.'
   if ([401, 403, 404].includes(error?.status)) return 'Phiên đăng nhập hoặc quyền xem lịch đã thay đổi. Vui lòng đăng nhập hoặc quay lại danh sách.'
@@ -40,7 +61,9 @@ export function rescheduleErrorMessage(error, pending = false) {
   return messages[error?.code] ?? 'Không đổi được lịch. Hãy tải lại lịch và giờ trống trước khi xác nhận lại.'
 }
 
-// Tách request đọc mới nhất khỏi mutation: background chỉ hủy options, không bỏ intent đang gửi.
+/**
+ * Quản lý state machine toàn bộ quy trình đổi lịch hẹn với cơ chế safe retry và hủy request lỗi thời.
+ */
 export function createCustomerReschedule({ accountId, appointmentId, readProfile, readDetail, readOptions, send, newKey, now = Date.now }) {
   const latest = createLatestRequest(), listeners = new Set()
   const initial = () => ({ kind: 'loading', appointment: null, options: null, localDate: salonDate(new Date(now())),
@@ -205,6 +228,9 @@ export function createCustomerReschedule({ accountId, appointmentId, readProfile
   }
 }
 
+/**
+ * Đồng bộ tiến trình tải giờ trống đổi lịch theo vòng đời chuyển đổi giữa foreground/background của ứng dụng.
+ */
 export function bindRescheduleLifecycle(command, appState) {
   let previous = appState.currentState
   if (previous === 'active' || previous == null) void command.load()
@@ -216,6 +242,9 @@ export function bindRescheduleLifecycle(command, appState) {
   return () => { subscription.remove(); command.pause() }
 }
 
+/**
+ * Tạo danh sách 8 ngày hợp lệ tính từ hôm nay theo múi giờ Việt Nam, khắc phục lỗi qua nửa đêm.
+ */
 export function rescheduleCalendarDates(now = Date.now()) {
   const today = salonDate(new Date(now))
   const midnight = Date.parse(today + 'T00:00:00.000Z')

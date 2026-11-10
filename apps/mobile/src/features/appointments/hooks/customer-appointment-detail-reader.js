@@ -1,6 +1,15 @@
+/**
+ * Author: Tô Thị Thảo Trang (Account: trangtttce191027)
+ * Student ID: CE191027
+ * Task ID / Use Case: SOL-038 - Mobile Appointment Management & Service
+ * File Purpose: Bộ đọc chi tiết một cuộc hẹn có kiểm tra phân quyền tài khoản và tự động hủy request cũ khi id thay đổi.
+ */
 import { createLatestRequest } from '../../../lib/latest-request.js'
 import { isAppointmentCustomer } from '../appointment-presentation.js'
 
+/**
+ * Khởi tạo store quản lý việc đọc chi tiết một cuộc hẹn với cơ chế kiểm tra quyền và tải lại.
+ */
 export function createAppointmentDetailReader({ accountId, appointmentId, readProfile, readDetail, authorize }) {
   const latest = createLatestRequest(), listeners = new Set()
   const initial = { kind: 'loading', appointment: null }
@@ -42,6 +51,9 @@ export function createAppointmentDetailReader({ accountId, appointmentId, readPr
   }
 }
 
+/**
+ * Khởi tạo reader chi tiết cuộc hẹn dành riêng cho khách hàng.
+ */
 export function createCustomerAppointmentDetailReader(options) {
   return createAppointmentDetailReader({ ...options, authorize: isAppointmentCustomer })
 }
