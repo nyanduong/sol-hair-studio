@@ -16,6 +16,7 @@ import { colors } from '../../../theme/tokens.js'
 import { getAuthErrorMessage } from '../api/auth.api.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { authStyles } from '../styles/auth.styles.js'
+import { useOwnerStaff } from '../../staff/hooks/useOwnerStaff.js'
 import {
   DISPLAY_NAME_MAX_LENGTH,
   PHONE_LENGTH,
@@ -33,6 +34,7 @@ export default function ProfileScreen({ navigation }) {
   const {
     account,
     customer,
+    token,
     isAuthenticated,
     isCustomer,
     isProfileComplete,
@@ -40,6 +42,8 @@ export default function ProfileScreen({ navigation }) {
     refreshProfile,
     updateCustomerProfile,
   } = useAuth()
+  const isOwner = Boolean(account?.roles?.includes('owner'))
+  const { state: ownerStaffState, retry: retryOwnerStaff } = useOwnerStaff(token, isOwner)
 
   const [displayName, setDisplayName] = useState(customer?.displayName || '')
   const [phone, setPhone] = useState(formatPhoneForInput(customer?.phone))
@@ -106,7 +110,10 @@ export default function ProfileScreen({ navigation }) {
     setIsRefreshing(true)
     setApiError(null)
     try {
-      await refreshProfile()
+      await Promise.all([
+        refreshProfile(),
+        isOwner ? retryOwnerStaff() : Promise.resolve(),
+      ])
     } catch (err) {
       setApiError(getAuthErrorMessage(err))
     } finally {
@@ -136,7 +143,6 @@ export default function ProfileScreen({ navigation }) {
 
   const roleLabel = getRoleLabel(account.roles)
   const avatarLetter = account.email?.charAt(0).toUpperCase() || 'S'
-  const isOwner = Array.isArray(account.roles) && account.roles.includes('owner')
 
   return (
     <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={authStyles.safeArea}>
@@ -150,7 +156,7 @@ export default function ProfileScreen({ navigation }) {
         >
           {/* Header row */}
           <View style={authStyles.headerRow}>
-            <Text style={authStyles.brandPill}>Tài khoản Sol</Text>
+            <Text style={authStyles.brandPill}>{isOwner ? 'Tài khoản quản trị' : 'Tài khoản Sol'}</Text>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Làm mới thông tin"
@@ -173,6 +179,7 @@ export default function ProfileScreen({ navigation }) {
                 <Text style={authStyles.avatarLetter}>{avatarLetter}</Text>
               </View>
               <View style={{ flex: 1 }}>
+                {isOwner ? <Text style={authStyles.adminAccountTitle}>Tài khoản admin</Text> : null}
                 <Text style={authStyles.profileEmail} numberOfLines={1}>
                   {account.email}
                 </Text>
@@ -198,33 +205,7 @@ export default function ProfileScreen({ navigation }) {
             ) : null}
           </View>
 
-          {/* Owner Dashboard Shortcut - ONLY visible to Owner role */}
-          {isOwner ? (
-            <View style={authStyles.card}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 8 }}>
-                <Feather name="bar-chart-2" size={20} color={colors.copper} />
-                <Text style={[authStyles.title, { fontSize: 18, marginBottom: 0 }]}>
-                  Khu vực Quản trị Salon
-                </Text>
-              </View>
-              <Text style={[authStyles.subtitle, { marginBottom: 16 }]}>
-                Dành riêng cho Chủ tiệm: Theo dõi doanh thu hôm nay, hàng đợi lịch hẹn và điều phối dịch vụ.
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Mở Dashboard Quản lý Salon"
-                onPress={() => navigation.navigate('OwnerDashboard')}
-                style={({ pressed }) => [
-                  authStyles.primaryButton,
-                  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-                  pressed && { opacity: 0.9 },
-                ]}
-              >
-                <Feather name="layout" size={18} color={colors.surface} />
-                <Text style={authStyles.primaryButtonText}>Mở Dashboard Salon →</Text>
-              </Pressable>
-            </View>
-          ) : null}
+          {isOwner ? <OwnerStaffCard state={ownerStaffState} retry={retryOwnerStaff} /> : null}
 
           {successMessage ? (
             <View style={authStyles.successBox}>
@@ -321,7 +302,7 @@ export default function ProfileScreen({ navigation }) {
                 )}
               </Pressable>
             </View>
-          ) : (
+          ) : !isOwner ? (
             <View style={authStyles.card}>
               <Text style={[authStyles.title, { fontSize: 20, marginBottom: 8 }]}>
                 Hồ sơ nhân viên
@@ -330,7 +311,7 @@ export default function ProfileScreen({ navigation }) {
                 Thông tin hồ sơ stylist và dịch vụ phụ trách được Chủ tiệm quản lý.
               </Text>
             </View>
-          )}
+          ) : null}
 
           {/* Logout */}
           <Pressable
@@ -344,5 +325,33 @@ export default function ProfileScreen({ navigation }) {
       </KeyboardAvoidingView>
       <BottomNav navigation={navigation} active="Tài khoản" />
     </SafeAreaView>
+  )
+}
+
+function OwnerStaffCard({ state, retry }) {
+  return (
+    <View style={authStyles.card}>
+      <Text style={[authStyles.title, { fontSize: 20, marginBottom: 4 }]}>Nhân viên hiện tại</Text>
+      <Text style={[authStyles.subtitle, { marginTop: 0, marginBottom: 14 }]}>Danh sách được đồng bộ từ hệ thống quản lý nhân sự.</Text>
+
+      {state.kind === 'loading' ? <ActivityIndicator color={colors.copper} /> : null}
+      {state.kind === 'error' ? (
+        <>
+          <Text style={authStyles.fieldError}>{state.message}</Text>
+          <Pressable accessibilityRole="button" onPress={retry} style={authStyles.secondaryButton}>
+            <Text style={authStyles.secondaryButtonText}>Thử lại</Text>
+          </Pressable>
+        </>
+      ) : null}
+      {state.kind === 'success' && state.data.length === 0 ? <Text style={authStyles.subtitle}>Chưa có hồ sơ nhân viên nào.</Text> : null}
+      {state.kind === 'success' ? state.data.map((staff) => (
+        <View key={staff.staffId} style={authStyles.staffRow}>
+          <Text style={authStyles.staffName}>{staff.displayName}</Text>
+          <View style={[authStyles.staffStatus, staff.isActive ? authStyles.staffStatusActive : authStyles.staffStatusInactive]}>
+            <Text style={authStyles.staffStatusText}>{staff.isActive ? 'Hoạt động' : 'Ngừng hoạt động'}</Text>
+          </View>
+        </View>
+      )) : null}
+    </View>
   )
 }

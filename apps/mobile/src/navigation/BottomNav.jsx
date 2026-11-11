@@ -7,8 +7,8 @@ import { getBottomNavItems } from './navigation-items.js'
 
 export default function BottomNav({ navigation, active }) {
   const showFeature = useFeatureUnavailable()
-  const { isAuthenticated, isStylist } = useAuth()
-  const items = getBottomNavItems(isStylist)
+  const { account, isAuthenticated } = useAuth()
+  const items = getBottomNavItems(account)
 
   function requireLogin(notice, returnTo) {
     if (isAuthenticated) return false

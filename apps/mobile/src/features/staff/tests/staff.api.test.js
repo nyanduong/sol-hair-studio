@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createLatestRequest } from '../../../lib/latest-request.js'
-import { fetchMyShifts, fetchMyStaff, getStaffErrorMessage, recordShiftAttendance } from '../api/staff.api.js'
+import { fetchMyShifts, fetchMyStaff, fetchStaff, getStaffErrorMessage, recordShiftAttendance } from '../api/staff.api.js'
 import { currentWeekRange, formatShiftTime, moveWeek, shiftAttendanceAction, shiftAttendanceLabel, shiftStatusLabel } from '../staff-presentation.js'
 
 const baseUrl = 'http://10.0.2.2:4000/'
@@ -23,6 +23,13 @@ describe('ca làm của stylist trên mobile', () => {
     await expect(fetchMyShifts(baseUrl, token, staff.staffId, range)).resolves.toEqual([])
     expect(fetchMock).toHaveBeenNthCalledWith(1, 'http://10.0.2.2:4000/api/staff', expect.objectContaining({ headers: expect.any(Headers) }))
     expect(fetchMock).toHaveBeenNthCalledWith(2, 'http://10.0.2.2:4000/api/staff/staff-1/shifts?fromDate=2026-10-19&toDate=2026-10-25', expect.objectContaining({ headers: expect.any(Headers) }))
+  })
+
+  it('dùng cùng endpoint staff để owner đọc danh sách nhân viên và trạng thái', async () => {
+    const employees = [{ ...staff, isActive: true }, { staffId: 'staff-2', displayName: 'Stylist Bình', isActive: false }]
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(employees)))
+
+    await expect(fetchStaff(baseUrl, 'owner-token')).resolves.toEqual(employees)
   })
 
   it('giữ quyền lỗi và bỏ qua response cũ sau khi đổi tuần', async () => {

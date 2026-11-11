@@ -4,7 +4,7 @@ import { useFeatureUnavailable } from '../../../components/FeatureUnavailablePro
 import { useAuth } from '../../auth/hooks/useAuth.js'
 import { colors, displayFont } from '../../../theme/tokens.js'
 
-export default function HomeHeader({ onServices, navigation }) {
+export default function HomeHeader({ onServices, navigation, showBooking = true }) {
   const showFeature = useFeatureUnavailable()
   const { isAuthenticated, customer } = useAuth()
   const { width, fontScale } = useWindowDimensions()
@@ -63,13 +63,15 @@ export default function HomeHeader({ onServices, navigation }) {
           <Text style={styles.intro}>
             Khám phá dịch vụ, phong cách và cảm hứng dành riêng cho mái tóc của bạn.
           </Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={handleBookingPress}
-            style={({ pressed }) => [styles.button, pressed && { opacity: 0.75 }]}
-          >
-            <Text style={styles.buttonText}>Đặt lịch ngay →</Text>
-          </Pressable>
+          {showBooking ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={handleBookingPress}
+              style={({ pressed }) => [styles.button, pressed && { opacity: 0.75 }]}
+            >
+              <Text style={styles.buttonText}>Đặt lịch ngay →</Text>
+            </Pressable>
+          ) : null}
         </View>
         <View style={[styles.media, compact && styles.mediaWide]}>
           <Image

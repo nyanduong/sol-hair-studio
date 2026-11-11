@@ -14,6 +14,14 @@ const stylistItems = [
   { route: 'Profile', icon: 'user', label: 'Tài khoản', kind: 'profile' },
 ]
 
-export function getBottomNavItems(isStylist) {
-  return isStylist ? stylistItems : customerItems
+const ownerItems = [
+  { route: 'Home', icon: 'home', label: 'Trang chủ' },
+  { route: 'OwnerDashboard', icon: 'bar-chart-2', label: 'Tổng quan', kind: 'owner-dashboard', booking: true },
+  { route: 'Profile', icon: 'user', label: 'Tài khoản', kind: 'profile' },
+]
+
+export function getBottomNavItems(account) {
+  const roles = Array.isArray(account?.roles) ? account.roles : []
+  if (roles.includes('owner')) return ownerItems
+  return roles.includes('stylist') ? stylistItems : customerItems
 }

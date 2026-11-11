@@ -132,7 +132,7 @@ export default function OwnerDashboardScreen({ navigation }) {
             <Text style={[styles.quickButtonText, { color: colors.surface }]}>Đăng nhập Chủ tiệm</Text>
           </Pressable>
         </View>
-        <BottomNav navigation={navigation} active="Profile" />
+        <BottomNav navigation={navigation} active="OwnerDashboard" />
       </SafeAreaView>
     )
   }
@@ -373,7 +373,7 @@ export default function OwnerDashboardScreen({ navigation }) {
       </ScrollView>
 
       {/* Global Bottom Navigation */}
-      <BottomNav navigation={navigation} active="Profile" />
+      <BottomNav navigation={navigation} active="OwnerDashboard" />
     </SafeAreaView>
   )
 }

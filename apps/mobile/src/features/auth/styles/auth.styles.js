@@ -333,6 +333,14 @@ export const authStyles = StyleSheet.create({
     fontWeight: '700',
     color: colors.ink,
   },
+  adminAccountTitle: {
+    color: colors.copper,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
   roleBadge: {
     alignSelf: 'flex-start',
     backgroundColor: colors.soft,
@@ -345,6 +353,37 @@ export const authStyles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: colors.copper,
+  },
+  staffRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingVertical: 12,
+  },
+  staffName: {
+    flex: 1,
+    color: colors.ink,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  staffStatus: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  staffStatusActive: {
+    backgroundColor: '#ecfdf5',
+  },
+  staffStatusInactive: {
+    backgroundColor: '#f3f4f6',
+  },
+  staffStatusText: {
+    color: colors.ink,
+    fontSize: 12,
+    fontWeight: '700',
   },
   logoutButton: {
     minHeight: 48,

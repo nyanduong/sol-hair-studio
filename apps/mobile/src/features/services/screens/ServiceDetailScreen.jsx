@@ -19,7 +19,8 @@ import styles from '../styles/ServiceDetailScreen.styles.js'
 export default function ServiceDetailScreen({ route, navigation }) {
   const { serviceId, service: initialService } = route?.params || {}
   const { state } = useServices()
-  const { isAuthenticated } = useAuth()
+  const { account, isAuthenticated } = useAuth()
+  const isOwner = Array.isArray(account?.roles) && account.roles.includes('owner')
   const [failedImageUrl, setFailedImageUrl] = useState(null)
 
   // Use passed service object or look it up from cached state
@@ -222,21 +223,22 @@ export default function ServiceDetailScreen({ route, navigation }) {
         </View>
       </ScrollView>
 
-      {/* Fixed Bottom Action Bar */}
-      <View style={styles.bottomBar}>
-        <View>
-          <Text style={styles.barPriceLabel}>Giá dịch vụ</Text>
-          <Text style={styles.barPriceValue}>{formatPrice(service.priceVnd)}</Text>
+      {!isOwner ? (
+        <View style={styles.bottomBar}>
+          <View>
+            <Text style={styles.barPriceLabel}>Giá dịch vụ</Text>
+            <Text style={styles.barPriceValue}>{formatPrice(service.priceVnd)}</Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Đặt lịch dịch vụ ${service.name}`}
+            onPress={handleBooking}
+            style={({ pressed }) => [styles.bookButton, pressed && { opacity: 0.85 }]}
+          >
+            <Text style={styles.bookButtonText}>Đặt lịch dịch vụ này →</Text>
+          </Pressable>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Đặt lịch dịch vụ ${service.name}`}
-          onPress={handleBooking}
-          style={({ pressed }) => [styles.bookButton, pressed && { opacity: 0.85 }]}
-        >
-          <Text style={styles.bookButtonText}>Đặt lịch dịch vụ này →</Text>
-        </Pressable>
-      </View>
+      ) : null}
 
       <StatusBar style="dark" />
     </SafeAreaView>

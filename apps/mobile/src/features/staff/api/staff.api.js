@@ -4,7 +4,7 @@ function authHeaders(token) {
   return { Authorization: `Bearer ${token}` }
 }
 
-export async function fetchMyStaff(apiBaseUrl, token, { signal } = {}) {
+export async function fetchStaff(apiBaseUrl, token, { signal } = {}) {
   const response = await requestJson('/api/staff', {
     baseUrl: apiBaseUrl,
     signal,
@@ -12,6 +12,8 @@ export async function fetchMyStaff(apiBaseUrl, token, { signal } = {}) {
   })
   return response.data
 }
+
+export const fetchMyStaff = fetchStaff
 
 export async function fetchMyShifts(apiBaseUrl, token, staffId, range, { signal } = {}) {
   const query = new URLSearchParams({
